@@ -1,0 +1,275 @@
+# Escopo e prontidão do MVP
+
+Este documento consolida o que ainda falta definir antes da implementação do MVP e transforma as pendências em requisitos verificáveis.
+
+## 1. Objetivo do MVP
+
+Entregar uma operação comercial básica para venda de veículos e peças, com:
+
+- autenticação e perfis de acesso;
+- cadastro de clientes;
+- cadastro e disponibilidade de veículos;
+- cadastro e estoque básico de peças;
+- criação, cálculo, cobrança e acompanhamento do pagamento de vendas pelo
+  ASAAS;
+- confirmação assíncrona de pagamento por Webhook;
+- validação das regras no backend;
+- idempotência para criação e atualização de cobranças.
+
+O MVP não pretende substituir um ERP, um sistema financeiro ou uma plataforma de gestão de estoque avançada.
+
+O dashboard deve utilizar dados reais de clientes, veículos, peças, estoque e vendas. Valores estáticos de protótipos não fazem parte do escopo.
+
+### 1.1 Modelo publicado atualmente
+
+O MVP utiliza somente estas tabelas no Xano:
+
+- `perfil`;
+- `user`;
+- `cliente`;
+- `status_veiculo`;
+- `veiculo`;
+- `veiculo_area`;
+- `peca`;
+- `forma_pagamento`;
+- `status_venda`;
+- `venda`;
+- `venda_item`.
+
+As permissões são pré-definidas por cargo e validadas nas APIs; não existe
+CRUD de permissões no MVP. Também não existem tabelas separadas de auditoria,
+histórico de status, movimentações de estoque ou configurações do dashboard.
+O fluxo ASAAS acrescenta `pagamento` e `pagamento_evento`, além dos campos de
+cliente/venda necessários para links e conciliação. Essa migração já foi
+publicada no workspace Xano `147643`; os campos estão detalhados em
+[screen-requirements-and-payment-flow.md.txt](screen-requirements-and-payment-flow.md.txt).
+
+## 2. Pendências obrigatórias antes da implementação
+
+### 2.1 Identificação e dados mínimos
+
+Os seguintes identificadores devem ser definidos:
+
+- usuário: e-mail único;
+- cliente: CPF único;
+- veículo: chassi ou outro identificador único definido pelo negócio;
+- peça: código ou SKU único;
+- área, forma de pagamento e status: descrição única.
+
+Campos comuns de todas as entidades persistidas:
+
+- identificador;
+- data de criação;
+- data de atualização;
+- usuário responsável pela última alteração;
+- estado ativo/inativo quando a remoção física não for segura.
+
+Campos adicionais obrigatórios para veículos:
+
+- chassi único;
+- placa, quando aplicável;
+- marca;
+- modelo;
+- cor;
+- ano de fabricação;
+- ano do modelo;
+- quilometragem;
+- preço de venda;
+- data de disponibilização;
+- data de venda, quando aplicável.
+
+O cadastro de veículos deve permitir busca por chassi, marca e modelo.
+
+### 2.2 Matriz de permissões
+
+Antes do desenvolvimento, a equipe deve aprovar a seguinte matriz mínima:
+
+| Ação | Vendedor | Gerente | Administrador |
+|---|---|---|---|
+| Consultar clientes, veículos e peças | Sim | Sim | Sim |
+| Criar cliente | Sim | Sim | Sim |
+| Alterar cliente | Próprio atendimento | Sim | Sim |
+| Criar venda | Sim | Sim | Sim |
+| Aplicar desconto maior que zero | Não | Sim | Sim |
+| Alterar status do veículo | Não | Sim | Sim |
+| Ajustar estoque | Não | Sim | Sim |
+| Cancelar cobrança pendente | Não | Sim | Sim |
+| Cancelar/estornar venda paga | Não | Não | Não |
+| Gerenciar usuários e perfis | Não | Não | Sim |
+
+Qualquer exceção deve ser registrada em uma especificação antes da implementação.
+
+### 2.3 Estados e transições
+
+As transições devem ser aplicadas no backend.
+
+Veículos:
+
+```text
+disponível -> reservado -> vendido
+disponível -> manutenção -> disponível
+disponível -> revisão -> disponível
+disponível -> indisponível -> disponível
+```
+
+Vendas:
+
+```text
+reservado -> paga -> concluida
+reservado -> cancelada
+reservado -> expirada
+```
+
+O status externo ASAAS é persistido separadamente do status local da venda.
+Em venda parcelada, a primeira parcela com status `RECEIVED` muda a venda para
+`paga` e permite a entrega; isso não significa quitação integral. Parcelas
+subsequentes continuam registradas individualmente e só os valores efetivamente
+recebidos contam como recebimento financeiro. Somente Webhook ou conciliação
+ASAAS pode confirmar pagamento. Uma venda paga não pode ser cancelada/estornada
+no primeiro release.
+
+### 2.4 Estoque
+
+O schema atual controla apenas `peca.qtd_disp`. Na criação da venda, reservar o
+estoque de peças reduzindo esse saldo e marcar o veículo como reservado antes
+de criar a cobrança. Pagamento confirmado finaliza a reserva; cancelamento ou
+expiração pendente devolve estoque e disponibilidade exatamente uma vez.
+Todas as atualizações devem ser atômicas para impedir venda concorrente.
+
+### 2.5 Venda, preço e desconto
+
+Cada item deve guardar o preço aplicado no momento da venda. Alterações futuras no cadastro do produto não podem modificar vendas já registradas.
+
+O MVP deve definir e implementar:
+
+- desconto como valor monetário no primeiro release;
+- desconto nunca negativo;
+- desconto não superior ao valor bruto;
+- gerente/administrador são os únicos perfis que podem aplicar desconto maior
+  que zero;
+- cálculo no backend de subtotal, valor bruto e valor final;
+- forma de pagamento obrigatória antes da criação da cobrança.
+
+### 2.6 Cancelamento e devolução
+
+O cancelamento de cobrança pendente deve:
+
+- exigir autorização;
+- registrar motivo;
+- alterar a venda para `cancelada`;
+- cancelar a cobrança no ASAAS e reverter reserva, estoque e disponibilidade
+  do veículo quando aplicável;
+- ser idempotente: repetir a solicitação não pode duplicar a reversão.
+
+Estorno de cobrança já recebida não faz parte do MVP. Devolução de peça também
+não será um fluxo financeiro completo.
+
+### 2.7 Concorrência e transação
+
+As operações abaixo devem ser atômicas no Xano:
+
+- reservar estoque;
+- reservar veículo;
+- registrar a venda e reservar estoque;
+- cancelar venda;
+- ajustar estoque;
+- processar Webhook/expiração sem duplicar efeitos.
+
+Cada transação local deve ser atômica: se uma etapa local falhar, nenhuma
+alteração parcial deve permanecer. A criação de cobrança é externa e não pode
+participar de uma transação distribuída.
+
+Em chamadas externas ASAAS, não é possível uma transação distribuída. A
+integração deve usar referência externa estável, persistir o estado local de
+forma recuperável e conciliar timeouts antes de repetir para evitar cobranças
+duplicadas.
+
+### 2.8 Rastreabilidade do pagamento
+
+O MVP não possui auditoria genérica. A migração específica ASAAS adiciona
+`pagamento_evento` para deduplicar Webhooks e reprocessar falhas, sem guardar
+dados completos de cartão.
+
+## 3. Requisitos operacionais mínimos
+
+Para ser utilizável, o MVP deve possuir:
+
+- listagens paginadas;
+- busca por identificador e texto relevante;
+- filtros por status e disponibilidade;
+- mensagens de erro compreensíveis;
+- validação de campos obrigatórios;
+- tratamento de sessão expirada;
+- logs técnicos no backend sem expor senhas ou dados sensíveis;
+- configuração separada para desenvolvimento e produção;
+- documentação das variáveis de ambiente e da URL do Xano.
+
+O dashboard deve permitir consulta agregada de:
+
+- vendas por período, status, vendedor, forma de pagamento e tipo de item;
+- valor líquido vendido, descontos e ticket médio;
+- veículos por status e veículos disponíveis;
+- quantidade e valor estimado do estoque atual de peças;
+- quantidade de peças sem estoque.
+
+## 4. Cenários obrigatórios de aceite
+
+Antes de considerar o MVP pronto, devem ser verificados:
+
+1. vendedor não consegue aplicar desconto ou cancelar cobrança pendente;
+2. venda sem cliente, vendedor ou item é rejeitada;
+3. veículo reservado não pode ser vendido novamente;
+4. peça sem estoque suficiente não pode ser vendida;
+5. duas vendas concorrentes não deixam estoque negativo;
+6. cancelamento restaura os recursos uma única vez;
+7. preço cadastral alterado não modifica item vendido anteriormente;
+8. desconto inválido é rejeitado no backend;
+9. status inválido ou transição não permitida é rejeitado;
+10. falha durante a confirmação não deixa venda, veículo ou estoque em estado parcial;
+11. Webhook duplicado não duplica baixa/liberação de estoque nem confirmações;
+12. timeout de chamada ASAAS é conciliado antes de retry;
+13. cartão recém-processado não aparece como pago sem confirmação ASAAS;
+14. dados de cartão, CVV, tokens e segredos não aparecem em banco, mensagens ou logs;
+15. falha de e-mail não reverte pagamento confirmado.
+
+## 5. Fora do MVP
+
+Ficam explicitamente para uma fase posterior:
+
+- emissão fiscal;
+- gateways diferentes do ASAAS;
+- conciliação financeira avançada além do acompanhamento individual das
+  cobranças/parcelas do checkout ASAAS;
+- fornecedores e compras;
+- oficina e ordens de serviço;
+- multi-filial;
+- comissões;
+- portal do cliente;
+- relatórios avançados;
+- auditoria regulatória completa;
+- integrações com ERP ou CRM;
+- leads e oportunidades comerciais;
+- taxa de conversão;
+- agendamento e controle de test-drives;
+- oficina, pós-venda e ordens de serviço;
+- tabelas de acompanhamento dentro do dashboard;
+- estrutura de unidades ou filiais.
+
+## 6. Critério de prontidão para implementação
+
+O MVP estará pronto para implementação quando:
+
+- os identificadores e campos obrigatórios estiverem aprovados;
+- a matriz de permissões estiver aprovada;
+- os estados e transições estiverem aprovados;
+- as regras de preço, desconto, estoque e cancelamento estiverem aprovadas;
+- os cenários de aceite estiverem associados às tarefas;
+- o Xano possuir endpoints planejados para as operações críticas;
+- não houver regra crítica dependente somente da interface.
+
+## 7. Critério de conclusão do MVP
+
+O MVP será considerado concluído quando todos os cenários obrigatórios de
+aceite forem aprovados, as operações críticas forem transacionais ou
+idempotentes conforme aplicável e as funcionalidades fora do escopo não forem
+necessárias para executar o fluxo comercial básico.

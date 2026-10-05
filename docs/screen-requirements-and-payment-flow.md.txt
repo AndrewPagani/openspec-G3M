@@ -1,0 +1,693 @@
+# Requisitos de telas e fluxo de pagamento do MVP
+
+> **Histórico — fluxo ASAAS substituído.** Não usar as instruções de checkout
+> abaixo para a implementação atual. O app registra parcelas no Xano e permite
+> apenas a baixa manual autorizada, sem processar ou verificar pagamento
+> externo. Consulte `openspec/changes/registro-manual-de-parcelas-no-xano/`.
+
+## 1. Objetivo e escopo
+
+Este documento define o conteúdo esperado de cada tela do MVP e o fluxo
+comercial para venda de veículos e peças, com cobrança pelo ASAAS.
+
+O MVP permanece focado em uma concessionária, em uma única unidade, sem
+financeiro avançado, emissão fiscal, recorrência, estorno automático,
+multiunidade, oficina, leads ou test-drives. O checkout hospedado permite
+parcelamento no cartão até o máximo informado pelo vendedor; o pagador escolhe
+o número efetivo de parcelas.
+
+O dashboard terá no máximo quatro seções. Pagamentos por Pix, boleto e cartão
+de crédito fazem parte deste fluxo. Débito direto pela API do ASAAS não está
+disponível; ver a seção 7.
+
+## 2. Navegação principal
+
+Menu autenticado:
+
+- Gerenciamento;
+- Clientes;
+- Veículos;
+- Peças;
+- Vendas;
+- Usuários, somente consulta administrativa quando necessário.
+
+Não haverá telas próprias de auditoria, configurações de dashboard, cadastro de
+usuários ou movimentações de estoque no MVP.
+
+## 3. Login
+
+### Conteúdo
+
+- e-mail;
+- senha;
+- botão Entrar;
+- estado de carregamento;
+- mensagem de credencial inválida ou indisponibilidade do serviço.
+
+### Comportamento
+
+- autenticar no Xano;
+- obter usuário e cargo sem expor senha;
+- encaminhar para Gerenciamento;
+- encerrar sessão local e retornar ao login em caso de token expirado.
+
+## 4. Gerenciamento — no máximo quatro seções
+
+Os filtros de período, vendedor, forma de pagamento e status ficam no cabeçalho
+da página, quando aplicáveis. Vendedor não pode ampliar o próprio escopo de
+dados.
+
+Gerente e administrador veem as quatro seções. Vendedor vê somente Visão
+geral e Vendas, limitadas às próprias vendas; não vê rankings da equipe ou
+valores gerenciais agregados.
+
+### 4.1 Visão geral
+
+- valores líquidos efetivamente recebidos por cobrança/parcela no período;
+- quantidade de vendas cuja primeira parcela foi recebida;
+- ticket médio do valor total das vendas pagas;
+- descontos concedidos;
+- veículos disponíveis;
+- quantidade de peças em estoque.
+
+Os valores devem ser agregados no Xano usando o valor líquido informado pelo
+ASAAS para cada parcela recebida. Não contar o valor integral da venda como
+recebido se somente a primeira parcela tiver sido recebida. Não chamar valor
+vendido de lucro ou faturamento contábil.
+
+### 4.2 Vendas
+
+- vendas por período;
+- vendas por status de pagamento;
+- vendas por forma de pagamento;
+- vendas por vendedor, somente para gerente e administrador;
+- mix de vendas: veículos versus peças.
+
+Não incluir taxa de conversão, leads ou test-drives.
+
+### 4.3 Veículos
+
+- quantidade por status;
+- disponíveis versus vendidos;
+- valor total anunciado dos veículos disponíveis, claramente rotulado como
+  valor de estoque e não como receita.
+
+Não incluir tabelas de registros recentes no dashboard.
+
+### 4.4 Peças
+
+- quantidade total disponível;
+- valor de estoque calculado pelo preço atual multiplicado pela quantidade;
+- peças sem estoque.
+
+O schema atual não tem estoque mínimo; portanto não exibir “estoque baixo”
+nem estabelecer um limite fictício.
+
+### Estados visuais
+
+- carregando;
+- sem resultados para o filtro;
+- erro de comunicação;
+- dados atualizados com horário da última resposta.
+
+## 5. Clientes
+
+### Lista
+
+- busca por nome, CPF, telefone ou e-mail;
+- paginação;
+- botão Novo cliente;
+- acesso ao detalhe e início de venda com cliente pré-selecionado.
+
+### Cadastro e edição
+
+- nome completo;
+- CPF;
+- e-mail;
+- telefone;
+- salvar e cancelar.
+
+CPF e e-mail devem ser validados pelo backend. Ao iniciar uma venda, os dados
+do cliente devem ser confirmados antes de criar cobrança no ASAAS.
+
+## 6. Veículos
+
+### Lista
+
+- busca por marca, modelo, placa ou chassi;
+- filtro por status;
+- imagem do veículo quando `Imagem_url` estiver cadastrada;
+- marca/modelo, ano e preço em cada cartão de veículo;
+- preço;
+- ação para abrir detalhe;
+- ação para iniciar venda com o veículo pré-selecionado.
+
+### Cadastro e detalhe
+
+- marca, modelo, cor e ano;
+- placa e chassi quando informados;
+- quilometragem;
+- preço;
+- URL HTTP/HTTPS da imagem (opcional);
+- status.
+
+Somente veículos disponíveis podem ser adicionados à venda. O backend deve
+validar novamente a disponibilidade durante a criação da venda.
+
+## 7. Peças e estoque
+
+### Lista
+
+- busca por nome;
+- filtro por área;
+- preço;
+- quantidade disponível;
+- indicador sem estoque;
+- botão Nova peça.
+
+### Cadastro, detalhe e ajuste
+
+- nome da peça;
+- área do veículo opcional;
+- preço;
+- quantidade disponível;
+- ajuste de quantidade protegido por perfil.
+
+O backend deve atualizar estoque de forma atômica. Não exibir código/SKU,
+estoque mínimo, reserva ou histórico, pois esses dados não existem no schema
+atual.
+
+## 8. Vendas e checkout
+
+### 8.1 Lista de vendas
+
+- número da venda;
+- cliente;
+- data;
+- vendedor;
+- itens resumidos;
+- subtotal, desconto e total;
+- método de pagamento;
+- status da venda e status do pagamento;
+- busca e filtros por período, status e forma de pagamento.
+
+O vendedor consulta somente as próprias vendas.
+
+### 8.2 Nova venda — etapas
+
+**Etapa 1 — Itens**
+
+- selecionar um ou mais veículos disponíveis e/ou peças com estoque;
+- para cada item, informar quantidade;
+- exibir preço unitário vigente;
+- permitir remover itens antes de criar a cobrança.
+
+**Etapa 2 — Cliente**
+
+- localizar cliente existente por CPF, nome ou e-mail;
+- ou inserir nome, CPF, e-mail e telefone para criar o cliente;
+- confirmar que o e-mail pode receber a cobrança/recibo.
+
+Evitar duplicidade por CPF. A integração também localiza ou cria o pagador
+local no app. O Link de Pagamento hospedado não aceita um `customer` predefinido:
+o pagador preencherá seus dados novamente no checkout ASAAS. Orientar o cliente
+a informar o mesmo CPF/e-mail; relacionar a cobrança à venda pelo link e
+validar os dados recebidos no Webhook. Divergência deve gerar alerta de
+conciliação, sem apagar ou reatribuir silenciosamente a venda.
+
+**Etapa 3 — Revisão de valores**
+
+- linhas de item com quantidade, preço unitário e subtotal;
+- subtotal bruto calculado no backend;
+- desconto em valor monetário;
+- valor final;
+- confirmação da política de desconto do perfil;
+- resumo do cliente e itens antes de prosseguir.
+
+O desconto padrão é zero. O Xano recalcula todos os valores e rejeita desconto
+negativo ou maior que o subtotal. O navegador não é fonte de verdade financeira.
+No primeiro release, somente gerente/administrador podem aplicar desconto
+maior que zero; vendedor pode concluir a venda sem desconto. A regra deve ser
+validada também no backend.
+
+**Etapa 4 — Forma de pagamento e parcelas**
+
+Opções:
+
+- Pix;
+- boleto;
+- cartão de crédito.
+
+O método selecionado deve corresponder ao campo `forma_pagamento_id`. Para
+cartão, o vendedor informa o máximo de parcelas permitido no link, respeitando
+os limites e a configuração da conta ASAAS. O pagador ainda escolhe no checkout
+um número de parcelas igual ou inferior a esse máximo.
+
+A opção “débito” não deve aparecer como método garantido. O Link de Pagamento
+ASAAS documenta `billingType` como `UNDEFINED`, `BOLETO`, `CREDIT_CARD` ou
+`PIX`; disponibilidade de débito precisa ser confirmada para a conta/checkout.
+
+**Etapa 5 — Pagamento**
+
+- exibir link ASAAS, valor, método permitido e validade de 30 dias;
+- para cartão, permitir definir o máximo de parcelas liberado no link;
+- permitir copiar o link ou abrir em nova aba;
+- exibir estado aguardando pagamento, recebido, expirado ou erro.
+
+**Etapa 6 — Resultado**
+
+- mostrar “Pagamento confirmado” somente após confirmação autoritativa do
+  ASAAS;
+- antes da confirmação, mostrar “Link criado — aguardando pagamento”;
+- exibir número da venda, valor, método e cliente;
+- informar o e-mail destinatário da notificação;
+- permitir abrir comprovante/fatura do ASAAS quando disponível.
+
+Não mostrar “pago” apenas porque a cobrança foi criada ou porque o navegador
+retornou da página hospedada.
+
+### 8.3 Detalhe da venda
+
+- cliente e vendedor;
+- itens, quantidades e preços congelados;
+- subtotal, desconto e total;
+- método de pagamento;
+- estado local da venda;
+- estado do ASAAS;
+- parcelas recebidas e pendentes, com valor individual, vencimento e status;
+- ID e URL do Link de Pagamento;
+- máximo de parcelas e data/hora de expiração;
+- IDs e estado das cobranças geradas pelo link, quando recebidos por Webhook;
+- mensagens de falha ou pendência;
+- cancelar cobrança pendente conforme permissões;
+- após pagamento recebido, não oferecer cancelamento/estorno automático no
+  primeiro release; encaminhar a operação excepcional ao processo manual da
+  gerência e ASAAS.
+
+Não armazenar dados completos do cartão. O token de cartão do ASAAS é vinculado
+ao cliente e não deve ser tratado como PAN ou como prova de pagamento.
+
+## 9. Tela/dados do cartão e segurança
+
+### Link de pagamento ASAAS; tokenização explícita adiada
+
+O fluxo definido pelo usuário é gerar um Link de Pagamento hospedado pelo
+ASAAS, exclusivo por venda, com `endDate` em 30 dias, valor fechado e
+`maxInstallmentCount` definido pelo vendedor para venda parcelada.
+
+O link hospeda o checkout; o pagador informa ali os dados exigidos pelo ASAAS.
+O endpoint de criação do Link de Pagamento não recebe `customer` nem
+`creditCardToken`; a cobrança e o cliente ASAAS só são gerados quando o
+pagador preenche o checkout. `maxInstallmentCount` define o máximo que o
+pagador pode escolher, não força o número exato de parcelas escolhido na tela
+do vendedor.
+
+O usuário optou por usar o Link de Pagamento hospedado e adiar a tokenização
+explícita. O endpoint de tokenização (`POST
+/v3/creditCard/tokenizeCreditCard`) é um fluxo separado que exige enviar os
+dados do cartão/titular pela integração server-side e depois usar o token em
+uma cobrança/parcelamento. Ele não se anexa ao link hospedado.
+
+No MVP inicial, nenhum dado de cartão ou token passa pelo app; o ASAAS processa
+os dados no checkout hospedado. Habilitar tokenização posteriormente requer
+uma mudança de arquitetura e revisão de segurança.
+
+### Se for escolhido formulário próprio com tokenização
+
+A tokenização documentada pelo ASAAS usa `POST
+/v3/creditCard/tokenizeCreditCard` com cliente, dados do cartão, dados do
+titular e IP do dispositivo. A documentação não autoriza expor a chave secreta
+do ASAAS no navegador. Se o formulário próprio encaminhar número/CVV ao Xano
+para tokenização, a infraestrutura do app recebe dados de cartão e entra no
+escopo PCI DSS.
+
+O formulário próprio tokenizado, se aprovado como fluxo separado, conteria:
+
+- nome impresso no cartão;
+- número do cartão;
+- mês e ano de validade;
+- CVV;
+- nome, CPF, e-mail e telefone do titular;
+- CEP e número do endereço para validação antifraude, conforme requisitos do
+  ASAAS.
+
+O backend obtém o IP real do dispositivo por mecanismo confiável de proxy
+validado, e não usa o IP do servidor como `remoteIp`.
+
+Antes de habilitar esse modo:
+
+- aprovar arquitetura e obrigações PCI DSS com adquirente/consultoria
+  qualificada;
+- usar HTTPS em todas as etapas;
+- manter a chave ASAAS somente no servidor;
+- evitar PAN/CVV em banco, logs, telemetria, erros e ferramentas de suporte;
+- nunca armazenar CVV após a autorização;
+- nunca persistir o número completo do cartão, mesmo criptografado;
+- usar o token apenas na cobrança do mesmo cliente;
+- confirmar habilitação de tokenização em Produção;
+- processar a cobrança com timeout adequado e reconciliar timeout antes de
+  qualquer retry.
+
+O formulário tokenizado próprio não é requisito para o primeiro release; fica
+condicionado à aprovação de segurança. Para cobrança avulsa, não persistir o
+token após o processamento.
+
+## 10. Status, e-mail e confirmação de pagamento
+
+### Status apresentados
+
+- status da venda (local): `reservado`, `paga`, `concluida`, `cancelada` ou
+  `expirada`;
+- status do pagamento (ASAAS): mapeado separadamente para cobrança criada,
+  análise, recebida, vencida, recusada, estornada ou chargeback;
+- `LINK_CRIADO`: link emitido e válido; venda local `reservado`, aguardando o
+  pagador abrir o checkout;
+- `EM_ANALISE`: o ASAAS ainda avalia o pagamento;
+- `CONFIRMADA`: pagamento confirmado pelo ASAAS, mas a liquidação pode estar
+  pendente;
+- `RECEBIDA`: cobrança/parcela recebida pelo ASAAS; pode ser mostrada como
+recebida;
+- `VENCIDA`: boleto/cobrança vencida;
+- `RECUSADA`: tentativa de cartão recusada;
+- `CANCELADA`, `ESTORNADA` ou `CHARGEBACK`: estado posterior que deve atualizar
+  a venda e impedir a indicação de pagamento concluído.
+
+Usar `PAYMENT_RECEIVED` como sinal final para exibir “Pago”. Eventos
+`PAYMENT_CONFIRMED`, `PAYMENT_AWAITING_RISK_ANALYSIS`,
+`PAYMENT_APPROVED_BY_RISK_ANALYSIS`, `PAYMENT_OVERDUE`,
+`PAYMENT_REFUNDED` e eventos de chargeback devem ser tratados conforme seu
+significado; não são intercambiáveis.
+
+A venda normal segue `reservado -> paga -> concluida`. Em parcelamento, a venda
+passa para `paga` após a primeira parcela/cobrança ser confirmada como recebida
+no ASAAS; essa transição autoriza a entrega conforme a decisão comercial do
+MVP, embora não signifique que o valor integral foi recebido. As parcelas
+restantes continuam acompanhadas individualmente na tabela `pagamento`. Exibir
+separadamente o status da venda, o total da venda e o total efetivamente
+recebido. Se o link completar 30 dias sem pagamento, a venda passa a
+`expirada`. O veículo fica indisponível enquanto estiver `reservado`, `paga`
+aguardando entrega ou `concluida` (vendido). O status externo ASAAS permanece
+separado do status local.
+
+### E-mail
+
+- ao criar a cobrança, solicitar/envia-se a notificação de cobrança para o
+  e-mail informado, conforme configuração habilitada na conta ASAAS;
+- após `PAYMENT_RECEIVED`, o sistema deve apresentar confirmação e solicitar
+  o envio de confirmação/recibo ao cliente;
+- mensagem ao operador deve diferenciar “solicitado ao ASAAS” de “entrega
+  confirmada”; não afirmar entrega se o provedor não a confirmar;
+- falha de notificação não deve reverter uma venda paga; deve ser indicada e
+  permitir reenvio controlado.
+
+O envio de recibo pós-pagamento precisa ser validado no Sandbox e na conta
+ASAAS. Se a conta não enviar esse evento automaticamente, integrar um serviço
+de e-mail transacional é uma dependência adicional, a decidir antes da
+produção.
+
+## 11. Persistência mínima adicional para ASAAS
+
+O banco Xano tinha 11 tabelas base. A migração ASAAS foi publicada no workspace
+`147643`, acrescentando os campos e tabelas necessários para correlacionar e
+conciliar clientes, cobranças e Webhooks.
+
+O `cliente` no workspace atualmente não possui o campo `Email`, embora a
+especificação funcional o exija. A migração adiciona `Email` anulável para
+preservar registros já existentes; as APIs de criação/edição continuam
+obrigadas a validar o e-mail conforme os requisitos do cadastro.
+
+Os campos e tabelas ASAAS estão definidos em
+[asaas-payment-migration.xs](../xanoscript/asaas-payment-migration.xs):
+
+### Adicionar em `cliente`
+
+- `Email` — e-mail opcional na migração para compatibilidade com registros
+  atuais; obrigatório nas APIs para novos clientes;
+- `asaas_customer_id` — texto opcional, único quando preenchido.
+
+### Adicionar em `venda`
+
+- `asaas_payment_link_id` — texto opcional, único;
+- `asaas_payment_link_url` — texto opcional;
+- `payment_link_expires_at` — timestamp;
+- `payment_installment_limit` — inteiro, máximo escolhido pelo vendedor;
+- `cancel_reason` — texto opcional;
+- `cancelled_at` — timestamp opcional;
+- `payment_email_status` — estado da notificação (não enviada, solicitada,
+  falhou);
+- `payment_email_requested_at` — timestamp opcional;
+
+Manter `forma_pagamento_id`, `status_id`, `Valor_bruto`, `Desconto` e
+`Valor_final` como fonte local dos dados da venda. Não guardar cartão ou CVV.
+
+### Nova tabela mínima `pagamento`
+
+Necessária porque um Link parcelado pode gerar várias cobranças ASAAS, cada
+qual com seu próprio ciclo de status:
+
+- `id` — chave primária;
+- `venda_id` — FK para `venda`;
+- `asaas_payment_id` — texto único;
+- `asaas_customer_id` — texto opcional;
+- `asaas_installment_id` — ID do parcelamento ASAAS, opcional;
+- `status_asaas` — texto;
+- `billing_type` — meio de pagamento informado pela cobrança, opcional;
+- `valor` — decimal;
+- `valor_liquido` e `taxa` — decimais opcionais para conciliação financeira;
+- `numero_parcela` — inteiro opcional;
+- `total_parcelas` — inteiro opcional;
+- `vencimento` — timestamp/data opcional;
+- `recebido_em` — timestamp opcional;
+- `updated_at` — timestamp da última sincronização local.
+
+A primeira cobrança com status `RECEIVED` permite alterar a venda para `paga`
+e liberar a entrega conforme decisão do usuário; cada parcela subsequente
+continua visível no detalhe da venda. Este MVP não automatiza cobrança de
+parcelas atrasadas. Indicadores de caixa somam somente cobranças efetivamente
+recebidas, nunca o valor total da venda a partir do primeiro recebimento.
+
+### Nova tabela mínima `pagamento_evento`
+
+- `id` — chave primária;
+- `asaas_event_id` — texto único, para deduplicação;
+- `asaas_payment_id` — texto;
+- `evento` — texto;
+- `recebido_em` — timestamp;
+- `processado_em` — timestamp opcional;
+- `status_processamento` — texto;
+- `erro_resumido` — texto opcional sem dados de cartão ou segredos.
+
+Esta caixa de entrada permite deduplicar Webhooks e reprocessar falhas. Não
+persistir payload integral; em caso de falha, reconciliar a cobrança pela API
+ASAAS com `asaas_payment_id`. O receptor valida o cabeçalho
+`asaas-access-token` com comparação segura e nunca registra o segredo.
+
+Essa extensão é específica ao fluxo de pagamentos e não inclui auditoria
+genérica, contabilidade ou estoque avançado.
+
+## 12. APIs necessárias
+
+Além das APIs do documento [api-plan-mvp.md.txt](api-plan-mvp.md.txt):
+
+### Integração local (frontend → Xano)
+
+```text
+POST /vendas
+POST /vendas/:id/link-pagamento
+GET  /vendas/:id/pagamento
+POST /vendas/:id/pagamento/atualizar
+POST /vendas/:id/pagamento/notificar
+POST /vendas/:id/entregar
+POST /vendas/:id/cancelar
+POST /webhooks/asaas/pagamentos
+```
+
+`POST /vendas` recebe cliente, itens, forma de pagamento e desconto; valida
+itens/estoque, associa vendedor do token, recalcula subtotal/desconto/total,
+reserva o estoque e cria venda em `reservado`.
+
+`POST /vendas/:id/link-pagamento` recebe `max_parcelas` escolhido pelo vendedor
+e não aceita valor arbitrário do frontend. Usa `forma_pagamento_id`,
+`Valor_final` e limite de parcelas validados no Xano.
+Cria o link pelo `POST /v3/paymentLinks` com `endDate` em 30 dias,
+`externalReference` da venda, notificações habilitadas e valor fechado.
+Resposta resumida:
+
+```json
+{
+  "venda_id": 123,
+  "status_venda": "reservado",
+  "estado_link": "LINK_CREATED",
+  "asaas_payment_link_id": "725104409743",
+  "valor": 1250.00,
+  "parcelas_maximas": 6,
+  "expira_em": "2026-10-28",
+  "url": "https://www.asaas.com/c/..."
+}
+```
+
+Dados de cartão nunca aparecem nesta resposta. O pagador informa seus dados no
+checkout hospedado e o ASAAS cria a cobrança e o cadastro de pagador.
+
+- O Xano persiste o ID/URL do link e o vencimento. A cobrança criada pelo link
+  é associada à venda pelo campo `paymentLink` do Webhook e, como segunda
+  referência, pelo `externalReference`; validar esse mapeamento no Sandbox.
+- `GET /vendas/:id/pagamento` retorna estado local e instruções atualizadas do
+  método. É a consulta usada na tela de confirmação e ao retornar do checkout.
+- `POST /vendas/:id/pagamento/notificar` solicita/reenvia a mensagem ao
+  cliente, somente quando o pagamento foi recebido ou a cobrança precisa ser
+  encaminhada. Deve registrar o resultado da solicitação e aplicar limite de
+  reenvio; não afirmar entrega confirmada sem retorno do provedor.
+- `POST /vendas/:id/pagamento/atualizar` consulta o ASAAS quando o status
+  estiver inconclusivo; deve ter throttling e autorização. Timeout não pode
+  provocar criação duplicada de cobrança.
+- `POST /webhooks/asaas/pagamentos` é público para o ASAAS, valida o
+  `asaas-access-token`, persiste/deduplica evento, responde rapidamente e
+  processa a atualização de forma idempotente.
+- Uma tarefa agendada interna do Xano expira links/vendas pendentes no prazo
+  de 30 dias, desativa o link, cancela cobranças ASAAS ainda pendentes e
+  libera reserva/estoque uma única vez. Não deve ser chamada pelo navegador.
+
+### Grupos de API Xano propostos
+
+- `autenticacao`: login e usuário autenticado;
+- `cadastros`: clientes, veículos, peças e dados de referência;
+- `vendas`: criação, consulta, link de pagamento, status e entrega;
+- `gerenciamento`: indicadores agregados;
+- `asaas_webhooks`: recebimento público e processamento seguro de Webhooks.
+
+O grupo `asaas_webhooks` não usa token de sessão do app; deve validar o
+segredo/token de Webhook configurado no ASAAS. Os demais grupos exigem
+autenticação Xano e verificam perfil no backend.
+
+### APIs externas ASAAS necessárias
+
+```text
+POST /v3/paymentLinks
+GET    /v3/paymentLinks/{id}
+PUT    /v3/paymentLinks/{id} (active=false para desativar)
+GET    /v3/payments/{id}     (reconciliação)
+DELETE /v3/payments/{id}     (cancelar cobrança pendente após expiração)
+```
+
+O contrato do Link de Pagamento inclui `endDate`; `active=false` pode ser
+definido pela atualização para interromper pagamentos. Confirmar o
+comportamento no Sandbox.
+
+As credenciais ASAAS são segredo de servidor, configurado por ambiente. O
+frontend nunca chama a API ASAAS com a chave secreta.
+
+### Chamadas ASAAS do servidor
+
+Fluxo mínimo:
+
+1. criar link exclusivo por venda (`POST /v3/paymentLinks`) com nome,
+   descrição, valor calculado, método permitido, `chargeType`, `endDate`
+   (30 dias), `maxInstallmentCount` e `externalReference` estável;
+2. persistir ID, URL, data final e parcelas máximas retornadas;
+3. o pagador preenche o checkout hospedado e o ASAAS cria cliente/cobrança;
+4. relacionar os Webhooks à venda pelo `payment.paymentLink` e conferir a
+   `externalReference`; armazenar o `customer` ASAAS associado ao cliente
+   local após validar os dados do pagador;
+5. atualizar estado por Webhook; usar consulta ao ASAAS somente para
+   reconciliação de falhas/inconsistências, não polling frequente.
+
+`notificationEnabled` habilita notificações ASAAS para os clientes criados
+pelo link, mas não garante por si só um recibo de venda customizado enviado
+após o primeiro pagamento. Validar mensagens e destinatários no Sandbox.
+
+Em timeout ao criar o link, reconciliar antes do retry para não criar links
+duplicados. Na expiração, desativar o link e cancelar cobranças pendentes
+associadas; apenas `endDate` pode não invalidar uma cobrança já emitida no
+checkout. O Xano nunca devolve credenciais ASAAS ao frontend.
+
+### Reserva e liberação de estoque
+
+- Ao aceitar a venda para cobrança, reservar o veículo (status reservado) e
+  reduzir atomicamente o saldo de peças disponíveis.
+- Fazer a reserva junto com a criação dos itens da venda, antes de chamar o
+  ASAAS, para impedir venda concorrente do mesmo estoque.
+- Se a chamada ASAAS falhar de modo conclusivo, permitir reprocessamento
+  controlado sem duplicar a reserva.
+- Ao receber pagamento, marcar veículo como vendido e manter as peças
+  descontadas.
+- Se a cobrança for cancelada, vencer ou falhar definitivamente, liberar o
+  veículo e devolver a quantidade de peças uma única vez.
+- Configurar tarefa agendada no Xano para expirar a venda exatamente no prazo
+  de 30 dias do link; desativar o link e cancelar cobranças pendentes existentes
+  antes de liberar veículo e peças. Validar no Sandbox o comportamento de links
+  e cobranças gerados próximos à data limite.
+- Webhooks e tarefa de expiração devem compartilhar transição idempotente para
+  que pagamento recebido e expiração concorrentes não liberem/vendam duas
+  vezes.
+
+### Matriz essencial de autorização
+
+| Operação | Vendedor | Gerente | Administrador |
+|---|---:|---:|---:|
+| Criar venda/cobrança | Sim | Sim | Sim |
+| Consultar pagamento próprio | Sim | Sim | Sim |
+| Consultar vendas de toda a equipe | Não | Sim | Sim |
+| Cancelar venda/cobrança pendente | Não | Sim | Sim |
+| Receber e processar Webhook ASAAS | Endpoint de sistema | Endpoint de sistema | Endpoint de sistema |
+
+## 13. Critérios de aceite
+
+1. Não é possível criar uma venda sem cliente, item, método ou total calculado
+   no backend.
+2. Alterações de preço no catálogo não alteram o preço congelado na venda.
+3. Veículo e peças não podem ser vendidos além de sua disponibilidade.
+4. Pix e boleto recém-criados aparecem como aguardando pagamento.
+5. Retorno do navegador não marca pagamento como recebido.
+6. Apenas evento/status confirmado do ASAAS atualiza para pago.
+7. Webhook duplicado não duplica mudança de status ou envio de e-mail.
+8. Timeout de criação não cria cobrança ou captura duplicada no retry.
+9. Vendedor não acessa cobranças de outros vendedores.
+10. Nenhum dado completo de cartão ou CVV é gravado em banco, log ou erro.
+11. Falha no e-mail é sinalizada sem desfazer pagamento confirmado.
+12. Estados de vencimento, recusa, análise, estorno e chargeback não são
+    mostrados como pagamento concluído.
+
+## 14. Referências oficiais ASAAS
+
+Documentação consultada em 27/09/2026:
+
+- [Criar nova cobrança](https://docs.asaas.com/reference/criar-nova-cobranca.md)
+- [Criar cobrança com cartão de crédito](https://docs.asaas.com/reference/criar-cobranca-com-cartao-de-credito.md)
+- [Tokenização de cartão de crédito](https://docs.asaas.com/reference/tokenizacao-de-cartao-de-credito.md)
+- [QR Code Pix](https://docs.asaas.com/reference/obter-qr-code-para-pagamentos-via-pix.md)
+- [Linha digitável de boleto](https://docs.asaas.com/reference/obter-linha-digitavel-do-boleto.md)
+- [Eventos para cobranças](https://docs.asaas.com/docs/webhook-para-cobrancas.md)
+- [Retries e idempotência](https://docs.asaas.com/docs/retries-e-idempot%C3%AAncia.md)
+- [PCI DSS](https://docs.asaas.com/docs/pci-dss-1.md)
+
+## 14. Pendências de configuração antes do Sandbox/Produção
+
+As decisões de fluxo registradas são: checkout hospedado (sem tokenização
+explícita no MVP), número máximo de parcelas escolhido pelo vendedor, primeira
+parcela recebida suficiente para a venda ficar `paga`, e expiração/reserva em
+30 dias. Ainda precisam ser confirmados na conta e no ambiente ASAAS:
+
+- quem absorve as tarifas/juros de parcelamento e quais limites de parcelas a
+  conta permite;
+- credenciais separadas de Sandbox e Produção, guardadas como segredos no
+  Xano (nunca neste documento ou no frontend);
+- URL HTTPS pública do Webhook e um `authToken` forte e exclusivo, configurado
+  também no cabeçalho `asaas-access-token`;
+- eventos ASAAS de cobrança habilitados, reentrega/retry do Webhook e
+  validação do vínculo entre `payment.paymentLink`, `externalReference` e
+  venda no Sandbox;
+- comportamento ao expirar/cancelar uma venda com cobrança já emitida,
+  incluindo cancelamento de boleto/Pix pendente sem invalidar pagamento
+  recebido;
+- se as notificações ASAAS cobrem comprovante pós-pagamento; caso contrário,
+  escolher um provedor de e-mail transacional;
+- seeds dos cargos, status de veículo/venda, formas de pagamento e áreas de
+  peças;
+- aprovação operacional do risco comercial de permitir entrega após a primeira
+  parcela enquanto parcelas futuras permanecem pendentes.
+
+Antes de produção, executar os cenários de link expirado, pagamento recebido
+próximo ao vencimento, Webhook duplicado/fora de ordem, primeira e parcelas
+subsequentes recebidas, boleto pendente e cancelamento, notificação e
+reconciliação após timeout.

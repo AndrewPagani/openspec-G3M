@@ -1,0 +1,75 @@
+schema: spec-driven
+
+context: |
+  Project: Sistema de gerenciamento de concessionária.
+
+  Domain: Sistema para gerenciamento de clientes, usuários,
+  veículos, peças automotivas e vendas.
+
+  Tech stack:
+    Python, Reflex e Xano.
+
+  Architecture:
+    Python e Reflex são utilizados na aplicação e interface.
+    O Xano é utilizado como backend, fornecendo APIs,
+    persistência de dados e regras de negócio do sistema.
+
+    As responsabilidades devem permanecer separadas entre
+    aplicação/interface e backend. Não criar uma nova camada
+    de backend ou banco de dados fora do Xano sem justificativa
+    e aprovação.
+
+  Business:
+    O sistema deve manter a consistência das operações de venda,
+    estoque de peças e disponibilidade dos veículos.
+
+  Security:
+    Regras de autenticação e autorização devem ser aplicadas
+    no backend. Validações realizadas no frontend não devem
+    ser consideradas mecanismos de segurança.
+
+  Development:
+    O projeto será desenvolvido incrementalmente utilizando
+    OpenSpec.
+
+    Mudanças relevantes devem ser especificadas antes da
+    implementação.
+
+    Evitar alterações não relacionadas à mudança atual.
+
+  Documentation:
+    Consultar o project-overview.md e o docs/domain-model.md
+    antes de realizar alterações relevantes.
+
+  Language:
+    Escrever a documentação do projeto e os artefatos OpenSpec
+    em português brasileiro.
+
+rules:
+  proposal:
+    - Descrever claramente o problema, objetivo e escopo.
+    - Identificar o que está fora do escopo quando necessário.
+    - Evitar incluir decisões de implementação sem necessidade.
+
+  specs:
+    - Escrever requisitos claros e verificáveis.
+    - Utilizar cenários para comportamentos relevantes.
+    - Respeitar o domínio e as regras definidas no projeto.
+
+  tasks:
+    - Dividir a implementação em tarefas pequenas e verificáveis.
+    - Manter as tarefas focadas na mudança especificada.
+    - Incluir verificações necessárias para validar a implementação.
+
+operations:
+  apply:
+    guidance:
+      - Consultar a especificação antes de implementar.
+      - Executar verificações relevantes antes de concluir.
+      - Não implementar funcionalidades fora do escopo aprovado.
+
+  archive:
+    guidance:
+      - Confirmar que a implementação corresponde à especificação.
+      - Confirmar que as verificações relevantes foram realizadas.
+      - Atualizar a documentação quando necessário.

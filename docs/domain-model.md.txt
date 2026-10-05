@@ -1,0 +1,292 @@
+# Domain Model
+
+Este documento descreve os principais conceitos do domínio da concessionária, suas responsabilidades, informações e relacionamentos.
+
+O sistema é centrado na comercialização de veículos e peças automotivas, envolvendo clientes, usuários, veículos, peças e vendas.
+
+---
+
+## Cliente
+
+Representa a pessoa que realiza uma compra na concessionária.
+
+### Responsabilidade
+
+- Manter os dados cadastrais do comprador;
+- Identificar o cliente associado a uma venda.
+
+### Principais informações
+
+- nome;
+- CPF;
+- telefone;
+- e-mail.
+
+### Relacionamentos
+
+- Um cliente pode realizar várias vendas;
+- Cada venda pertence a um único cliente.
+
+---
+
+## Usuário
+
+Representa uma pessoa com acesso ao sistema.
+
+### Responsabilidade
+
+- Identificar os usuários do sistema;
+- Controlar o perfil de acesso;
+- Identificar o vendedor responsável por uma venda.
+
+### Principais informações
+
+- nome;
+- e-mail;
+- senha;
+- perfil.
+
+### Relacionamentos
+
+- Um usuário pode ser responsável por várias vendas;
+- Cada venda possui um vendedor responsável.
+
+---
+
+## Veículo
+
+Representa um veículo comercializado pela concessionária.
+
+### Responsabilidade
+
+- Manter as informações do veículo;
+- Informar suas características e preço;
+- Controlar sua situação dentro da concessionária;
+- Permitir sua comercialização quando disponível.
+
+### Principais informações
+
+- marca;
+- modelo;
+- cor;
+- ano;
+- quilometragem;
+- preço.
+
+### Relacionamentos
+
+- Um veículo possui um status;
+- Um veículo pode ser associado a um item de venda.
+
+### Regras estruturais importantes
+
+- Um veículo deve possuir um status que represente sua situação atual;
+- Veículos indisponíveis não podem ser comercializados.
+
+---
+
+## Status do Veículo
+
+Representa a situação atual de um veículo dentro da concessionária.
+
+### Responsabilidade
+
+Identificar a condição operacional do veículo.
+
+### Principais informações
+
+- descrição do status.
+
+### Exemplos
+
+- disponível;
+- indisponível;
+- manutenção;
+- revisão;
+- transporte.
+
+### Relacionamentos
+
+- Um status pode estar associado a vários veículos;
+- Cada veículo possui um único status atual.
+
+---
+
+## Área do Veículo
+
+Representa uma área ou parte do veículo utilizada para organizar e classificar peças automotivas.
+
+### Responsabilidade
+
+- Organizar as peças de acordo com sua área de aplicação;
+- Facilitar a classificação das peças.
+
+### Principais informações
+
+- nome ou descrição da área.
+
+### Exemplos
+
+- motor;
+- suspensão;
+- elétrica;
+- freios;
+- carroceria.
+
+### Relacionamentos
+
+- Uma área pode estar associada a várias peças;
+- Cada peça pertence a uma área.
+
+---
+
+## Peça
+
+Representa uma peça automotiva comercializada pela concessionária.
+
+### Responsabilidade
+
+- Manter os dados da peça;
+- Controlar seu preço;
+- Controlar sua quantidade disponível em estoque;
+- Permitir sua comercialização.
+
+### Principais informações
+
+- nome ou descrição;
+- preço;
+- quantidade disponível.
+
+### Relacionamentos
+
+- Uma peça pertence a uma área do veículo;
+- Uma peça pode ser incluída em vários itens de venda.
+
+### Regras estruturais importantes
+
+- A quantidade disponível representa o estoque atual da peça;
+- A quantidade disponível não pode ser negativa;
+- A quantidade comercializada deve respeitar a disponibilidade em estoque.
+
+---
+
+## Venda
+
+Representa uma operação comercial realizada pela concessionária.
+
+### Responsabilidade
+
+- Registrar uma venda;
+- Identificar o cliente e o vendedor envolvidos;
+- Agrupar os itens comercializados;
+- Registrar valores e descontos;
+- Definir a forma de pagamento;
+- Acompanhar o estado da venda.
+
+### Principais informações
+
+- data;
+- valor;
+- desconto;
+- valor final.
+
+### Relacionamentos
+
+- Uma venda pertence a um único cliente;
+- Uma venda possui um vendedor responsável;
+- Uma venda possui itens de venda;
+- Uma venda possui uma forma de pagamento;
+- Uma venda possui um status.
+
+### Regras estruturais importantes
+
+- Toda venda deve possuir um cliente e um vendedor associados;
+- Toda venda deve possuir pelo menos um item.
+
+---
+
+## Item de Venda
+
+Representa um item individual que faz parte de uma venda.
+
+### Responsabilidade
+
+- Identificar o item comercializado;
+- Registrar sua quantidade;
+- Registrar seu preço;
+- Compor o valor da venda.
+
+### Principais informações
+
+- quantidade;
+- preço unitário;
+- valor do item.
+
+### Relacionamentos
+
+- Um item de venda pertence a uma única venda;
+- Um item de venda referencia um veículo ou uma peça.
+
+### Regras estruturais importantes
+
+- A quantidade deve ser maior que zero;
+- O item deve referenciar um veículo ou uma peça existente.
+
+---
+
+## Forma de Pagamento
+
+Representa a modalidade escolhida para o pagamento de uma venda.
+
+### Responsabilidade
+
+Identificar a modalidade utilizada para pagamento da venda.
+
+### Principais informações
+
+- descrição da forma de pagamento.
+
+### Exemplos
+
+- Pix;
+- cartão;
+- dinheiro;
+- outras modalidades disponíveis.
+
+### Relacionamentos
+
+- Uma forma de pagamento pode ser utilizada em várias vendas;
+- Cada venda possui uma forma de pagamento.
+
+---
+
+## Status da Venda
+
+Representa a situação atual de uma venda dentro do processo comercial.
+
+### Responsabilidade
+
+Permitir acompanhar o andamento da venda desde sua criação até sua conclusão ou cancelamento.
+
+### Principais informações
+
+- descrição do status.
+
+### Exemplos
+
+- iniciada;
+- pagamento iniciado;
+- processando pagamento;
+- paga;
+- aguardando retirada;
+- finalizada;
+- cancelada.
+
+### Relacionamentos
+
+- Um status pode estar associado a várias vendas;
+- Cada venda possui um único status atual.
+
+### Regras estruturais importantes
+
+A alteração do status deve respeitar o fluxo de venda definido pelas regras de negócio.

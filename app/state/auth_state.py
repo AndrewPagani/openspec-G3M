@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import reflex as rx
+
+from app.services.xano_client import XanoError, client
+
+
+class AuthState(rx.State):
+    token: str = rx.LocalStorage("")
+    user_name: str = rx.LocalStorage("")
+    profile: str = rx.LocalStorage("")
+    email: str = ""
+    password: str = ""
+    busy: bool = False
+    error: str = ""
+
+    @rx.var
+    def authenticated(self) -> bool:
+        return bool(self.token)
+
+    @rx.var
+    def is_admin(self) -> bool:
+        return self.profile.lower() in ("administrador", "admin")
+
+    @rx.var
+    def is_manager(self) -> bool:
+        return self.is_admin or self.profile.lower() in ("gerente", "manager")
+
+    def set_email(self, value: str) -> None:
+        self.email = value
+
+    def set_password(self, value: str) -> None:
+        self.password = value
+
+    def login(self) -> rx.event.EventSpec:
+        self.busy = True
+        self.error = ""
+        try:
+            if not self.email or not self.password:
+                raise XanoError("Informe e-mail e senha.")
+            result = client.login(self.email, self.password)
+            raw_token = str(result.get("authToken") or result.get("token") or "").strip()
+            self.token = raw_token[7:].strip() if raw_token.lower().startswith("bearer ") else raw_token
+            user = result.get("user") or result
+            profile = user.get("perfil") or user.get("profile") or {}
+            self.user_name = str(user.get("UNome") or user.get("name") or user.get("nome") or self.email)
+            role = profile.get("Cargo") if isinstance(profile, dict) else profile
+            self.profile = str(role or user.get("cargo") or "Vendedor")
+            if not self.token:
+                raise XanoError("Resposta de autenticação inválida.")
+            return rx.redirect("/gerenciamento")
+        except XanoError as exc:
+            self.error = str(exc)
+        finally:
+            self.busy = False
+
+    def logout(self) -> None:
+        self.token = ""
+        self.user_name = ""
+        self.profile = ""
+        self.email = ""
+        self.password = ""
+        self.error = ""

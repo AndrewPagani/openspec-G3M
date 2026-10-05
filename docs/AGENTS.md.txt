@@ -1,0 +1,125 @@
+# AGENTS.md
+
+## 1. Contexto do projeto
+
+Antes de realizar alterações significativas, consulte os documentos de contexto e as especificações do projeto.
+
+Fontes principais:
+
+- `project-overview.md` — visão geral, escopo, objetivos e arquitetura;
+- `docs/domain-model.md` — conceitos do domínio e seus relacionamentos;
+- `openspec/` — especificações de funcionalidades e mudanças aprovadas.
+
+Em caso de conflito, priorize as especificações aprovadas pelo OpenSpec e as decisões registradas no projeto.
+
+---
+
+## 2. OpenSpec
+
+Todas as mudanças funcionais devem utilizar o OpenSpec.
+
+Antes de implementar uma mudança:
+
+1. Verifique se existe uma especificação relacionada;
+2. Caso necessário, crie ou atualize a especificação;
+3. Aguarde a aprovação da mudança antes da implementação;
+4. Implemente somente o que estiver definido na especificação aprovada;
+5. Atualize a documentação quando a mudança alterar o comportamento do sistema.
+
+Não implementar mudanças funcionais relevantes apenas com base em suposições.
+
+---
+
+## 3. Arquitetura e tecnologias
+
+- Respeitar as tecnologias e decisões arquiteturais definidas no projeto.
+- Não introduzir tecnologias alternativas sem justificativa.
+- Evitar alterações arquiteturais que não sejam necessárias para a tarefa atual.
+- Manter separação adequada entre responsabilidades.
+- Priorizar código simples, modular e de fácil manutenção.
+
+---
+
+## 4. Código
+
+- Reutilizar código existente quando apropriado.
+- Evitar duplicação desnecessária.
+- Seguir os padrões já utilizados no projeto.
+- Utilizar nomes claros e consistentes.
+- Evitar abstrações desnecessárias.
+- Não modificar funcionalidades não relacionadas à tarefa sem justificativa.
+- Preservar o comportamento existente quando a mudança não exigir sua alteração.
+
+---
+
+## 5. Regras de negócio e integridade
+
+- Respeitar as regras definidas no domínio e nas especificações.
+- Validar regras de negócio no backend.
+- Garantir a consistência dos dados entre clientes, veículos, peças, vendas e seus respectivos status.
+- Não permitir operações que violem relacionamentos ou restrições definidas pelo domínio.
+- Não assumir regras de negócio que não estejam documentadas; quando necessário, registrar a decisão antes da implementação.
+
+---
+
+## 6. Segurança
+
+- Regras de autenticação e autorização devem ser aplicadas no backend.
+- Nunca confiar exclusivamente em validações realizadas no frontend.
+- Proteger credenciais e informações sensíveis.
+- Validar e tratar entradas fornecidas pelo usuário.
+- Não expor informações sensíveis em respostas, logs ou mensagens de erro.
+- Respeitar os níveis de acesso definidos para cada perfil.
+
+---
+
+## 7. Testes e verificação
+
+Toda mudança funcional deve possuir uma estratégia de verificação adequada.
+
+Sempre que aplicável:
+
+- criar ou atualizar testes;
+- verificar regras de negócio;
+- testar cenários de sucesso e falha;
+- verificar possíveis impactos em funcionalidades existentes;
+- executar os testes relevantes antes de considerar a tarefa concluída.
+
+---
+
+## 8. Alterações no projeto
+
+Antes de alterar arquivos existentes:
+
+1. Entenda a implementação atual;
+2. Identifique dependências e impactos;
+3. Faça a menor alteração necessária;
+4. Verifique o resultado da mudança;
+5. Não altere arquivos ou funcionalidades sem relação com a tarefa.
+
+---
+
+## 9. Documentação
+
+Quando uma alteração modificar comportamento, arquitetura, regras de negócio ou decisões importantes do projeto, atualize a documentação correspondente.
+
+Evite duplicar informações entre documentos.
+
+Cada documento deve possuir uma responsabilidade clara:
+
+- `AGENTS.md` → regras operacionais para o agente;
+- `project-overview.md` → visão geral e contexto do projeto;
+- `docs/domain-model.md` → conceitos e relacionamentos do domínio;
+- `openspec/` → especificações e mudanças funcionais.
+
+---
+
+## 10. Princípios gerais
+
+- Priorizar clareza e manutenção do código.
+- Evitar complexidade desnecessária.
+- Não inventar requisitos.
+- Não introduzir dependências sem necessidade.
+- Não alterar comportamento existente sem justificativa.
+- Manter as mudanças pequenas e focadas.
+- Quando houver ambiguidade relevante, consultar a documentação ou registrar a decisão antes de implementar.

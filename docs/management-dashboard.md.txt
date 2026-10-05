@@ -1,0 +1,300 @@
+# Aba de gerenciamento e indicadores do MVP
+
+## 1. Objetivo
+
+A aba de gerenciamento deve permitir que gerente e administrador acompanhem a
+operação comercial da única unidade da concessionária por meio de indicadores
+e gráficos. A interface terá no máximo quatro seções: Visão geral, Vendas,
+Veículos e Peças.
+
+O dashboard deve apoiar decisões operacionais. Ele não substitui um sistema financeiro, contábil ou de Business Intelligence.
+
+## 2. Usuários autorizados
+
+- Gerente: pode consultar todos os indicadores operacionais e comerciais da unidade.
+- Administrador: pode consultar os mesmos indicadores e consultar dados
+  administrativos permitidos.
+- Vendedor: não acessa o dashboard gerencial completo. Pode consultar apenas suas próprias vendas e indicadores autorizados.
+
+As permissões devem ser validadas no backend.
+
+## 3. Filtros obrigatórios
+
+Os indicadores devem permitir filtrar por:
+
+- período inicial e final;
+- status da venda;
+- vendedor;
+- tipo de item: veículo ou peça;
+- forma de pagamento;
+- status do veículo, quando aplicável.
+
+Como o MVP possui uma unidade, não haverá filtro de filial.
+
+Regras:
+
+- o período padrão deve ser informado pela interface;
+- o backend deve validar datas e limites do período;
+- filtros devem ser aplicados antes dos cálculos;
+- o resultado deve informar quando não houver dados;
+- os valores devem respeitar a permissão do usuário.
+
+## 4. Indicadores principais
+
+### 4.1 Vendas
+
+#### Total de vendas
+
+Quantidade de vendas criadas no período, com possibilidade de separar vendas canceladas das demais.
+
+#### Vendas pagas/concluídas
+
+Quantidade de vendas com pagamento confirmado pelo ASAAS e/ou status local
+`concluída`. Cobranças criadas ou aguardando pagamento não contam como
+recebidas.
+
+#### Vendas canceladas
+
+Quantidade e percentual de vendas com status `cancelada`.
+
+#### Valor bruto vendido
+
+Soma dos valores brutos das vendas válidas no período.
+
+#### Descontos concedidos
+
+Soma dos descontos aplicados nas vendas válidas.
+
+#### Valor líquido recebido
+
+Soma dos valores finais das vendas com pagamento recebido, excluindo
+cancelamentos e cobranças pendentes. O indicador não representa lucro.
+
+#### Ticket médio recebido
+
+Valor líquido recebido dividido pela quantidade de vendas pagas. Vendas
+canceladas ou pendentes não entram no cálculo.
+
+### 4.2 Operação comercial
+
+#### Vendas por status
+
+Distribuição das vendas entre:
+
+- aguardando pagamento;
+- paga;
+- concluída;
+- cancelada;
+- expirada.
+
+#### Vendas por período
+
+Quantidade ou valor líquido agrupado por dia, semana ou mês, conforme o intervalo selecionado.
+
+#### Vendas por vendedor
+
+Quantidade, valor líquido e ticket médio por vendedor. O gerente e o administrador podem visualizar todos; o vendedor pode visualizar somente seus próprios dados.
+
+#### Vendas por forma de pagamento
+
+Quantidade e valor líquido agrupados por forma de pagamento.
+
+#### Mix de itens vendidos
+
+Comparação entre:
+
+- vendas de veículos;
+- vendas de peças;
+- quantidade de itens;
+- valor líquido por tipo.
+
+### 4.3 Veículos
+
+#### Estoque de veículos por status
+
+Quantidade de veículos em cada status:
+
+- disponível;
+- reservado;
+- vendido;
+- indisponível;
+- manutenção;
+- revisão;
+- transporte.
+
+#### Veículos vendidos
+
+Quantidade e valor dos veículos vendidos no período.
+
+#### Veículos disponíveis
+
+Quantidade de veículos disponíveis para comercialização no momento da consulta.
+
+#### Tempo operacional de venda
+
+Quando as datas estiverem disponíveis, tempo médio entre cadastro ou disponibilização e venda. Este indicador deve ser tratado como opcional até que as datas necessárias estejam definidas.
+
+### 4.4 Peças e estoque
+
+#### Estoque disponível
+
+Quantidade de peças atualmente disponível para venda.
+
+#### Peças vendidas
+
+Quantidade de peças vendidas no período.
+
+#### Valor de peças vendidas
+
+Valor líquido dos itens de peça vendidos no período.
+
+Não calcular estoque reservado ou peças com estoque baixo: o schema atual tem
+somente `peca.qtd_disp` e não possui reserva ou limite mínimo.
+
+#### Cobertura de estoque
+
+Não faz parte do MVP, pois exige histórico de consumo e previsão de demanda.
+
+## 5. Seções do dashboard (limite de quatro)
+
+### Seção 1 — Visão geral
+
+Exibir o valor líquido efetivamente recebido pelas cobranças/parcelas no período,
+vendas pagas (primeira parcela recebida), ticket médio do valor total das
+vendas pagas, descontos, veículos disponíveis e quantidade total de peças em
+estoque. Nunca contar o valor integral da venda como recebido quando somente
+uma parcela tiver sido recebida.
+
+### Seção 2 — Vendas
+
+Exibir vendas ao longo do tempo, vendas por status de pagamento, forma de
+pagamento, vendedor (somente gerente/administrador) e mix entre veículos e
+peças.
+
+### Seção 3 — Veículos
+
+Exibir quantidade por status, disponíveis versus vendidos e valor anunciado
+dos veículos disponíveis.
+
+### Seção 4 — Peças
+
+Exibir quantidade disponível, valor estimado do estoque pelo preço atual e
+quantidade de peças sem estoque.
+
+Não adicionar outras abas/seções ou tabelas de registros ao dashboard.
+
+## 6. Gráficos recomendados dentro das quatro seções
+
+### Visão superior: cartões de KPI
+
+Os KPIs da visão geral estão definidos na Seção 1. Taxa de conversão,
+test-drives e oficina não fazem parte do MVP, pois não possuem entidades e
+regras especificadas.
+
+### Gráfico 1: vendas ao longo do tempo
+
+Tipo: linha ou barras.
+
+Exibir quantidade ou valor líquido por período.
+
+### Gráfico 2: vendas por status
+
+Tipo: barras ou rosca.
+
+Exibir distribuição de vendas por status, destacando cancelamentos.
+
+### Gráfico 3: vendas por vendedor
+
+Tipo: barras horizontais.
+
+Exibir valor líquido ou quantidade de vendas por vendedor.
+
+### Gráfico 4: mix de vendas
+
+Tipo: rosca ou barras.
+
+Comparar veículos e peças por quantidade e valor.
+
+### Gráfico 5: estoque de veículos por status
+
+Tipo: barras.
+
+Exibir a situação atual do estoque de veículos.
+
+### Gráfico 6: estoque de peças
+
+Tipo: barras. Exibir quantidade disponível e peças sem estoque; não inventar
+quantidade reservada ou limite de estoque mínimo.
+
+## 7. Regras de cálculo
+
+- Vendas canceladas não entram em valor líquido, ticket médio ou ranking de vendedores.
+- Vendas aguardando pagamento podem aparecer no
+  acompanhamento operacional, mas não devem ser tratadas como recebimento.
+- Desconto deve ser exibido separadamente do valor líquido.
+- Valores monetários devem ser calculados no backend.
+- O frontend deve apenas apresentar os valores retornados pela API.
+- Os indicadores devem usar uma mesma definição de período e status para evitar divergências.
+- Quando não houver dados, exibir zero ou estado vazio claramente, sem falha técnica.
+
+## 8. Desempenho e atualização
+
+- O dashboard deve carregar inicialmente um período padrão configurável.
+- Indicadores agregados devem ser calculados no backend.
+- O MVP não exige atualização em tempo real.
+- Deve existir ação de atualizar os dados manualmente.
+- Consultas muito pesadas devem possuir limites de período.
+
+## 9. Segurança e privacidade
+
+- O backend deve autorizar cada consulta do dashboard.
+- Vendedores não devem visualizar dados de outros vendedores sem permissão.
+- O dashboard não deve exibir senha, token ou dado sensível desnecessário.
+- Exportação de dados não faz parte do MVP, salvo decisão posterior.
+
+## 10. Fora do escopo do dashboard no MVP
+
+- tabelas de acompanhamento;
+- lucro e margem, pois exigem custo de aquisição;
+- fluxo de caixa;
+- contas a pagar e receber;
+- conciliação financeira;
+- previsão de vendas;
+- metas e comissões;
+- comparação entre filiais;
+- BI avançado;
+- atualização em tempo real;
+- exportação para planilhas;
+- relatórios fiscais.
+
+## 11. Critérios de aceite
+
+1. Gerente consegue consultar os KPIs do período selecionado.
+2. Administrador consegue consultar os mesmos indicadores.
+3. Vendedor visualiza somente os indicadores permitidos para suas próprias vendas.
+4. Filtros alteram os resultados de forma consistente.
+5. Vendas canceladas são excluídas dos indicadores de valor líquido e ticket médio.
+6. Vendas aguardando pagamento não são apresentadas como recebidas/concluídas.
+7. O valor líquido exibido coincide com o cálculo retornado pelo backend.
+8. Peças com quantidade zero aparecem como sem estoque.
+9. O dashboard informa claramente quando não há dados.
+10. Usuário sem permissão recebe erro de autorização e não acessa dados gerenciais.
+
+## 12. Integração no aplicativo
+
+A tela `Dashboard` do app consulta `GET /gerenciamento/indicadores` após o
+login, enviando `data_inicio` e `data_fim`. Gerente e administrador podem
+também filtrar por status da venda, vendedor, forma de pagamento, tipo de item
+e status do veículo. Os IDs de referência são filtros opcionais. O período
+inicial padrão começa no primeiro dia do mês corrente e termina na data atual;
+o usuário pode alterar o período e atualizar os dados manualmente.
+
+A interface apresenta quatro áreas: Visão geral, Vendas, Veículos e Peças.
+Gerentes e administradores visualizam as quatro áreas; vendedores visualizam
+somente suas próprias vendas, seus indicadores, formas de pagamento e mix de
+itens, conforme autorização e escopo aplicados pelo endpoint no Xano.
+Os indicadores monetários e as séries são apresentados a partir da resposta do
+Xano, sem valores de demonstração. Erros de conexão ou incompatibilidade do
+contrato são exibidos na tela. Indicadores gerenciais globais são visíveis
+somente para gerente e administrador; o backend deve autorizar e limitar cada
+resposta de acordo com o perfil.

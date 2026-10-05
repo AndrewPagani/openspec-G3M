@@ -1,0 +1,215 @@
+# Project Overview
+
+## 1. Visão geral
+
+Sistema de gerenciamento de concessionária para centralizar as operações relacionadas à comercialização de veículos e peças automotivas.
+
+O sistema permite gerenciar usuários, clientes, veículos, peças e vendas, incluindo controle de disponibilidade, estoque, formas de pagamento e status das vendas.
+
+## 2. Problema
+
+A concessionária precisa centralizar o controle de suas operações comerciais, evitando informações descentralizadas e inconsistências no gerenciamento de veículos, peças, clientes e vendas.
+
+O sistema busca proporcionar maior organização, rastreabilidade e controle sobre o processo de comercialização de veículos e peças.
+
+## 3. Objetivos
+
+- Centralizar as informações da concessionária;
+- Gerenciar veículos e sua disponibilidade;
+- Controlar o estoque de peças automotivas;
+- Gerenciar clientes e usuários;
+- Registrar e acompanhar vendas;
+- Controlar formas de pagamento, descontos e valores das vendas;
+- Garantir a consistência dos dados e dos relacionamentos entre as entidades.
+
+## 4. Público-alvo / usuários
+
+### Vendedor
+
+Responsável por realizar e acompanhar vendas, além de consultar informações de clientes, veículos e peças.
+
+### Gerente
+
+Responsável pelo gerenciamento e acompanhamento das operações da concessionária.
+
+### Cliente
+
+Pessoa que realiza a compra de veículos ou peças e possui seus dados registrados no sistema.
+
+> O acesso do cliente ao sistema não está definido no escopo atual e poderá ser especificado posteriormente.
+
+## 5. Escopo
+
+O escopo inicial contempla:
+
+- Gerenciamento de usuários e perfis;
+- Cadastro e gerenciamento de clientes;
+- Cadastro e gerenciamento de veículos;
+- Controle do status e disponibilidade dos veículos;
+- Cadastro e gerenciamento de peças;
+- Controle da quantidade disponível de peças;
+- Associação de peças às áreas do veículo;
+- Registro e gerenciamento de vendas;
+- Venda de veículos e peças;
+- Aplicação de descontos;
+- Controle da forma de pagamento;
+- Acompanhamento dos status das vendas.
+
+Não fazem parte do escopo inicial:
+
+- Integrações fiscais;
+- Integração ASAAS para cobranças avulsas de vendas do MVP;
+- Integração com fornecedores;
+- Gestão de oficina e serviços de manutenção.
+- Leads e oportunidades comerciais;
+- Taxa de conversão;
+- Test-drives;
+- Pós-venda e ordens de serviço;
+- Tabelas de acompanhamento dentro do dashboard;
+- Multiunidade e multi-filial.
+
+## 6. Principais funcionalidades
+
+### Usuários e clientes
+
+- Cadastro de usuários;
+- Controle de perfis;
+- Cadastro de clientes;
+- Consulta de informações.
+
+### Veículos
+
+- Cadastro de veículos;
+- Consulta de veículos;
+- Registro de marca, modelo, cor, ano, quilometragem e preço;
+- Registro de chassi, placa quando aplicável e ano do modelo;
+- Controle de disponibilidade;
+- Controle de status: disponível, indisponível, manutenção, revisão e transporte.
+
+### Peças
+
+- Cadastro de peças;
+- Consulta de peças;
+- Controle de preço;
+- Controle de quantidade disponível;
+- Associação da peça a uma área do veículo.
+
+### Vendas
+
+- Criação de vendas;
+- Associação entre cliente e vendedor;
+- Inclusão de veículos e peças como itens da venda;
+- Definição de quantidade e preço dos itens;
+- Aplicação de descontos;
+- Cálculo do valor final;
+- Definição da forma de pagamento;
+- Criação de cobranças Pix, boleto e cartão de crédito pelo ASAAS;
+- Acompanhamento de pagamento por Webhook e reconciliação;
+- Acompanhamento do status da venda.
+
+### Gerenciamento e indicadores
+
+- Aba de gerenciamento para gerente e administrador;
+- KPIs de vendas, descontos, valor líquido e ticket médio;
+- Indicadores de veículos por status e disponibilidade;
+- Indicadores de estoque de peças;
+- Gráficos de vendas por período, status, vendedor, forma de pagamento e tipo de item;
+- Gráficos de veículos por status e estoque de peças;
+- Filtros operacionais aplicados no backend;
+- Sem tabelas de acompanhamento no dashboard do MVP.
+
+O dashboard tem no máximo quatro seções: Visão geral, Vendas, Veículos e
+Peças. Débito direto pela API de cartão, cartão tokenizado em formulário
+próprio, emissão fiscal e financeiro avançado não fazem parte do primeiro
+release. O formulário próprio de cartão exige análise PCI DSS; usar checkout
+hospedado do ASAAS inicialmente.
+
+## 7. Requisitos e restrições importantes
+
+- Toda venda deve estar associada a um cliente e a um vendedor;
+- Os itens da venda devem referenciar registros existentes;
+- Veículos indisponíveis não devem ser vendidos;
+- A venda de peças deve respeitar a quantidade disponível em estoque;
+- Valores e quantidades devem possuir valores válidos;
+- Os status devem representar corretamente o estado atual do veículo ou da venda;
+- Os relacionamentos entre as entidades devem respeitar as chaves estrangeiras definidas no modelo de dados;
+- O acesso às funcionalidades deve considerar o perfil do usuário.
+- Os indicadores devem ser calculados no backend e não podem usar valores estáticos de protótipo.
+
+## 8. Arquitetura tecnológica
+
+O sistema utilizará um modelo de dados relacional, organizado em entidades relacionadas por chaves primárias e estrangeiras.
+
+O banco oficial do MVP contém somente as seguintes tabelas:
+
+- `perfil`;
+- `user`;
+- `cliente`;
+- `status_veiculo`;
+- `veiculo`;
+- `veiculo_area`;
+- `peca`;
+- `forma_pagamento`;
+- `status_venda`;
+- `venda`;
+- `venda_item`.
+
+A implementação prevista utiliza Python e Reflex na aplicação/interface e Xano como backend, API e persistência. O Xano concentra autenticação, autorização e regras de negócio. A interface não deve ser tratada como mecanismo de segurança.
+
+A definição das 11 tabelas operacionais base está em
+`xanoscript/mvp-schema.xs`. A migração ASAAS publicada está em
+`xanoscript/asaas-payment-migration.xs` e acrescenta os campos de integração e
+as tabelas `pagamento` e `pagamento_evento`. O modelo não cria entidades de
+permissões mutáveis, auditoria genérica, movimentações de estoque,
+configurações de dashboard, leads, test-drives, oficina, pós-venda ou
+multiunidade.
+
+O plano de implementação das telas, rotas, ações, contratos com o Xano,
+estrutura da aplicação Reflex e critérios de aceite está em
+`docs/action-plan-screens-and-navigation.md.txt`.
+
+## 9. Princípios de desenvolvimento
+
+O desenvolvimento deve priorizar:
+
+- Separação de responsabilidades;
+- Código organizado e de fácil manutenção;
+- Integridade e consistência dos dados;
+- Validação das regras de negócio;
+- Baixo acoplamento entre componentes;
+- Clareza na modelagem e implementação;
+- Evolução incremental do sistema.
+
+## 10. Segurança e integridade
+
+A segurança deve considerar:
+
+- Autenticação dos usuários;
+- Controle de acesso baseado em perfil;
+- Proteção das credenciais dos usuários;
+- Validação dos dados recebidos;
+- Integridade referencial do banco de dados.
+
+As operações críticas devem garantir que o estado dos veículos, estoque e vendas permaneça consistente.
+
+## 11. Estratégia de desenvolvimento
+
+O sistema será desenvolvido de forma incremental, priorizando inicialmente as funcionalidades fundamentais do domínio:
+
+1. Estrutura do banco de dados;
+2. Usuários e clientes;
+3. Veículos e controle de disponibilidade;
+4. Peças e controle de estoque;
+5. Processo de vendas;
+6. Formas de pagamento e status da venda;
+7. Validações e regras de negócio.
+
+Cada etapa deve manter as funcionalidades anteriores funcionando e permitir a evolução do sistema sem comprometer a integridade dos dados.
+
+## 12. Fonte de verdade e documentação
+
+A principal fonte de verdade para a estrutura de dados e relacionamentos do sistema é o **DER definido para o projeto**.
+
+As regras de negócio, comportamentos e decisões de implementação devem ser documentados nas respectivas especificações do OpenSpec.
+
+Em caso de divergência, as especificações aprovadas e as decisões registradas no projeto devem prevalecer sobre suposições ou implementações não documentadas.

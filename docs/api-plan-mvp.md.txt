@@ -1,0 +1,534 @@
+# Plano de APIs do MVP
+
+> **Histórico — contrato de pagamento substituído.** As instruções ASAAS
+> adiante não descrevem o fluxo atual e não devem ser enviadas ao Xano como
+> contrato de publicação. Consulte a mudança ativa
+> `openspec/changes/registro-manual-de-parcelas-no-xano/` para o contrato de
+> parcelas locais e baixas manuais; este plano será consolidado após a
+> validação do novo backend.
+
+## 1. Objetivo e limites
+
+Este documento define o contrato inicial das APIs do MVP da concessionária,
+com Xano como backend, autenticação e banco de dados. O schema atualmente
+publicado contém as 11 tabelas base:
+
+Para enviar a especificação detalhada diretamente à IA do Xano, use
+[xano-ai-api-spec-mvp.md](xano-ai-api-spec-mvp.md), que consolida grupos,
+rotas, entradas, respostas, regras de autorização, pagamento e critérios de
+aceite.
+
+- `perfil`;
+- `user`;
+- `cliente`;
+- `status_veiculo`;
+- `veiculo`;
+- `veiculo_area`;
+- `peca`;
+- `forma_pagamento`;
+- `status_venda`;
+- `venda`;
+- `venda_item`.
+
+Não fazem parte deste contrato:
+
+- cadastro público (`signup`) de usuários;
+- CRUD de permissões;
+- auditoria persistida;
+- histórico persistido separado;
+- movimentações de estoque persistidas separadamente;
+- configurações persistidas do dashboard;
+- leads, oficina, pós-venda, multiunidade, emissão fiscal e financeiro
+  avançado.
+
+A integração ASAAS acrescenta campos em `cliente` e `venda`, além das tabelas
+`pagamento` e `pagamento_evento`, conforme a migração proposta em
+[asaas-payment-migration.xs](../xanoscript/asaas-payment-migration.xs). A
+migração foi publicada no workspace `147643`; a implementação das rotas e
+grupos de API continua pendente.
+
+As APIs devem validar autenticação, cargo, integridade dos dados e regras de
+negócio no backend. O frontend não deve ser considerado uma camada de
+segurança.
+
+## 2. Convenções do contrato
+
+- Todas as rotas, exceto login, exigem `Authorization: Bearer <token>`.
+- Respostas de coleção devem aceitar paginação por `page` e `per_page`.
+- Consultas devem aceitar filtros somente quando listados neste documento.
+- O backend deve retornar erros em formato consistente:
+
+```json
+{
+  "code": "validation_error",
+  "message": "Descrição legível para o usuário",
+  "details": {}
+}
+```
+
+- Erros esperados:
+  - `400`: entrada inválida ou transição não permitida;
+  - `401`: token ausente, inválido ou expirado;
+  - `403`: cargo sem autorização;
+  - `404`: registro inexistente;
+  - `409`: conflito de unicidade, disponibilidade ou concorrência;
+  - `422`: regra de negócio não atendida;
+  - `500`: erro inesperado, sem expor detalhes internos.
+- Senhas e tokens nunca devem aparecer em logs ou respostas de entidades.
+
+## 3. Autenticação
+
+### `POST /auth/login`
+
+Autentica o usuário.
+
+Entrada:
+
+```json
+{
+  "email": "usuario@exemplo.com",
+  "senha": "senha"
+}
+```
+
+Resposta:
+
+```json
+{
+  "authToken": "token",
+  "user": {
+    "id": 1,
+    "UNome": "Nome do Usuário",
+    "Email": "usuario@exemplo.com",
+    "perfil_id": 1,
+    "perfil": {
+      "id": 1,
+      "Cargo": "Gerente"
+    }
+  }
+}
+```
+
+O endpoint deve rejeitar credenciais inválidas e nunca confirmar se um
+e-mail existe. Não haverá `POST /auth/signup`.
+
+### `GET /auth/me`
+
+Retorna o usuário e o cargo associados ao token atual, sem a senha.
+
+### Logout
+
+O MVP pode encerrar a sessão removendo o token do frontend. Um endpoint
+`POST /auth/logout` somente será criado se o modelo de token escolhido exigir
+invalidação no servidor.
+
+## 4. Dados de referência
+
+Estas consultas alimentam filtros e seletores. Não haverá telas de manutenção
+destes dados no MVP inicial.
+
+```text
+GET /perfis
+GET /perfis/:id
+GET /status-veiculos
+GET /veiculo-areas
+GET /formas-pagamento
+GET /status-vendas
+```
+
+Os registros devem ser semeados ou administrados diretamente no Xano.
+
+## 5. Clientes
+
+Tabela: `cliente`.
+
+```text
+GET   /clientes
+GET   /clientes/:id
+POST  /clientes
+PATCH /clientes/:id
+```
+
+Filtros de `GET /clientes`: `page`, `per_page` e `busca` por nome, CPF,
+telefone ou e-mail.
+
+Entrada mínima de criação:
+
+```json
+{
+  "CNome": "Cliente Exemplo",
+  "CPF": "000.000.000-00",
+  "Telefone": "(00) 00000-0000",
+  "Email": "cliente@exemplo.com"
+}
+```
+
+`CPF` e `Email` devem ser únicos. Os campos obrigatórios e seus formatos devem
+ser validados no backend.
+
+## 6. Veículos
+
+Tabela: `veiculo`.
+
+```text
+GET   /veiculos
+GET   /veiculos/:id
+POST  /veiculos
+PATCH /veiculos/:id
+POST  /veiculos/:id/status
+```
+
+Filtros de `GET /veiculos`: `page`, `per_page`, `busca`, `marca`, `modelo` e
+`status_id`.
+
+Entrada mínima:
+
+```json
+{
+  "Marca": "Marca",
+  "Modelo": "Modelo",
+  "Cor": "Preto",
+  "Ano": 2025,
+  "Placa": "ABC1D23",
+  "Chassi": "9BW00000000000000",
+  "Quilometragem": 0,
+  "Preco": 85000,
+  "status_id": 1,
+  "Imagem_url": "https://exemplo.com/imagens/veiculo.jpg"
+}
+```
+
+Placa e chassi são únicos quando informados. Preço e quilometragem não podem
+ser negativos. A alteração de status exige cargo autorizado e transição
+válida. Veículo indisponível não pode ser vendido. `Imagem_url` é opcional,
+deve aceitar uma URL HTTP/HTTPS e ser devolvido por `GET /veiculos` para
+apresentação da foto na listagem do app.
+
+## 7. Peças e estoque
+
+Tabela: `peca`.
+
+```text
+GET   /pecas
+GET   /pecas/:id
+POST  /pecas
+PATCH /pecas/:id
+POST  /pecas/:id/ajuste-estoque
+```
+
+Filtros de `GET /pecas`: `page`, `per_page`, `busca`, `area_id` e
+`somente_disponiveis`.
+
+Entrada mínima:
+
+```json
+{
+  "PCNome": "Pastilha de freio",
+  "PCvalor": 250.00,
+  "qtd_disp": 20,
+  "area_id": 1
+}
+```
+
+O ajuste de estoque recebe a nova quantidade:
+
+```json
+{
+  "qtd_disp": 25
+}
+```
+
+Preço e estoque não podem ser negativos. Apenas gerente e administrador podem
+ajustar estoque. A atualização deve ser atômica e não haverá endpoint de
+movimentações, pois essa entidade não existe no schema do MVP.
+
+## 8. Vendas
+
+Tabelas: `venda`, `venda_item`, `pagamento` e `pagamento_evento` após a
+migração do fluxo ASAAS.
+
+```text
+GET  /vendas
+GET  /vendas/:id
+POST /vendas
+POST /vendas/:id/link-pagamento
+GET  /vendas/:id/pagamento
+POST /vendas/:id/entregar
+POST /vendas/:id/cancelar
+```
+
+Filtros de `GET /vendas`: `page`, `per_page`, `busca`, `cliente_id`,
+`vendedor_id`, `status_id`, `forma_pagamento_id`, `data_inicio` e
+`data_fim`. Vendedor consulta somente as próprias vendas; gerente e
+administrador podem consultar todas.
+
+O `vendedor_id` é obtido do token, nunca confiado ao frontend.
+
+Entrada de criação:
+
+```json
+{
+  "cliente_id": 1,
+  "forma_pagamento_id": 1,
+  "Desconto": 0,
+  "itens": [
+    {
+      "veiculo_id": 10,
+      "qtd": 1
+    }
+  ]
+}
+```
+
+Cada item deve conter exatamente um `veiculo_id` ou `peca_id`. O preço unitário,
+`Valor_bruto`, `Desconto` e `Valor_final` devem ser calculados ou congelados
+no backend. O backend deve validar disponibilidade, estoque, unicidade do
+item vendido, desconto e status.
+
+O cancelamento recebe:
+
+```json
+{
+  "motivo": "Cancelamento solicitado pelo cliente"
+}
+```
+
+O fluxo normal é `reservado -> paga -> concluida`; após 30 dias sem pagamento,
+a venda passa a `expirada`. Em vendas parceladas, `paga` significa que a
+primeira parcela foi recebida pelo ASAAS, conforme decisão comercial do MVP;
+isso autoriza a entrega, embora as parcelas restantes continuem pendentes.
+`POST /vendas/:id/entregar` exige venda paga e registra a entrega, alterando a
+venda para concluída e o veículo para vendido.
+O estado de pagamento é atualizado por Webhook/conciliação ASAAS, nunca por
+ação manual de “marcar como pago”. Descontos não zero ficam restritos a
+gerente/administrador.
+
+Criação da venda e reserva de estoque devem ser atômicas. Cancelamento de
+cobrança pendente deve ser idempotente e reverter reserva uma única vez.
+Estorno automático de pagamentos recebidos não faz parte do MVP; uma venda
+paga não pode ser cancelada no app sem um fluxo futuro de estorno autorizado.
+
+## 9. Gerenciamento
+
+### `GET /gerenciamento/indicadores`
+
+Calcula os indicadores diretamente das tabelas do MVP.
+
+Filtros: `data_inicio`, `data_fim`, `status_id`, `vendedor_id`,
+`forma_pagamento_id`, `tipo_item` e `status_veiculo_id`.
+
+Resposta mínima:
+
+```json
+{
+  "kpis": {
+    "total_vendas_periodo": 0,
+    "valor_bruto_vendido": 0,
+    "valor_liquido_recebido_periodo": 0,
+    "vendas_pagas": 0,
+    "ticket_medio_vendas_pagas": 0,
+    "descontos": 0,
+    "vendas_canceladas": 0,
+    "percentual_vendas_canceladas": 0,
+    "veiculos_disponiveis": 0,
+    "pecas_qtd_disponivel": 0
+  },
+  "vendas_por_periodo": [],
+  "vendas_por_status_pagamento": [],
+  "vendas_por_forma_pagamento": [],
+  "vendas_por_vendedor": [],
+  "mix_itens": [],
+  "veiculos_por_status": [],
+  "valor_veiculos_disponiveis": 0,
+  "valor_estoque_pecas": 0,
+  "pecas_sem_estoque": 0
+}
+```
+
+Somente cada cobrança/parcela no estado final recebido (`RECEIVED`) entra no
+valor recebido do período; não somar o valor integral da venda quando somente
+uma parcela foi recebida. `vendas_pagas` conta vendas cuja primeira parcela foi
+recebida, e `ticket_medio_vendas_pagas` é a média do `Valor_final` dessas
+vendas. Vendas canceladas, vencidas ou sem parcela recebida não entram nessa
+contagem. Peças sem estoque significa `qtd_disp = 0`; não há limite
+configurável de estoque baixo. Vendedores somente podem consultar seus próprios
+dados. Os filtros de status, vendedor, forma de pagamento, tipo de item e
+status do veículo são opcionais e só são enviados pelo app para gerente ou
+administrador. O escopo do vendedor sempre deve ser derivado pelo Xano a partir
+do token, independentemente dos filtros recebidos.
+
+## 10. Usuários administrativos
+
+Não fazem parte deste contrato:
+
+```text
+POST /usuarios
+PATCH /usuarios/:id
+POST /usuarios/:id/inativar
+POST /auth/signup
+```
+
+Se a tela administrativa for mantida, somente estas consultas poderão ser
+implementadas, protegidas por cargo:
+
+```text
+GET /usuarios
+GET /usuarios/:id
+```
+
+## 11. Prioridade de implementação
+
+### Fase 1 — acesso e referências
+
+1. `POST /auth/login`;
+2. `GET /auth/me`;
+3. `GET /status-veiculos`;
+4. `GET /veiculo-areas`;
+5. `GET /formas-pagamento`;
+6. `GET /status-vendas`.
+
+### Fase 2 — consultas e cadastros operacionais
+
+1. Clientes;
+2. Veículos;
+3. Peças;
+4. Usuários somente para consulta administrativa, se necessário.
+
+### Fase 3 — venda
+
+1. Criação e consulta de vendas;
+2. Criação de link de pagamento hospedado e instruções ASAAS;
+3. Webhook e conciliação de status;
+4. Conclusão;
+5. Cancelamento de cobrança pendente.
+
+### Fase 4 — gerenciamento
+
+1. `GET /gerenciamento/indicadores`;
+2. filtros por perfil;
+3. validação de desempenho com dados reais.
+
+## 12. Critérios de aceite das APIs
+
+- login válido retorna token e cargo sem senha;
+- token inválido retorna `401`;
+- usuário sem cargo autorizado retorna `403`;
+- CPF, e-mail, placa e chassi duplicados retornam `409`;
+- venda sem cliente, pagamento ou item é rejeitada;
+- item com veículo e peça simultaneamente é rejeitado;
+- veículo indisponível e estoque insuficiente são rejeitados;
+- valores financeiros são calculados no Xano;
+- transições inválidas retornam erro sem alterar dados;
+- cancelamento repetido não duplica reversões;
+- vendedor não acessa dados de outros vendedores;
+- nenhum endpoint expõe senha, token ou detalhes internos.
+
+## 13. Grupos de API e pagamento ASAAS
+
+O fluxo detalhado de telas, dados adicionais necessários, segurança de cartão,
+status e referências oficiais está em
+[screen-requirements-and-payment-flow.md.txt](screen-requirements-and-payment-flow.md.txt).
+
+### APIs locais Xano
+
+```text
+Grupo autenticacao:
+POST /auth/login
+GET  /auth/me
+
+Grupo cadastros:
+GET/POST/PATCH /clientes
+GET/POST/PATCH /veiculos
+GET/POST/PATCH /pecas
+GET             /status-veiculos
+GET             /veiculo-areas
+GET             /formas-pagamento
+GET             /status-vendas
+
+Grupo vendas:
+GET  /vendas
+GET  /vendas/:id
+POST /vendas
+POST /vendas/:id/link-pagamento
+GET  /vendas/:id/pagamento
+POST /vendas/:id/pagamento/atualizar
+POST /vendas/:id/pagamento/notificar
+POST /vendas/:id/entregar
+POST /vendas/:id/cancelar
+
+Grupo gerenciamento:
+GET  /gerenciamento/indicadores
+
+Grupo asaas_webhooks (público, autenticado por segredo de Webhook):
+POST /webhooks/asaas/pagamentos
+```
+
+`POST /vendas/:id/link-pagamento` recebe o máximo de parcelas escolhido pelo
+vendedor, cria um link hospedado por venda no ASAAS com `endDate` em 30 dias e
+valor final calculado no Xano. Para cartão parcelado, o pagador pode escolher
+menos parcelas que o máximo. O ASAAS cria o pagador e a cobrança quando o
+cliente preenche o checkout. O Webhook associa a cobrança à venda pelo campo
+`payment.paymentLink`; usar `externalReference` estável da venda como
+referência auxiliar. Credenciais ficam somente no servidor.
+
+`GET /vendas/:id/pagamento` retorna estado local e instruções de pagamento
+permitidas para o método, sem expor dados do cartão.
+
+`POST /vendas/:id/pagamento/atualizar` consulta o status externo em operações
+inconclusivas, com limitação de frequência. Não deve repetir criação/captura
+apenas porque houve timeout.
+
+`POST /vendas/:id/pagamento/notificar` solicita ou reenvia a notificação de
+cobrança/recebimento para o e-mail do cliente, respeitando o status da venda e
+limites de reenvio. O resultado da solicitação deve ficar associado à venda;
+não afirmar entrega confirmada sem confirmação do provedor.
+
+`POST /webhooks/asaas/pagamentos` valida o cabeçalho `asaas-access-token`
+contra o segredo configurado no ASAAS, deduplica e registra o evento antes de
+processar a alteração da venda. Deve responder rapidamente e ser idempotente.
+O estado final de pagamento deve derivar de evento/status autoritativo do
+ASAAS, nunca do redirecionamento do navegador. Registrar uma linha por
+cobrança/parcela; só a primeira cobrança recebida altera a venda para `paga`.
+Eventos de recebimento posteriores atualizam a parcela, não duplicam a venda.
+
+### Operações externas ASAAS necessárias
+
+- `POST /v3/paymentLinks`: criar link por venda com valor fixo, `endDate`,
+  `billingType`, `chargeType=INSTALLMENT` para cartão parcelado,
+  `maxInstallmentCount`, `notificationEnabled` e `externalReference`;
+- `GET /v3/paymentLinks/{id}`: recuperar configuração/estado do link;
+- `PUT /v3/paymentLinks/{id}` com `active=false`: desativar link após pagamento
+  ou cancelamento, validado no Sandbox;
+- `GET /v3/payments/{id}`: reconciliar uma cobrança por ID quando Webhook falhar;
+- `DELETE /v3/payments/{id}`: cancelar cobrança ainda pendente ao expirar/
+  cancelar a reserva, depois de validar comportamento no Sandbox;
+- eventos Webhook de cobrança: relacionar cobranças geradas ao link por
+  `payment.paymentLink` e atualizar o estado local.
+
+Tokenização explícita fica fora do primeiro release, conforme decisão do
+usuário. O checkout do Link de Pagamento é hospedado pelo ASAAS e o app não
+recebe dados de cartão. Débito não deve ser prometido sem validação da conta.
+
+### Persistência necessária
+
+Antes de ativar o fluxo em produção, migrar o schema para relacionar clientes e
+cobranças ASAAS às entidades locais, persistir cada parcela/cobrança na tabela
+`pagamento` e deduplicar Webhooks na tabela `pagamento_evento`. Os campos
+propostos estão descritos no documento de requisitos de telas e pagamento.
+
+Link criado não significa cobrança criada nem pagamento recebido. Pix e boleto
+iniciam aguardando pagamento quando o checkout gera a cobrança. Somente o
+estado `RECEIVED` do ASAAS marca uma parcela como recebida; demais estados,
+incluindo análise, vencimento, recusa, estorno e chargeback, precisam permanecer
+distintos. A expiração do link também deve desativar o link e cancelar
+cobranças pendentes já geradas, para impedir pagamento após a liberação da
+reserva.
+
+### Limite operacional do Xano CLI
+
+O CLI instalado permite sincronizar documentos XanoScript (como tabelas e
+funções reutilizáveis), mas não oferece comandos para criar grupos nem rotas
+de API. Portanto, os grupos e contratos acima estão preparados em
+documentação; os endpoints devem ser criados na interface Xano, ou por outro
+fluxo de gestão de APIs, após aprovar a migração do schema. Não considerar os
+grupos como já configurados no workspace.

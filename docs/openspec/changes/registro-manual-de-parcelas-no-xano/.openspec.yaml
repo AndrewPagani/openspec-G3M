@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-05
+goal: Controlar venda e parcelas internamente no Xano, sem gateway ou
+  processamento externo.

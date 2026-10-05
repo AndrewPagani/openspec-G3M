@@ -1,0 +1,1 @@
+"""AutoGestão: application package."""

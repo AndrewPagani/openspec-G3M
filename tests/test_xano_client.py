@@ -1,0 +1,60 @@
+import os
+import unittest
+from unittest.mock import patch
+
+import httpx
+
+from app.services.xano_client import XanoClient, XanoError
+
+
+class XanoClientTests(unittest.TestCase):
+    def setUp(self) -> None:
+        with patch.dict(os.environ, {"XANO_BASE_URL": "https://example.xano.io"}):
+            self.client = XanoClient()
+
+    def test_routes_use_their_configured_api_group(self) -> None:
+        self.assertEqual(
+            self.client._url("/auth/login"),
+            "https://example.xano.io/api:autenticacao/auth/login",
+        )
+        self.assertEqual(
+            self.client._url("/clientes"),
+            "https://example.xano.io/api:cadastros/clientes",
+        )
+        self.assertEqual(
+            self.client._url("/vendas/12/parcelas/7/receber"),
+            "https://example.xano.io/api:Q9GErvvS/vendas/12/parcelas/7/receber",
+        )
+        self.assertEqual(
+            self.client._url("/gerenciamento/indicadores"),
+            "https://example.xano.io/api:gerenciamento/indicadores",
+        )
+
+    @patch("app.services.xano_client.httpx.request")
+    def test_authenticated_request_sends_bearer_token(self, request) -> None:
+        request.return_value = httpx.Response(200, json={"ok": True})
+
+        result = self.client.request("GET", "/clientes", token="test-token")
+
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(
+            request.call_args.kwargs["headers"]["Authorization"],
+            "Bearer test-token",
+        )
+
+    def test_rejects_webhook_route_from_application_client(self) -> None:
+        with self.assertRaises(XanoError):
+            self.client._url("/webhooks/asaas/pagamentos")
+
+    def test_rejects_legacy_external_payment_routes(self) -> None:
+        for route in (
+            "/vendas/12/link-pagamento",
+            "/vendas/12/pagamento/atualizar",
+            "/vendas/12/pagamento/notificar",
+        ):
+            with self.subTest(route=route), self.assertRaises(XanoError):
+                self.client._url(route)
+
+
+if __name__ == "__main__":
+    unittest.main()

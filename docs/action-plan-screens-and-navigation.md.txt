@@ -1,0 +1,624 @@
+# Plano de ação: telas, navegação e implementação do MVP
+
+## 1. Objetivo
+
+Transformar o protótipo estático do MVP em uma aplicação navegável e
+operacional usando Python + Reflex no frontend e Xano como backend, API,
+autenticação e banco de dados.
+
+O plano cobre:
+
+- telas necessárias;
+- ações disponíveis em cada tela;
+- regras de navegação;
+- componentes reutilizáveis;
+- contratos esperados com o Xano;
+- ordem de implementação;
+- testes e critérios de aceite.
+
+O MVP continua limitado a uma única unidade e não inclui leads, test-drives,
+oficina, pós-venda, emissão fiscal, financeiro avançado ou multiunidade.
+
+O banco contém as 11 tabelas operacionais base: `perfil`,
+`user`, `cliente`, `status_veiculo`, `veiculo`, `veiculo_area`, `peca`,
+`forma_pagamento`, `status_venda`, `venda` e `venda_item`, além de
+`pagamento` e `pagamento_evento` para o fluxo ASAAS. A migração já foi
+publicada no Xano e está descrita em
+[screen-requirements-and-payment-flow.md.txt](screen-requirements-and-payment-flow.md.txt).
+Auditoria genérica, histórico de estoque e configurações seguem fora do escopo.
+
+## 2. Perfis e navegação autorizada
+
+As permissões serão fixas no backend, associadas ao perfil do usuário. Não
+haverá tela para editar permissões no MVP.
+
+### Vendedor
+
+- acessar o dashboard operacional limitado às próprias vendas;
+- consultar e cadastrar clientes;
+- consultar veículos e peças;
+- criar vendas;
+- consultar o andamento das próprias vendas;
+- não aplicar descontos, cancelar cobranças pendentes ou ajustar estoque.
+
+### Gerente
+
+- acessar todos os indicadores gerenciais;
+- consultar, cadastrar e alterar clientes;
+- consultar e gerenciar veículos;
+- consultar e gerenciar peças e estoque;
+- criar vendas e cobranças;
+- concluir vendas após confirmação do ASAAS;
+- cancelar cobranças pendentes;
+- aplicar descontos conforme cargo;
+- alterar status de veículos;
+- ajustar estoque;
+- consultar dados agregados do gerenciamento.
+
+### Administrador
+
+- todas as ações do gerente;
+- consultar usuários e perfis, quando necessário para filtros administrativos;
+- não editar a matriz de permissões por tela.
+
+O frontend deve ocultar ações sem autorização, mas o Xano deve validar
+novamente cada ação.
+
+## 3. Mapa de rotas
+
+| Rota | Tela | Acesso |
+|---|---|---|
+| `/login` | Login | Público |
+| `/` | Redirecionamento para dashboard | Autenticado |
+| `/gerenciamento` | Dashboard gerencial | Gerente e administrador; vendedor limitado |
+| `/clientes` | Lista de clientes | Autenticado |
+| `/clientes/novo` | Cadastro de cliente | Autenticado |
+| `/clientes/:id` | Detalhes e edição de cliente | Conforme perfil |
+| `/veiculos` | Lista de veículos | Autenticado |
+| `/veiculos/novo` | Cadastro de veículo | Gerente e administrador |
+| `/veiculos/:id` | Detalhes e alteração de status | Gerente e administrador |
+| `/pecas` | Lista de peças e estoque | Autenticado |
+| `/pecas/novo` | Cadastro de peça | Gerente e administrador |
+| `/pecas/:id` | Detalhes e ajuste de estoque | Gerente e administrador |
+| `/vendas` | Lista de vendas | Autenticado |
+| `/vendas/nova` | Criação de venda | Autenticado |
+| `/vendas/:id` | Detalhes e fluxo da venda | Conforme status e perfil |
+| `/usuarios` | Lista de usuários | Administrador |
+| `/usuarios/:id` | Consulta de usuário | Administrador |
+
+## 4. Telas e ações
+
+### 4.1 Login — `/login`
+
+#### Elementos
+
+- campo de e-mail;
+- campo de senha;
+- botão Entrar;
+- mensagem de erro;
+- indicador de carregamento.
+
+#### Ações
+
+- autenticar no Xano;
+- armazenar sessão de forma segura;
+- redirecionar para `/gerenciamento`;
+- encerrar sessão expirada e retornar para `/login`.
+
+#### Regras
+
+- não exibir se o e-mail existe;
+- não registrar senha em logs;
+- impedir acesso às rotas privadas sem sessão válida.
+
+### 4.2 Layout autenticado
+
+O layout deve ser compartilhado por todas as telas privadas.
+
+#### Elementos
+
+- menu lateral;
+- identificação do usuário e perfil;
+- indicador da unidade única;
+- botão sair;
+- breadcrumbs;
+- área de conteúdo;
+- notificações de sucesso e erro.
+
+#### Navegação
+
+- mostrar somente menus compatíveis com o perfil;
+- preservar filtros ao voltar para uma lista;
+- permitir voltar da tela de detalhe para a lista;
+- bloquear navegação para rota não autorizada com página 403;
+- redirecionar rota inexistente para `/gerenciamento`.
+
+### 4.3 Gerenciamento — `/gerenciamento`
+
+O dashboard terá exatamente quatro seções:
+
+1. **Visão geral:** valor líquido efetivamente recebido pelas parcelas no
+   período,
+   vendas pagas, ticket médio das vendas pagas, descontos, veículos disponíveis
+   e quantidade de peças disponíveis.
+2. **Vendas:** vendas por período, status de pagamento, forma de pagamento,
+   vendedor (gerente/administrador) e mix de veículos e peças.
+3. **Veículos:** quantidade por status, disponíveis versus vendidos e valor
+   anunciado do estoque disponível.
+4. **Peças:** quantidade total disponível, valor estimado do estoque e peças
+   sem estoque.
+
+Não exibir estoque baixo, porque não existe limite mínimo no schema. Não
+exibir tabelas, taxa de conversão, leads ou test-drives.
+
+Filtros comuns: período, status, método de pagamento e vendedor, conforme o
+cargo. Incluir carregamento, vazio, erro e horário da última atualização.
+
+#### Ações
+
+- aplicar filtros;
+- limpar filtros;
+- atualizar indicadores;
+- vendedor visualizar somente seus próprios dados.
+
+#### Não incluir
+
+- tabelas de acompanhamento;
+- taxa de conversão;
+- leads;
+- test-drives;
+- oficina ou pós-venda.
+
+### 4.4 Clientes — `/clientes`
+
+#### Lista
+
+- busca por nome, CPF, telefone ou e-mail;
+- paginação;
+- botão Novo cliente;
+- abertura de detalhes.
+
+#### Cadastro/edição
+
+- nome;
+- CPF;
+- telefone;
+- e-mail;
+- botões Salvar e Cancelar.
+
+#### Ações
+
+- criar cliente;
+- editar cliente;
+- abrir venda pré-preenchida a partir do cliente;
+- validar CPF único no backend.
+
+### 4.5 Veículos — `/veiculos`
+
+#### Lista
+
+- busca por chassi, placa, marca ou modelo;
+- cartões com imagem (quando disponível), marca/modelo, ano e preço;
+- filtros por status e disponibilidade;
+- paginação;
+- botão Novo veículo;
+- abertura de detalhes.
+
+#### Cadastro/edição
+
+- chassi;
+- placa, quando aplicável;
+- marca;
+- modelo;
+- cor;
+- ano de fabricação;
+- quilometragem;
+- preço;
+- URL da imagem do veículo, opcional;
+- status inicial;
+
+#### Detalhes
+
+- dados cadastrais;
+- status atual;
+- ações permitidas pelo perfil.
+
+#### Ações
+
+- cadastrar;
+- editar dados;
+- alterar status com transição validada;
+- reservar para venda;
+- iniciar venda com veículo selecionado.
+
+### 4.6 Peças e estoque — `/pecas`
+
+#### Lista
+
+- busca por nome;
+- filtro por área;
+- filtro por peças sem estoque;
+- paginação;
+- botão Nova peça.
+
+#### Cadastro/edição
+
+- código/SKU;
+- nome;
+- descrição;
+- área do veículo;
+- preço;
+- quantidade disponível;
+
+#### Detalhes
+
+- ações de ajuste conforme perfil.
+
+#### Ações
+
+- cadastrar peça;
+- editar dados e preço;
+- ajustar estoque;
+- iniciar venda com peça selecionada.
+
+O ajuste deve exigir quantidade e confirmação. O backend deve impedir saldo
+negativo e atualizar `qtd_disp` de forma atômica.
+
+### 4.7 Vendas — `/vendas`
+
+#### Lista
+
+- busca por identificador, cliente ou vendedor;
+- filtro por status;
+- filtro por período;
+- filtro por forma de pagamento;
+- paginação;
+- botão Nova venda.
+
+#### Nova venda — `/vendas/nova`
+
+Fluxo em etapas:
+
+1. selecionar um ou mais veículos disponíveis e/ou peças em estoque;
+2. informar quantidades e conferir preços unitários;
+3. localizar ou cadastrar o cliente com nome, CPF, e-mail e telefone;
+4. revisar itens e subtotal calculado pelo Xano;
+5. aplicar desconto monetário permitido pelo perfil e conferir o valor final;
+6. selecionar Pix, boleto ou cartão de crédito e, para cartão, informar o
+   máximo de parcelas permitido;
+7. criar o link de pagamento hospedado no ASAAS, válido por 30 dias;
+8. exibir instruções do método e acompanhar o estado até confirmação.
+
+O formulário não deve confiar nos valores calculados no navegador. O Xano
+recalcula subtotal, desconto e total e valida disponibilidade na criação.
+Débito não será uma opção direta da API de cartão; só pode ser oferecido pelo
+checkout hospedado ASAAS se habilitado e validado para a conta.
+
+Para cartão, usar inicialmente o checkout hospedado do ASAAS. Formulário
+próprio tokenizado requer aprovação PCI DSS e segue as restrições descritas em
+[screen-requirements-and-payment-flow.md.txt](screen-requirements-and-payment-flow.md.txt).
+
+O link hospedado pelo ASAAS apresenta o checkout e as instruções do método
+escolhido pelo cliente. O limite de parcelas definido pelo vendedor é máximo:
+o cliente pode selecionar uma quantidade menor. A venda fica reservada até
+receber a primeira parcela ou expirar o link após 30 dias.
+
+#### Detalhes — `/vendas/:id`
+
+- resumo do cliente;
+- vendedor;
+- itens;
+- subtotal;
+- desconto;
+- valor final;
+- forma de pagamento;
+- status atual;
+- status externo ASAAS;
+- ID/URL do link, data de expiração e máximo de parcelas;
+- parcelas individuais, seus estados, valores e vencimentos;
+- confirmação do e-mail destinatário.
+
+#### Ações por status
+
+| Status | Ações possíveis |
+|---|---|
+| Reservado | consultar link, cancelar/liberar reserva conforme permissão |
+| Paga | concluir/registrar entrega; acompanhar parcelas ainda pendentes |
+| Concluída | consultar; não editar |
+| Cancelada ou expirada | consultar; não reabrir |
+
+Todas as mudanças de status devem ser operações de backend, com reversão de
+estoque/veículo quando aplicável. O pagamento é atualizado por Webhook ou
+conciliação ASAAS. Estorno/cancelamento de venda já paga não faz parte do primeiro release.
+Em vendas parceladas, `paga` após o primeiro recebimento autoriza a entrega,
+mas não representa recebimento integral; exibir saldo/parcelas pendentes
+separadamente.
+
+### 4.8 Usuários — `/usuarios`
+
+Disponível somente para administrador e somente para consulta no MVP. Não
+haverá cadastro, edição, ativação, inativação ou redefinição de senha pela
+aplicação.
+
+#### Ações
+
+- consultar usuários;
+- consultar o perfil fixo associado;
+- selecionar vendedor em filtros administrativos, quando autorizado.
+
+Auditoria, configurações persistidas e histórico separado estão fora do
+schema atual e não possuem telas ou endpoints neste MVP.
+
+## 5. Componentes de frontend
+
+Estrutura sugerida:
+
+```text
+app/
+  layout.py
+  routes.py
+  state/
+    auth_state.py
+    dashboard_state.py
+    clientes_state.py
+    veiculos_state.py
+    pecas_state.py
+    vendas_state.py
+    usuarios_state.py
+  components/
+    app_shell.py
+    sidebar.py
+    header.py
+    protected_route.py
+    permission_guard.py
+    data_table.py
+    pagination.py
+    search_filters.py
+    form_field.py
+    confirm_dialog.py
+    status_badge.py
+    empty_state.py
+    error_state.py
+    loading_state.py
+    kpi_card.py
+    chart_card.py
+  pages/
+    login.py
+    gerenciamento.py
+    clientes.py
+    cliente_form.py
+    cliente_detalhe.py
+    veiculos.py
+    veiculo_form.py
+    veiculo_detalhe.py
+    pecas.py
+    peca_form.py
+    peca_detalhe.py
+    vendas.py
+    venda_form.py
+    venda_detalhe.py
+    usuarios.py
+    usuario_detalhe.py
+  services/
+    xano_client.py
+    auth_service.py
+    dashboard_service.py
+    clientes_service.py
+    veiculos_service.py
+    pecas_service.py
+    vendas_service.py
+    usuarios_service.py
+```
+
+Os estados Reflex devem controlar somente estado de interface, filtros,
+carregamento, erros e dados recebidos. Regras de negócio não devem ser
+duplicadas no frontend.
+
+## 6. Contratos mínimos do Xano
+
+Os nomes finais dos campos devem ser padronizados antes da implementação das
+APIs. A aplicação deve usar os nomes publicados no schema vigente, evitando
+misturar nomes antigos e novos.
+
+### Autenticação
+
+- `POST /auth/login`
+- `GET /auth/me`
+- logout local no frontend; endpoint de logout somente se a estratégia de
+  token exigir invalidação no servidor.
+
+### Clientes
+
+- `GET /clientes`
+- `GET /clientes/:id`
+- `POST /clientes`
+- `PATCH /clientes/:id`
+
+### Veículos
+
+- `GET /veiculos`
+- `GET /veiculos/:id`
+- `POST /veiculos`
+- `PATCH /veiculos/:id`
+- `POST /veiculos/:id/status`
+
+### Peças
+
+- `GET /pecas`
+- `GET /pecas/:id`
+- `POST /pecas`
+- `PATCH /pecas/:id`
+- `POST /pecas/:id/ajuste-estoque`
+
+### Vendas
+
+- `GET /vendas`
+- `GET /vendas/:id`
+- `POST /vendas`
+- `POST /vendas/:id/concluir`
+- `POST /vendas/:id/cancelar`
+- `POST /vendas/:id/cobranca`
+- `GET /vendas/:id/pagamento`
+- `POST /vendas/:id/pagamento/atualizar`
+- `POST /vendas/:id/pagamento/notificar`
+- `POST /webhooks/asaas/pagamentos`
+
+### Dashboard e administração
+
+- `GET /gerenciamento/indicadores`
+- `GET /usuarios`
+
+O contrato detalhado, incluindo payloads, erros, autorização e critérios de
+aceite, está em [api-plan-mvp.md.txt](api-plan-mvp.md.txt). Os requisitos
+detalhados de telas, checkout e operação ASAAS estão em
+[screen-requirements-and-payment-flow.md.txt](screen-requirements-and-payment-flow.md.txt).
+As operações de venda, reserva, estoque, pagamento e cancelamento devem ser
+atômicas ou idempotentes conforme aplicável.
+
+## 7. Plano de implementação por fases
+
+### Fase 0 — decisões e contrato
+
+- confirmar nomenclatura final das tabelas e campos;
+- confirmar regra de desconto;
+- confirmar formas de pagamento iniciais;
+- confirmar dados iniciais de status e áreas;
+- documentar respostas e erros das APIs;
+- criar ambiente local e variáveis de ambiente.
+
+**Saída:** contrato de API aprovado em [api-plan-mvp.md.txt](api-plan-mvp.md.txt)
+e sem ambiguidade de nomes.
+
+### Fase 1 — fundação da aplicação
+
+- criar projeto Python + Reflex;
+- configurar cliente HTTP do Xano;
+- criar configuração por ambiente;
+- criar layout autenticado;
+- implementar login, logout e sessão;
+- implementar guards de rota e perfil;
+- criar estados de carregamento, erro e sessão expirada.
+
+**Saída:** usuário autenticado navega pelo shell da aplicação.
+
+### Fase 2 — dados de apoio e cadastros
+
+- implementar áreas, status e formas de pagamento como dados de referência;
+- implementar clientes;
+- implementar veículos;
+- implementar peças;
+- implementar paginação, busca e filtros;
+- implementar formulários e validação de campos.
+
+**Saída:** cadastros consultáveis e persistidos no Xano.
+
+### Fase 3 — vendas, estoque e pagamentos ASAAS
+
+- implementar criação de venda;
+- implementar seleção de itens;
+- congelar preço no item;
+- implementar cálculo retornado pelo backend;
+- implementar reserva de veículo e peças;
+- implementar Webhook, conciliação de pagamento e conclusão;
+- implementar cancelamento idempotente;
+- implementar criação de cobrança ASAAS;
+- implementar expiração de cobranças e liberação idempotente das reservas;
+- exibir status de pagamento, erros e instruções de cobrança.
+
+**Saída:** fluxo comercial completo do MVP.
+
+### Fase 4 — dashboard
+
+- implementar endpoint agregado de indicadores;
+- implementar filtros do dashboard;
+- conectar KPIs e gráficos a dados reais;
+- validar filtros por cargo;
+
+**Saída:** gerenciamento operacional funcional, sem dados estáticos.
+
+### Fase 5 — qualidade e entrega
+
+- testes unitários de validações de estado;
+- testes de integração com Xano;
+- testes de navegação por perfil;
+- testes de concorrência de estoque;
+- testes de cancelamento repetido;
+- testes de sessão expirada;
+- revisão de acessibilidade e responsividade;
+- configuração de produção.
+
+**Saída:** MVP validado para uso controlado.
+
+## 8. Estratégia de estado e navegação
+
+- cada tela terá um estado Reflex próprio;
+- filtros e paginação serão mantidos na URL ou no estado da tela;
+- ações mutáveis invalidarão o cache/lista relacionado;
+- após salvar, a tela redirecionará para o detalhe ou lista conforme o fluxo;
+- erros do Xano serão convertidos em mensagens amigáveis;
+- respostas 401 encerram a sessão;
+- respostas 403 exibem acesso negado;
+- respostas 409 exibem conflito de estoque/status;
+- respostas 422 exibem erros de validação de campos.
+
+## 9. Testes de aceite por fluxo
+
+### Autenticação
+
+- usuário válido entra;
+- senha inválida não revela informação sensível;
+- logout invalida a navegação privada.
+
+### Navegação
+
+- vendedor não acessa consultas administrativas nem ajustes protegidos;
+- gerente acessa operação e indicadores;
+- administrador acessa administração;
+- rota não autorizada não revela dados.
+
+### Venda
+
+- venda sem cliente ou item é rejeitada;
+- veículo reservado não aparece como vendável;
+- estoque insuficiente bloqueia venda;
+- desconto inválido é rejeitado;
+- pagamento só é confirmado após evento/status autoritativo do ASAAS;
+- cobrança pendente vencida libera reserva e estoque uma única vez;
+- cancelamento repetido não duplica a reversão;
+- venda concluída não pode ser editada.
+
+### Dashboard
+
+- filtros alteram todos os KPIs e gráficos de forma consistente;
+- venda cancelada não entra no valor líquido;
+- vendedor vê somente o escopo permitido;
+- ausência de dados exibe estado vazio;
+- nenhum valor do protótipo permanece hardcoded.
+
+## 10. Definition of Done
+
+Uma tela será considerada pronta quando:
+
+- possuir rota navegável;
+- possuir estado de carregamento, vazio e erro;
+- validar acesso no frontend e backend;
+- usar API real do Xano;
+- possuir ações de salvar, cancelar e voltar quando aplicável;
+- apresentar mensagens de sucesso e erro;
+- possuir paginação ou filtro quando for uma listagem;
+- possuir testes do fluxo principal;
+- não expor dados sensíveis;
+- funcionar em desktop e resolução móvel básica.
+
+## 11. Decisões que devem ser fechadas antes do código
+
+1. Os nomes de campos publicados no Xano serão definitivamente os nomes em
+   português, sem manter duplicidade dos nomes antigos?
+2. Qual vencimento e janela de reserva serão usados para Pix e boleto?
+3. A conta ASAAS está habilitada para notificações de cobrança por e-mail e
+   Pix?
+4. Qual serviço de e-mail será usado se o ASAAS não enviar recibo após
+   pagamento?
+5. Quais serão os registros iniciais dos status de venda e veículo?
+6. O vendedor poderá editar somente clientes criados por ele ou qualquer
+   cliente ativo?

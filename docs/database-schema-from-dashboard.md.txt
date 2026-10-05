@@ -1,0 +1,262 @@
+ Modelo de dados derivado do dashboard
+
+Este documento usa o script de referência do dashboard para complementar o modelo de dados do MVP. A interface contém elementos que não estavam formalizados no domínio original; por isso, cada item foi classificado como obrigatório no MVP, derivado de domínio ou posterior.
+
+## 1. Decisões de escopo
+
+O MVP continua limitado a uma única unidade. O texto "Unidade São Paulo" exibido no script é apenas informação de contexto visual; não cria uma tabela `units` ou `branches` neste momento.
+
+O script apresenta test-drives, leads e oficina/pós-venda. Esses módulos não fazem parte do MVP atual. Portanto:
+
+- não serão criadas tabelas de test-drive, lead ou oficina no núcleo do MVP;
+- a taxa de conversão não será um indicador oficial até que leads e oportunidades sejam especificados;
+- o dashboard do MVP exibirá somente indicadores baseados em clientes, veículos, peças, estoque e vendas;
+- as tabelas HTML de listagem não representam tabelas adicionais do dashboard, pois foram explicitamente excluídas do MVP.
+
+## 2. Alterações necessárias nas tabelas existentes
+
+### 2.1 `veiculos`
+
+O script exibe informações de chassi, modelo, ano/modelo, preço e status. A tabela deve conter:
+
+| Coluna | Tipo | Regra |
+|---|---|---|
+| `id` | UUID ou BIGINT | PK |
+| `chassis_number` | VARCHAR(50) | Obrigatório e único |
+| `plate` | VARCHAR(20) | Opcional e única quando preenchida |
+| `brand` | VARCHAR(100) | Obrigatório |
+| `model` | VARCHAR(100) | Obrigatório |
+| `color` | VARCHAR(50) | Obrigatório |
+| `manufacture_year` | SMALLINT | Obrigatório |
+| `model_year` | SMALLINT | Obrigatório ou opcional conforme cadastro |
+| `mileage` | INTEGER | Obrigatório, maior ou igual a zero |
+| `sale_price` | DECIMAL(15,2) | Obrigatório, maior ou igual a zero |
+| `vehicle_status_id` | UUID ou BIGINT | FK para `status_veiculo` |
+| `available_at` | TIMESTAMP WITH TIME ZONE | Opcional |
+| `sold_at` | TIMESTAMP WITH TIME ZONE | Opcional |
+| `is_active` | BOOLEAN | Padrão `true` |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Obrigatório |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Obrigatório |
+| `created_by` | UUID ou BIGINT | FK para `usuarios` |
+| `updated_by` | UUID ou BIGINT | FK para `usuarios` |
+
+O script permite busca por chassi e modelo. Esses campos devem possuir índices no backend.
+
+### 2.2 `clientes`
+
+O script indica busca por cliente. A tabela deve preservar:
+
+| Coluna | Tipo | Regra |
+|---|---|---|
+| `id` | UUID ou BIGINT | PK |
+| `name` | VARCHAR(150) | Obrigatório |
+| `cpf` | VARCHAR(14) | Obrigatório e único |
+| `phone` | VARCHAR(30) | Obrigatório |
+| `email` | VARCHAR(255) | Opcional |
+| `is_active` | BOOLEAN | Padrão `true` |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Obrigatório |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Obrigatório |
+| `created_by` | UUID ou BIGINT | FK para `usuarios` |
+| `updated_by` | UUID ou BIGINT | FK para `usuarios` |
+
+Nome, CPF, telefone e e-mail devem ser normalizados para busca sem alterar o valor exibido.
+
+### 2.3 `usuarios`
+
+O script exibe nome, papel e contexto da unidade. Como o MVP possui uma única unidade, não deve ser adicionada uma FK de unidade agora.
+
+| Coluna | Tipo | Regra |
+|---|---|---|
+| `id` | UUID ou BIGINT | PK |
+| `name` | VARCHAR(150) | Obrigatório |
+| `email` | VARCHAR(255) | Obrigatório e único |
+| `password_hash` | VARCHAR(255) | Obrigatório |
+| `role_id` | UUID ou BIGINT | FK para `perfis` |
+| `is_active` | BOOLEAN | Padrão `true` |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Obrigatório |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | Obrigatório |
+| `last_login_at` | TIMESTAMP WITH TIME ZONE | Opcional |
+
+O backend pode retornar o nome do perfil e o texto fixo da unidade para composição do cabeçalho, sem persistir uma unidade inexistente.
+
+## 3. Tabelas oficiais necessárias para o MVP
+
+O modelo operacional base do MVP é composto pelas 11 tabelas abaixo:
+
+1. `perfil`
+2. `user`
+3. `cliente`
+4. `status_veiculo`
+5. `veiculo`
+6. `veiculo_area`
+7. `peca`
+8. `forma_pagamento`
+9. `status_venda`
+10. `venda`
+11. `venda_item`
+
+Essas tabelas base foram publicadas no workspace Xano `147643`. A migração
+ASAAS também está publicada e acrescenta `pagamento`, `pagamento_evento` e
+campos de integração em `cliente` e `venda`. O campo `cliente.Email` é
+anulável para preservar registros existentes, mas obrigatório nas APIs para
+novos cadastros. A definição está em
+[asaas-payment-migration.xs](../xanoscript/asaas-payment-migration.xs).
+
+Essa migração é específica ao fluxo de pagamento; não implica tabelas de
+permissões editáveis, auditoria genérica, histórico de estoque ou configurações
+do dashboard.
+
+O controle de acesso utiliza cargos fixos na tabela `perfil` e validações
+definidas nas APIs do Xano. O estoque do MVP é representado por `peca.qtd_disp`
+e o preço histórico da venda é representado por `venda_item.preco_unit`.
+
+A definição executável está em
+[`xanoscript/mvp-schema.xs`](../xanoscript/mvp-schema.xs). As tabelas usam
+chaves primárias inteiras autoincrementais e relacionamentos `table`. A
+validação de que um item possui exatamente um `veiculo_id` ou `peca_id`, assim
+como o cálculo de valores, autorização e consistência de estoque, deve ser
+implementada nas APIs/functions do Xano.
+
+## 4. Indicadores que o script sugere e como tratá-los
+
+### 4.1 Vendas no período
+
+Fonte:
+
+- `vendas`;
+- `itens_venda`.
+
+Regra:
+
+- considerar quantidade e valor das vendas conforme filtros;
+- vendas canceladas não entram em valor líquido ou ticket médio.
+
+### 4.2 Faturamento
+
+No MVP, o nome recomendado é **valor líquido vendido**, não faturamento contábil.
+
+Fonte:
+
+- `vendas.final_amount`;
+- status da venda.
+
+O sistema não deve chamar esse indicador de lucro, margem ou faturamento contábil.
+
+### 4.3 Estoque de veículos
+
+Fonte:
+
+- `veiculos`;
+- `status_veiculo`.
+
+Pode alimentar:
+
+- veículos disponíveis;
+- reservados;
+- vendidos;
+- em manutenção;
+- em revisão;
+- em transporte.
+
+### 4.4 Taxa de conversão
+
+O script exibe "Taxa de Conversão", mas o modelo atual não possui leads, oportunidades ou visitas. Logo, o indicador não pode ser calculado corretamente no MVP.
+
+Decisão:
+
+- retirar a taxa de conversão dos KPIs oficiais do MVP;
+- considerar o indicador somente após especificar a origem da oportunidade, período de conversão e definição de conversão;
+- não calcular a taxa usando apenas clientes cadastrados, pois isso produziria uma métrica enganosa.
+
+### 4.5 Test-drives hoje
+
+O script exibe test-drives, porém o módulo de test-drive não está no escopo atual.
+
+Decisão:
+
+- não incluir `test_drives` no MVP;
+- remover o KPI e a área de test-drives da primeira versão funcional;
+- criar especificação própria em fase posterior, caso a concessionária necessite desse fluxo.
+
+### 4.6 Últimos veículos cadastrados
+
+O script apresenta uma tabela de veículos recentes. Como tabelas foram excluídas do dashboard do MVP:
+
+- manter apenas o indicador agregado de veículos disponíveis e por status;
+- não implementar essa tabela na aba de gerenciamento;
+- permitir que uma futura tela de estoque consulte `veiculos` diretamente.
+
+## 5. Entidades identificadas no script, mas fora do MVP
+
+### `leads`
+
+Necessária para conversão, mas ainda não especificada. Possíveis campos futuros:
+
+- `id`;
+- `customer_id`;
+- `source`;
+- `status`;
+- `assigned_seller_id`;
+- `created_at`;
+- `converted_at`;
+- `converted_sale_id`.
+
+### `test_drives`
+
+Necessária para agenda de test-drives, mas fora do escopo. Possíveis campos futuros:
+
+- `id`;
+- `customer_id`;
+- `vehicle_id`;
+- `seller_id`;
+- `scheduled_at`;
+- `status`;
+- `notes`;
+- `created_at`.
+
+### `service_orders`
+
+Necessária para oficina/pós-venda, mas fora do escopo. Não deve ser criada no MVP.
+
+## 6. Campos que não devem ser copiados do script como dados de negócio
+
+Os seguintes valores são dados estáticos de demonstração e não devem ser persistidos:
+
+- "Gerente de Vendas";
+- "Unidade São Paulo";
+- nomes de clientes exibidos no exemplo;
+- modelos e preços usados no HTML;
+- quantidade de vendas do mês;
+- valor de R$ 4.850.000;
+- quantidade de test-drives;
+- taxa de conversão de 18,4%.
+
+Esses valores devem ser substituídos por dados reais vindos da API Xano quando as entidades correspondentes existirem.
+
+## 7. Índices recomendados
+
+Para suportar a busca e os indicadores:
+
+- `usuarios.email`;
+- `clientes.cpf`;
+- `clientes.name`;
+- `veiculos.chassis_number`;
+- `veiculos.plate`;
+- `veiculos.brand`;
+- `veiculos.model`;
+- `veiculos.vehicle_status_id`;
+- `pecas.sku`;
+- `pecas.name`;
+- `pecas.vehicle_area_id`;
+- `vendas.created_at`;
+- `vendas.sale_status_id`;
+- `vendas.seller_id`;
+- `itens_venda.sale_id`;
+- `itens_venda.item_type`;
+- `logs_auditoria.entity_type` e `logs_auditoria.entity_id`.
+
+## 8. Decisão final do esquema baseado no script
+
+O script confirma a necessidade de enriquecer as tabelas de usuários, clientes e veículos e confirma os indicadores de vendas e estoque.
+
+Ele também apresenta três módulos novos — leads, test-drives e oficina — que não devem ser incluídos no MVP sem uma nova aprovação de escopo.

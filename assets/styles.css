@@ -1,0 +1,17 @@
+:root { --bg: #f5f7fb; --navy: #182438; --blue: #2563eb; --muted: #667085; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: #172235; }
+.app-shell { min-height: 100vh; align-items: stretch; gap: 0; }
+.sidebar { background: var(--navy); color: white; width: 245px; min-height: 100vh; padding: 28px 18px; align-items: stretch; }
+.nav-item { color: #c5cede; padding: 10px 12px; border-radius: 8px; text-decoration: none; }
+.nav-item:hover { background: #263852; color: white; }
+.main { flex: 1; padding: 28px 36px; align-items: stretch; }
+.topbar { width: 100%; border-bottom: 1px solid #e3e8f0; padding-bottom: 20px; }
+.content { width: 100%; padding-top: 26px; }
+.page-stack, .form-card { width: 100%; align-items: stretch; }
+.toolbar { width: 100%; align-items: center; }
+.login-page { min-height: 100vh; background: var(--bg); }
+.login-card { width: 390px; padding: 32px; gap: 16px; }
+.muted, .hint { color: var(--muted); }
+.user-label { font-weight: 600; }
+@media (max-width: 760px) { .sidebar { width: 190px; padding: 18px 10px; } .main { padding: 18px; } .login-card { width: 92vw; } }
