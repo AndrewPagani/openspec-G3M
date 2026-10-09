@@ -18,7 +18,7 @@ reflex run
 Para conectar ao backend, configure antes de executar:
 
 ```powershell
-$env:XANO_BASE_URL = "https://x8ki-letl-twmt.n7.xano.io"
+$env:XANO_BASE_URL = "https://XXXX-XXXX-XXXX.XX.xano.io"
 # Os grupos publicados são resolvidos pelo cliente HTTP do app. Só defina
 # overrides se os IDs/canônicos dos grupos forem alterados no Xano:
 # $env:XANO_API_GROUP_AUTH = "autenticacao"
