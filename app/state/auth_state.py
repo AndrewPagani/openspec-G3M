@@ -13,6 +13,7 @@ class AuthState(rx.State):
     password: str = ""
     busy: bool = False
     error: str = ""
+    notice: str = ""
 
     @rx.var
     def authenticated(self) -> bool:
@@ -28,13 +29,22 @@ class AuthState(rx.State):
 
     def set_email(self, value: str) -> None:
         self.email = value
+        self.error = ""
+        self.notice = ""
 
     def set_password(self, value: str) -> None:
         self.password = value
+        self.error = ""
+        self.notice = ""
+
+    def show_password_help(self) -> None:
+        self.error = ""
+        self.notice = "Solicite a redefinição de senha ao administrador da concessionária."
 
     def login(self) -> rx.event.EventSpec:
         self.busy = True
         self.error = ""
+        self.notice = ""
         try:
             if not self.email or not self.password:
                 raise XanoError("Informe e-mail e senha.")
@@ -61,3 +71,4 @@ class AuthState(rx.State):
         self.email = ""
         self.password = ""
         self.error = ""
+        self.notice = ""

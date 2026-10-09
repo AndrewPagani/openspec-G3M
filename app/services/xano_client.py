@@ -86,6 +86,8 @@ class XanoClient:
                 method, self._url(path), headers=headers, json=json, params=params, timeout=self.timeout
             )
             if response.status_code == 401:
+                if path.strip("/").lower() == "auth/login":
+                    raise XanoError("E-mail ou senha inválidos.")
                 raise XanoError("Sua sessão expirou. Entre novamente.")
             if response.status_code == 403:
                 raise XanoError("Você não tem permissão para esta operação.")

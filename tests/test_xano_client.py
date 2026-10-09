@@ -42,6 +42,20 @@ class XanoClientTests(unittest.TestCase):
             "Bearer test-token",
         )
 
+    @patch("app.services.xano_client.httpx.request")
+    def test_login_unauthorized_reports_invalid_credentials(self, request) -> None:
+        request.return_value = httpx.Response(401, json={"message": "unauthorized"})
+
+        with self.assertRaisesRegex(XanoError, "E-mail ou senha inválidos"):
+            self.client.login("user@example.com", "wrong-password")
+
+    @patch("app.services.xano_client.httpx.request")
+    def test_authenticated_unauthorized_request_reports_expired_session(self, request) -> None:
+        request.return_value = httpx.Response(401, json={"message": "unauthorized"})
+
+        with self.assertRaisesRegex(XanoError, "Sua sessão expirou"):
+            self.client.request("GET", "/clientes", token="test-token")
+
     def test_rejects_webhook_route_from_application_client(self) -> None:
         with self.assertRaises(XanoError):
             self.client._url("/webhooks/asaas/pagamentos")
