@@ -98,6 +98,33 @@ class XanoClient:
         except httpx.HTTPError as exc:
             raise XanoError("Não foi possível conectar ao Xano. Verifique a URL e a rede.") from exc
 
+    async def async_request(
+        self, method: str, path: str, *, token: str = "", json: Any = None, params: Any = None
+    ) -> Any:
+        headers = {"Accept": "application/json"}
+        if token:
+            normalized = token.strip()
+            if normalized.lower().startswith("bearer "):
+                normalized = normalized[7:].strip()
+            headers["Authorization"] = "Bearer " + normalized
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as session:
+                response = await session.request(
+                    method, self._url(path), headers=headers, json=json, params=params
+                )
+            if response.status_code == 401:
+                if path.strip("/").lower() == "auth/login":
+                    raise XanoError("E-mail ou senha inválidos.")
+                raise XanoError("Sua sessão expirou. Entre novamente.")
+            if response.status_code == 403:
+                raise XanoError("Você não tem permissão para esta operação.")
+            if response.status_code >= 400:
+                detail = response.text[:240] or "erro sem detalhes"
+                raise XanoError(f"Xano recusou a operação ({response.status_code}): {detail}")
+            return response.json() if response.content else {}
+        except httpx.HTTPError as exc:
+            raise XanoError("Não foi possível conectar ao Xano. Verifique a URL e a rede.") from exc
+
     def login(self, email: str, password: str) -> Any:
         return self.request("POST", "/auth/login", json={"email": email, "senha": password})
 

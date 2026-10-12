@@ -62,6 +62,19 @@ reflex run --env dev --frontend-only --frontend-port 3000
 Abra `http://localhost:3000`. O frontend conecta ao backend em
 `http://127.0.0.1:8001`, conforme `rxconfig.py`.
 
+## Dashboard
+
+O dashboard consome `GET /api:gerenciamento/indicadores` usando a sessão
+autenticada e filtros de data. Os gráficos agrupam os dados temporais e de
+pagamento efetivamente devolvidos pelo Xano; não há dados demonstrativos de
+fallback. Conversão, giro, marca de veículos vendidos, categoria de peças e
+canal de venda permanecem indisponíveis até que o contrato/API e o schema do
+Xano forneçam os campos necessários. As requisições do dashboard usam
+`httpx.AsyncClient` e mantêm o token somente no estado de autenticação.
+A correção de compatibilidade da timeline, séries envelopadas e gráficos sem
+movimento está arquivada em
+`docs/openspec/changes/archive/2026-10-12-correcoes-dashboard-indicadores/`.
+
 ## Validação
 
 ```powershell
@@ -71,3 +84,32 @@ reflex export --frontend-only --no-zip
 O MVP inclui login, shell autenticado, guards por perfil e rotas de
 gerenciamento, clientes, veículos, peças, vendas, usuários, auditoria e
 configurações. Leads, oficina e multiunidade estão fora do escopo.
+
+## Seed e dados do dashboard
+
+Para gerar dados locais compatíveis com o Xano, execute:
+
+```powershell
+python scripts\generate_xano_seed.py
+```
+
+Além de vendas e itens, o gerador cria `venda_parcela` com baixas
+`RECEBIDA`. Sem importar essa tabela, os indicadores de faturamento recebido,
+vendas pagas e ticket médio do dashboard não terão dados. Consulte
+[`data/seed_xano/README.md`](data/seed_xano/README.md) para a ordem de
+importação e as regras de autorização por vendedor.
+
+## Massa de dados para desenvolvimento
+
+O seed compatível com o schema Xano atual está em
+[`data/seed_xano/`](data/seed_xano/). Ele contém JSON e CSV para os catálogos,
+10 veículos com as imagens solicitadas, 100 clientes, 100 vendas e seus itens.
+A geração é determinística e pode ser refeita com:
+
+```powershell
+python scripts\generate_xano_seed.py
+```
+
+Consulte [`data/seed_xano/README.md`](data/seed_xano/README.md) antes de
+importar. O contrato atual não possui tabelas separadas de marcas/categorias,
+nem `canal_venda` ou `tipo_venda`; o seed não cria esses campos fictícios.

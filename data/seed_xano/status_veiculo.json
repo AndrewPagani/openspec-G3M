@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "Descricao": "Disponível"
+  },
+  {
+    "id": 2,
+    "Descricao": "Vendido"
+  },
+  {
+    "id": 3,
+    "Descricao": "Reservado"
+  }
+]

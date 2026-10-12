@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "Secao": "Revisão e Óleos"
+  },
+  {
+    "id": 2,
+    "Secao": "Freios e Suspensão"
+  },
+  {
+    "id": 3,
+    "Secao": "Acessórios e Estética"
+  },
+  {
+    "id": 4,
+    "Secao": "Elétrica e Baterias"
+  },
+  {
+    "id": 5,
+    "Secao": "Lataria e Funilaria"
+  }
+]

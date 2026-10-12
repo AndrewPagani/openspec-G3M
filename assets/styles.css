@@ -26,11 +26,32 @@ html, body {
   color: #172235;
 }
 
-.app-shell { min-height: 100vh; align-items: stretch; gap: 0; }
-.sidebar { background: var(--navy); color: white; width: 245px; min-height: 100vh; padding: 28px 18px; align-items: stretch; }
+.app-shell { min-height: 100vh; width: 100%; align-items: stretch; gap: 0; }
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--navy);
+  color: white;
+  width: 245px;
+  height: 100vh;
+  min-height: 100vh;
+  padding: 28px 18px;
+  align-items: stretch;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .nav-item { color: #c5cede; padding: 10px 12px; border-radius: 8px; text-decoration: none; }
 .nav-item:hover { background: #263852; color: white; }
-.main { flex: 1; padding: 28px 36px; align-items: stretch; }
+.main {
+  flex: 1;
+  min-width: 0;
+  margin-left: 245px;
+  padding: 28px 36px;
+  align-items: stretch;
+}
 .topbar { width: 100%; border-bottom: 1px solid #e3e8f0; padding-bottom: 20px; }
 .content { width: 100%; padding-top: 26px; }
 .page-stack, .form-card { width: 100%; align-items: stretch; }
@@ -385,12 +406,36 @@ html, body {
   font-size: 0.88rem;
 }
 
+.dashboard-page { gap: 20px; }
+.dashboard-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 28px var(--shadow);
+  color: var(--text);
+}
+.dashboard-card .muted, .dashboard-metric-label { color: var(--muted); }
+.dashboard-kpi { min-height: 132px; }
+.dashboard-metric-value { letter-spacing: -0.035em; }
+.dashboard-periods { flex-wrap: wrap; }
+.dashboard-unavailable { min-height: 180px; }
+.dashboard-card .report-row {
+  width: 100%;
+  border-bottom: 1px solid var(--panel-border);
+  padding: 8px 0;
+  color: var(--text);
+}
+.dashboard-page .recharts-cartesian-axis-tick-value,
+.dashboard-page .recharts-legend-item-text { fill: var(--muted); color: var(--muted); }
+
 @media (max-width: 760px) {
   .sidebar { width: 190px; padding: 18px 10px; }
-  .main { padding: 18px; }
+  .main { margin-left: 190px; padding: 18px; }
 }
 
 @media (max-width: 680px) {
+  .dashboard-periods { justify-content: flex-start; width: 100%; }
+  .dashboard-periods button { flex: 1 1 auto; }
   .login-visual-panel .login-illustration {
     max-height: 230px;
   }

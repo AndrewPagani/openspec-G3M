@@ -333,6 +333,18 @@ query indicadores verb=GET {
               }
         ```
     }
+
+    // Fonte da timeline: uma linha por venda, diretamente de data_venda.
+    // A agregação final é feita no estado Reflex para preservar dia/semana/mês/ano.
+    var $vendas_timeline {
+      value = ```
+        $vendas_filtradas|map:{
+          periodo: $$.data_venda,
+          total_vendas: 1,
+          valor_total: $$.Valor_final
+        }
+      ```
+    }
   
     // 13. Agregacao vendas_por_status_pagamento
     db.query status_venda {
@@ -537,6 +549,7 @@ query indicadores verb=GET {
       }
       ```
     vendas_por_periodo         : $vendas_por_periodo
+    vendas_timeline             : $vendas_timeline
     vendas_por_status_pagamento: $vendas_por_status_pagamento
     vendas_por_forma_pagamento : $vendas_por_forma_pagamento
     vendas_por_vendedor        : $vendas_por_vendedor

@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "Metodo": "Financiamento Bancário"
+  },
+  {
+    "id": 2,
+    "Metodo": "PIX"
+  },
+  {
+    "id": 3,
+    "Metodo": "Cartão de Crédito"
+  },
+  {
+    "id": 4,
+    "Metodo": "Boleto Bancário"
+  },
+  {
+    "id": 5,
+    "Metodo": "Consórcio"
+  }
+]

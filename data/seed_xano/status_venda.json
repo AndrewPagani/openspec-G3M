@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "Descricao_venda": "Pendente"
+  },
+  {
+    "id": 2,
+    "Descricao_venda": "Concluída"
+  },
+  {
+    "id": 3,
+    "Descricao_venda": "Cancelada"
+  }
+]
