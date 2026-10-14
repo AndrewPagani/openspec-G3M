@@ -6,13 +6,13 @@ query indicadores verb=GET {
   auth = "user"
 
   input {
-    json? data_inicio?
-    json? data_fim?
-    json? status_id?
-    json? vendedor_id?
-    json? forma_pagamento_id?
-    json? tipo_item?
-    json? status_veiculo_id?
+    text? data_inicio? filters=trim
+    text? data_fim? filters=trim
+    text? status_id? filters=trim
+    text? vendedor_id? filters=trim
+    text? forma_pagamento_id? filters=trim
+    text? tipo_item? filters=trim
+    text? status_veiculo_id? filters=trim
   }
 
   stack {
@@ -33,7 +33,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.data_inicio != null && $input.data_inicio != "" && $input.data_inicio != []) {
+      if ($input.data_inicio != null && $input.data_inicio != "") {
         var $di_str {
           value = $input.data_inicio|to_text
         }
@@ -65,7 +65,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.data_fim != null && $input.data_fim != "" && $input.data_fim != []) {
+      if ($input.data_fim != null && $input.data_fim != "") {
         var $df_str {
           value = $input.data_fim|to_text
         }
@@ -106,7 +106,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.status_id != null && $input.status_id != "" && $input.status_id != []) {
+      if ($input.status_id != null && $input.status_id != "") {
         var $s_int {
           value = $input.status_id|to_int
         }
@@ -128,7 +128,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.vendedor_id != null && $input.vendedor_id != "" && $input.vendedor_id != []) {
+      if ($input.vendedor_id != null && $input.vendedor_id != "") {
         var $v_int {
           value = $input.vendedor_id|to_int
         }
@@ -150,7 +150,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.forma_pagamento_id != null && $input.forma_pagamento_id != "" && $input.forma_pagamento_id != []) {
+      if ($input.forma_pagamento_id != null && $input.forma_pagamento_id != "") {
         var $f_int {
           value = $input.forma_pagamento_id|to_int
         }
@@ -172,7 +172,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.tipo_item != null && $input.tipo_item != "" && $input.tipo_item != []) {
+      if ($input.tipo_item != null && $input.tipo_item != "") {
         var $ti_str {
           value = ($input.tipo_item|to_text)|to_lower
         }
@@ -194,7 +194,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($input.status_veiculo_id != null && $input.status_veiculo_id != "" && $input.status_veiculo_id != []) {
+      if ($input.status_veiculo_id != null && $input.status_veiculo_id != "") {
         var $sv_int {
           value = $input.status_veiculo_id|to_int
         }
@@ -254,7 +254,7 @@ query indicadores verb=GET {
   
     // Identificar vendas canceladas e percentual
     db.query status_venda {
-      where = $db.status_venda.Descricao_venda == "Cancelada"
+      where = $db.status_venda.Descricao_venda == "Cancelada" || $db.status_venda.Descricao_venda == "CANCELADA" || $db.status_venda.Descricao_venda == "cancelada"
       return = {type: "single"}
     } as $status_canc_ref
   
@@ -274,7 +274,8 @@ query indicadores verb=GET {
       }
     }
   
-    // 11. Considerar somente baixas manuais locais; valores não incluem taxas de gateway
+    // 11. Considerar somente baixas manuais locais; o periodo segue data_venda.
+    // recebido_em e opcional no schema e nao pode excluir uma venda ja recebida.
     db.query venda_parcela {
       join = {
         venda: {
@@ -283,7 +284,7 @@ query indicadores verb=GET {
         }
       }
     
-      where = $db.venda_parcela.status == "RECEBIDA" && ($vendedor_filtro == null || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_status_id == null || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == null || $db.venda_parcela.forma_recebida_id == $parsed_forma_pagamento_id) && ($parsed_data_inicio == null || $db.venda_parcela.recebido_em >= $parsed_data_inicio) && ($parsed_data_fim == null || $db.venda_parcela.recebido_em <= $parsed_data_fim)
+      where = $db.venda_parcela.status == "RECEBIDA" && ($vendedor_filtro == null || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_status_id == null || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == null || $db.venda_parcela.forma_recebida_id == $parsed_forma_pagamento_id) && ($parsed_data_inicio == null || $db.venda.data_venda >= $parsed_data_inicio) && ($parsed_data_fim == null || $db.venda.data_venda <= $parsed_data_fim)
       return = {type: "list"}
     } as $parcelas_recebidas
   
@@ -564,8 +565,8 @@ query indicadores verb=GET {
     expect.to_be_defined ($response.kpis.total_vendas_periodo)
   }
 
-  test "chamada com array vazio nos filtros opcionais" {
-    input = {status_id: [], data_inicio: "", data_fim: null}
+  test "chamada com filtros opcionais vazios" {
+    input = {status_id: "", data_inicio: "", data_fim: null}
   
     expect.to_be_defined ($response.kpis.total_vendas_periodo)
   }
