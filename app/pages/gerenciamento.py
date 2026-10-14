@@ -269,6 +269,37 @@ def _vehicle_status_chart() -> rx.Component:
     )
 
 
+def _low_stock_parts() -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.heading("Peças sem estoque ou com estoque baixo", size="4"),
+            rx.text(
+                "Itens com quantidade disponível igual ou inferior a 5.",
+                class_name="muted",
+            ),
+            rx.cond(
+                DashboardState.pecas_baixo_estoque_labels.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        DashboardState.pecas_baixo_estoque_labels,
+                        lambda label: rx.text(label, class_name="report-row"),
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+                rx.text(
+                    "Nenhuma peça com estoque igual ou inferior a 5.",
+                    class_name="muted",
+                ),
+            ),
+            align="start",
+            width="100%",
+        ),
+        class_name="dashboard-card",
+        width="100%",
+    )
+
+
 def _filters() -> rx.Component:
     return rx.cond(
         AuthState.is_manager,
@@ -449,7 +480,11 @@ def gerenciamento() -> rx.Component:
                             DashboardState.pecas_disponiveis,
                             DashboardState.valor_estoque_pecas + " em valor de estoque",
                         ),
-                        _metric("Peças sem estoque", DashboardState.pecas_sem_estoque),
+                        _metric(
+                            "Peças sem estoque/baixo estoque",
+                            DashboardState.pecas_sem_estoque,
+                            "Itens com quantidade igual ou inferior a 5",
+                        ),
                         _vehicle_status_chart(),
                         _unsupported_analysis(
                             "Conversão e giro de estoque",
@@ -480,6 +515,11 @@ def gerenciamento() -> rx.Component:
                     align="start",
                     width="100%",
                 ),
+                rx.fragment(),
+            ),
+            rx.cond(
+                AuthState.is_manager | (DashboardState.pecas_baixo_estoque_labels.length() > 0),
+                _low_stock_parts(),
                 rx.fragment(),
             ),
             rx.grid(

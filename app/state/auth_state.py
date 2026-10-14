@@ -5,6 +5,15 @@ import reflex as rx
 from app.services.xano_client import XanoError, client
 
 
+def _role_is_manager(role: str) -> bool:
+    normalized = role.strip().lower()
+    return (
+        normalized in ("gerente", "manager", "administrador", "admin")
+        or "gerente" in normalized
+        or "administrador" in normalized
+    )
+
+
 class AuthState(rx.State):
     token: str = rx.LocalStorage("")
     user_name: str = rx.LocalStorage("")
@@ -21,11 +30,12 @@ class AuthState(rx.State):
 
     @rx.var
     def is_admin(self) -> bool:
-        return self.profile.lower() in ("administrador", "admin")
+        role = self.profile.strip().lower()
+        return role in ("administrador", "admin") or "administrador" in role
 
     @rx.var
     def is_manager(self) -> bool:
-        return self.is_admin or self.profile.lower() in ("gerente", "manager")
+        return _role_is_manager(self.profile)
 
     def set_email(self, value: str) -> None:
         self.email = value

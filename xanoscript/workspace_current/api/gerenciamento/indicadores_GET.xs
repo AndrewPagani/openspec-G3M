@@ -211,8 +211,16 @@ query indicadores verb=GET {
     }
   
     // 9. Determinar escopo de autorizacao (Vendedor restrito exclusivamente as suas vendas)
+    var $cargo_normalizado {
+      value = (($perfil.Cargo ?? "")|to_text)|to_lower
+    }
+
     var $is_gerencia {
-      value = ($perfil != null && ($perfil.Cargo == "Gerente" || $perfil.Cargo == "Administrador"))
+      value = ($perfil != null && (
+        ($cargo_normalizado|contains:"gerente")
+        || ($cargo_normalizado|contains:"administrador")
+        || ($cargo_normalizado|contains:"admin")
+      ))
     }
   
     var $vendedor_filtro {
@@ -439,7 +447,11 @@ query indicadores verb=GET {
     var $pecas_sem_estoque {
       value = 0
     }
-  
+
+    var $pecas_baixo_estoque {
+      value = []
+    }
+
     var $veiculos_por_status {
       value = []
     }
@@ -488,12 +500,23 @@ query indicadores verb=GET {
         }
       
         db.query peca {
-          where = $db.peca.qtd_disp == 0 || $db.peca.qtd_disp == null
-          return = {type: "count"}
-        } as $count_pecas_sem_estoque
+          where = $db.peca.qtd_disp <= 5 || $db.peca.qtd_disp == null
+          return = {type: "list"}
+        } as $pecas_baixo_estoque_db
+
+        var.update $pecas_baixo_estoque {
+          value = ```
+            $pecas_baixo_estoque_db|map:{
+              id: $$.id,
+              nome: $$.PCNome,
+              quantidade: ($$.qtd_disp ?? 0),
+              valor_unitario: ($$.PCvalor ?? 0)
+            }
+            ```
+        }
       
         var.update $pecas_sem_estoque {
-          value = $count_pecas_sem_estoque
+          value = $pecas_baixo_estoque|count
         }
       
         // veiculos_por_status
@@ -559,6 +582,7 @@ query indicadores verb=GET {
     valor_veiculos_disponiveis : $valor_veiculos_disponiveis
     valor_estoque_pecas        : $valor_estoque_pecas
     pecas_sem_estoque          : $pecas_sem_estoque
+    pecas_baixo_estoque        : $pecas_baixo_estoque
   }
 
   test "chamada sem nenhum filtro" {

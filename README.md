@@ -74,6 +74,9 @@ Xano forneçam os campos necessários. As requisições do dashboard usam
 A correção de compatibilidade da timeline, séries envelopadas e gráficos sem
 movimento está arquivada em
 `docs/openspec/changes/archive/2026-10-12-correcoes-dashboard-indicadores/`.
+O bloco gerencial de estoque também lista peças sem estoque ou com quantidade
+disponível igual ou inferior a 5, usando a série `pecas_baixo_estoque` do
+endpoint.
 
 ## Validação
 

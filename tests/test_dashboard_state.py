@@ -13,10 +13,17 @@ from app.state.dashboard_state import (
     _vehicle_status_chart_rows,
     _trend_chart_rows,
     _has_chart_values,
+    _low_stock_labels,
+    _normalize_low_stock_rows,
 )
+from app.state.auth_state import _role_is_manager
 
 
 class DashboardStateTests(unittest.TestCase):
+    def test_manager_role_matches_xano_role_variants(self) -> None:
+        self.assertTrue(_role_is_manager("Gerente Comercial"))
+        self.assertTrue(_role_is_manager("Administrador Geral"))
+
     def test_formats_currency_in_brazilian_locale(self) -> None:
         self.assertEqual(_currency("1234.5", "valor"), "R$ 1.234,50")
 
@@ -49,6 +56,20 @@ class DashboardStateTests(unittest.TestCase):
     def test_rejects_non_list_report_data(self) -> None:
         with self.assertRaises(XanoError):
             _report_rows({"unexpected": True}, "vendas por período")
+
+    def test_normalizes_low_stock_parts_for_display(self) -> None:
+        rows = _normalize_low_stock_rows(
+            [
+                {"id": 1, "PCNome": "Filtro", "qtd_disp": 0, "PCvalor": 35},
+                {"id": 2, "nome": "Pastilha", "quantidade": 3, "valor_unitario": 120},
+            ]
+        )
+        self.assertEqual(rows[0]["nome"], "Filtro")
+        self.assertEqual(rows[1]["quantidade"], 3)
+        self.assertEqual(
+            _low_stock_labels(rows),
+            ["Filtro — Sem estoque", "Pastilha — Quantidade: 3"],
+        )
 
     def test_groups_daily_sales_into_weekly_monthly_and_yearly_series(self) -> None:
         daily = [

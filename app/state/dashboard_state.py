@@ -246,6 +246,49 @@ def _has_chart_values(rows: list[dict[str, Any]]) -> bool:
     return any(row.get("quantidade", 0) > 0 for row in rows)
 
 
+def _normalize_low_stock_rows(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        for key in ("items", "data", "results", "rows", "pecas_baixo_estoque"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                value = nested
+                break
+    if not isinstance(value, list):
+        raise XanoError("A API retornou uma lista inválida para peças com estoque baixo.")
+
+    rows: list[dict[str, Any]] = []
+    for row in value:
+        if not isinstance(row, dict):
+            raise XanoError("A API retornou um registro inválido para peças com estoque baixo.")
+        name = row.get("nome") or row.get("PCNome") or row.get("name")
+        if name is None:
+            raise XanoError("A API não informou o nome de uma peça com estoque baixo.")
+        quantity = row.get("quantidade", row.get("qtd_disp", 0))
+        rows.append(
+            {
+                "id": row.get("id"),
+                "nome": str(name),
+                "quantidade": float(_decimal(quantity or 0, "quantidade de estoque")),
+                "valor_unitario": float(_decimal(
+                    row.get("valor_unitario", row.get("PCvalor", 0)) or 0,
+                    "valor unitário da peça",
+                )),
+            }
+        )
+    return rows
+
+
+def _low_stock_labels(rows: list[dict[str, Any]]) -> list[str]:
+    labels = []
+    for row in rows:
+        quantity = row["quantidade"]
+        quantity_label = "Sem estoque" if quantity == 0 else f"Quantidade: {quantity:g}"
+        labels.append(f"{row['nome']} — {quantity_label}")
+    return labels
+
+
 def _build_params(
     data_inicio: str,
     data_fim: str,
@@ -305,6 +348,8 @@ class DashboardState(rx.State):
     pecas_disponiveis: str = "—"
     valor_estoque_pecas: str = "—"
     pecas_sem_estoque: str = "—"
+    pecas_baixo_estoque: list[dict] = []
+    pecas_baixo_estoque_labels: list[str] = []
     vendas_por_periodo: list[str] = []
     chart_vendas_por_periodo: list[dict] = []
     chart_formas_pagamento: list[dict] = []
@@ -372,6 +417,8 @@ class DashboardState(rx.State):
         self.pecas_disponiveis = "—"
         self.valor_estoque_pecas = "—"
         self.pecas_sem_estoque = "—"
+        self.pecas_baixo_estoque = []
+        self.pecas_baixo_estoque_labels = []
         self.vendas_por_periodo = []
         self.chart_vendas_por_periodo = []
         self.chart_formas_pagamento = []
@@ -463,6 +510,9 @@ class DashboardState(rx.State):
             self.percentual_canceladas = _percentage(
                 kpis["percentual_vendas_canceladas"], "percentual de vendas canceladas"
             )
+            low_stock = _extract_series(result, "pecas_baixo_estoque")
+            self.pecas_baixo_estoque = _normalize_low_stock_rows(low_stock)
+            self.pecas_baixo_estoque_labels = _low_stock_labels(self.pecas_baixo_estoque)
             if auth_state.is_manager:
                 self.veiculos_disponiveis = _count(kpis["veiculos_disponiveis"], "veículos disponíveis")
                 self.pecas_disponiveis = _count(kpis["pecas_qtd_disponivel"], "peças disponíveis")
