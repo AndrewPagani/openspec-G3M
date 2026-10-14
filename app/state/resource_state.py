@@ -6,6 +6,7 @@ from typing import Any
 import reflex as rx
 
 from app.services.xano_client import XanoError, client
+from app.services.vehicle_status import vehicle_status_class
 from app.state.auth_state import AuthState
 
 
@@ -28,6 +29,17 @@ def _format_vehicle_price(value: str) -> str:
     return f"R$ {formatted}"
 
 
+def _format_vehicle_mileage(value: str) -> str:
+    if not value:
+        return "Não informado"
+    try:
+        amount = Decimal(value.replace(",", "."))
+    except InvalidOperation:
+        return value
+    formatted = f"{amount:,.0f}".replace(",", ".")
+    return formatted
+
+
 def _normalize_record(record: dict[str, Any], endpoint: str) -> dict[str, Any]:
     normalized = dict(record)
     if endpoint == "/clientes":
@@ -46,7 +58,7 @@ def _normalize_record(record: dict[str, Any], endpoint: str) -> dict[str, Any]:
             "imagem",
             "image",
         )
-        price = _first_value(record, "Preco", "preco", "price")
+        price = _first_value(record, "Preco", "preco", "valor", "price")
         normalized["_vehicle_name"] = " ".join(part for part in (make, model) if part)
         year = _first_value(record, "Ano", "ano", "year")
         normalized["_vehicle_year"] = year
@@ -54,7 +66,35 @@ def _normalize_record(record: dict[str, Any], endpoint: str) -> dict[str, Any]:
         normalized["_vehicle_price"] = _format_vehicle_price(price)
         normalized["_vehicle_price_display"] = f"Valor: {normalized['_vehicle_price']}"
         normalized["_image_url"] = image_url
+        mileage = _first_value(record, "Quilometragem", "quilometragem", "mileage")
+        fuel = _first_value(
+            record,
+            "Combustivel",
+            "Combustível",
+            "combustivel",
+            "combustível",
+            "fuel",
+        )
+        normalized["_vehicle_mileage"] = _format_vehicle_mileage(mileage)
+        normalized["_vehicle_fuel"] = fuel or "Não informado"
+        status = _first_value(
+            record, "status_descricao", "Status", "status"
+        )
+        normalized["_vehicle_status"] = status
+        normalized["_vehicle_status_class"] = vehicle_status_class(status)
     return normalized
+
+
+def _records_from_response(result: Any) -> list[dict[str, Any]]:
+    if isinstance(result, list):
+        records = result
+    elif isinstance(result, dict):
+        records = result.get("items", result.get("data", []))
+    else:
+        raise XanoError("A API retornou uma resposta inválida para a listagem.")
+    if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
+        raise XanoError("A API retornou registros em formato inválido para a listagem.")
+    return records
 
 
 class ResourceState(rx.State):
@@ -72,15 +112,33 @@ class ResourceState(rx.State):
         self.loading, self.error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            result = client.request("GET", endpoint, token=auth_state.token)
-            if isinstance(result, list):
-                records = result
-            elif isinstance(result, dict):
-                records = result.get("items", result.get("data", []))
+            if endpoint == "/veiculos":
+                result = client.request(
+                    "GET",
+                    endpoint,
+                    token=auth_state.token,
+                    params={"page": 1, "per_page": 100},
+                )
+                records = _records_from_response(result)
+                pagination = result.get("pagination", {}) if isinstance(result, dict) else {}
+                if not isinstance(pagination, dict):
+                    raise XanoError(
+                        "A API retornou paginação inválida para a listagem de veículos."
+                    )
+                total_pages = pagination.get("total_pages", 1)
+                if not isinstance(total_pages, int) or total_pages < 1:
+                    raise XanoError("A API retornou paginação inválida para a listagem de veículos.")
+                for page in range(2, total_pages + 1):
+                    page_result = client.request(
+                        "GET",
+                        endpoint,
+                        token=auth_state.token,
+                        params={"page": page, "per_page": 100},
+                    )
+                    records.extend(_records_from_response(page_result))
             else:
-                raise XanoError("A API retornou uma resposta inválida para a listagem.")
-            if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
-                raise XanoError("A API retornou registros em formato inválido para a listagem.")
+                result = client.request("GET", endpoint, token=auth_state.token)
+                records = _records_from_response(result)
             self.records = [_normalize_record(row, endpoint) for row in records]
         except XanoError as exc:
             self.records, self.error = [], str(exc)

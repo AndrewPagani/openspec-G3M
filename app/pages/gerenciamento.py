@@ -243,9 +243,12 @@ def _vehicle_status_chart() -> rx.Component:
                     rx.recharts.y_axis(),
                     rx.recharts.tooltip(),
                     rx.recharts.bar(
+                        rx.foreach(
+                            DashboardState.chart_veiculos_por_status,
+                            lambda row: rx.recharts.cell(fill=row["cor"]),
+                        ),
                         data_key="quantidade",
                         name="Veículos",
-                        fill="#7c3aed",
                         radius=[6, 6, 0, 0],
                     ),
                     data=DashboardState.chart_veiculos_por_status,

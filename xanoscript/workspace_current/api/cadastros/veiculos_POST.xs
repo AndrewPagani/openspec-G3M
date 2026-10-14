@@ -14,6 +14,8 @@ query veiculos verb=POST {
     text Chassi? filters=trim
     decimal Quilometragem? filters=min:0
     decimal Preco filters=min:0
+    text Imagem_url? filters=trim
+    int status_id?
   }
 
   stack {
@@ -53,14 +55,57 @@ query veiculos verb=POST {
       }
     }
   
-    // Buscar ID do status Disponivel na tabela de referencia
-    db.query status_veiculo {
-      where = $db.status_veiculo.Descricao == "Disponível" || $db.status_veiculo.Descricao == "Disponivel"
-      return = {type: "single"}
-    } as $status_disp
-  
-    precondition ($status_disp != null) {
-      error = "Configuracao de status Disponivel nao encontrada"
+    // Aceitar status escolhido no cadastro e preservar Disponivel como padrao legado
+    var $status_inicial {
+      value = null
+    }
+
+    conditional {
+      if ($input.status_id != null) {
+        db.get user {
+          field_name = "id"
+          field_value = $auth.id
+        } as $usuario
+
+        db.get perfil {
+          field_name = "id"
+          field_value = $usuario.perfil_id
+        } as $perfil_usuario
+
+        precondition ($perfil_usuario.Cargo == "Gerente" || $perfil_usuario.Cargo == "Administrador") {
+          error_type = "accessdenied"
+          error = "Somente gerente ou administrador pode escolher o status inicial"
+        }
+
+        db.get status_veiculo {
+          field_name = "id"
+          field_value = $input.status_id
+        } as $status_selecionado
+
+        precondition ($status_selecionado != null) {
+          error_type = "badrequest"
+          error = "Status de veiculo informado nao existe"
+        }
+
+        var.update $status_inicial {
+          value = $status_selecionado
+        }
+      }
+
+      else {
+        db.query status_veiculo {
+          where = $db.status_veiculo.Descricao == "Disponível" || $db.status_veiculo.Descricao == "Disponivel"
+          return = {type: "single"}
+        } as $status_disp
+
+        precondition ($status_disp != null) {
+          error = "Configuracao de status Disponivel nao encontrada"
+        }
+
+        var.update $status_inicial {
+          value = $status_disp
+        }
+      }
     }
   
     // Inserir registro do veiculo
@@ -74,7 +119,8 @@ query veiculos verb=POST {
         Chassi       : $input.Chassi
         Quilometragem: $input.Quilometragem
         Preco        : $input.Preco
-        status_id    : $status_disp.id
+        status_id    : $status_inicial.id
+        Imagem_url   : $input.Imagem_url
         created_at   : now
       }
     } as $novo_veiculo
@@ -90,8 +136,9 @@ query veiculos verb=POST {
     Chassi          : $novo_veiculo.Chassi
     Quilometragem   : $novo_veiculo.Quilometragem
     Preco           : $novo_veiculo.Preco
+    Imagem_url      : $novo_veiculo.Imagem_url
     status_id       : $novo_veiculo.status_id
-    status_descricao: $status_disp.Descricao
+    status_descricao: $status_inicial.Descricao
     created_at      : $novo_veiculo.created_at
   }
 

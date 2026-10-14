@@ -69,6 +69,7 @@ query veiculos verb=GET {
                 Chassi: $$.Chassi,
                 Quilometragem: $$.Quilometragem,
                 Preco: $$.Preco,
+                Imagem_url: $$.Imagem_url,
                 status_id: $$.status_id,
                 status_descricao: (($status_list|find:$item.id == $$.status_id).Descricao ?? ""),
                 created_at: $$.created_at

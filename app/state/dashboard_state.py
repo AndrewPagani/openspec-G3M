@@ -8,6 +8,7 @@ from typing import Any
 
 import reflex as rx
 
+from app.services.vehicle_status import vehicle_status_chart_color
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
 
@@ -226,6 +227,18 @@ def _chart_rows(value: Any, label: str, *, name_key: str, value_key: str) -> lis
         rows = rows[:7] + [
             {"nome": "Outros", "quantidade": sum(row["quantidade"] for row in rows[7:])}
         ]
+    return rows
+
+
+def _vehicle_status_chart_rows(value: Any) -> list[dict[str, Any]]:
+    rows = _chart_rows(
+        value,
+        "veículos por status",
+        name_key="descricao",
+        value_key="quantidade",
+    )
+    for row in rows:
+        row["cor"] = vehicle_status_chart_color(row["nome"])
     return rows
 
 
@@ -516,13 +529,10 @@ class DashboardState(rx.State):
                     ),
                     "veículos por status",
                 )
-                self.chart_veiculos_por_status = _chart_rows(
+                self.chart_veiculos_por_status = _vehicle_status_chart_rows(
                     _extract_series(
                         result, "veiculos_por_status", "estoque_veiculos_por_status"
-                    ),
-                    "veículos por status",
-                    name_key="descricao",
-                    value_key="quantidade",
+                    )
                 )
                 self.estoque_com_movimento = _has_chart_values(
                     self.chart_veiculos_por_status

@@ -225,16 +225,20 @@ ASAAS ou campos internos de venda/pagamento.
 Query: `page`, `per_page`, `busca`, `marca`, `modelo`, `status_id`,
 `somente_disponiveis`. A busca inclui marca, modelo, placa e chassi. Para
 `somente_disponiveis=true`, usar o status cuja descrição é `Disponível`.
+Retornar `Imagem_url` quando cadastrada, além da descrição do status.
 
 ### `GET /veiculos/{id}`
 
-Retornar dados do veículo e descrição do status.
+Retornar dados do veículo, `Imagem_url` quando cadastrada e descrição do status.
 
 ### `POST /veiculos`
 
 Entrada: `Marca`, `Modelo`, `Cor`, `Ano`, `Placa` opcional, `Chassi`
-opcional, `Quilometragem`, `Preco`. O backend define status inicial
-`Disponível` consultando a referência; não confiar em status de entrada.
+opcional, `Quilometragem`, `Preco`, `Imagem_url` opcional e `status_id`
+opcional. A URL de imagem deve usar HTTP ou HTTPS. Sem `status_id`, o backend
+mantém o padrão legado `Disponível`; quando informado, deve existir na tabela
+de status, e somente `Gerente` ou `Administrador` pode escolher o status
+inicial. O app mostra as opções atuais do Xano e pré-seleciona `Disponível`.
 Validar campos obrigatórios, ano razoável, placa/chassi únicos quando
 preenchidos, preço e quilometragem não negativos.
 

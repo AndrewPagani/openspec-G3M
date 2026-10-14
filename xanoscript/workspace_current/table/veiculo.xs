@@ -11,6 +11,7 @@ table veiculo {
     text Chassi? filters=trim|upper
     decimal Quilometragem? filters=min:0
     decimal Preco filters=min:0
+    text Imagem_url? filters=trim
     int status_id {
       table = "status_veiculo"
     }

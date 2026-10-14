@@ -64,7 +64,7 @@ class AuthState(rx.State):
         finally:
             self.busy = False
 
-    def logout(self) -> None:
+    def logout(self) -> rx.event.EventSpec:
         self.token = ""
         self.user_name = ""
         self.profile = ""
@@ -72,3 +72,5 @@ class AuthState(rx.State):
         self.password = ""
         self.error = ""
         self.notice = ""
+        self.busy = False
+        return rx.redirect("/login")

@@ -2,58 +2,139 @@ import reflex as rx
 
 from app.components.app_shell import shell
 from app.components.states import empty_state, feedback
+from app.state.auth_state import AuthState
 from app.state.resource_state import ResourceState
 
 
 def _vehicle_card(row: rx.Var, endpoint: str) -> rx.Component:
     return rx.card(
-        rx.cond(
-            row["_image_url"] != "",
-            rx.image(
-                src=row["_image_url"],
-                alt=row["_vehicle_name"],
-                width="100%",
-                height="190px",
-                object_fit="cover",
+        rx.box(
+            rx.cond(
+                row["_image_url"] != "",
+                rx.image(
+                    src=row["_image_url"],
+                    alt=row["_vehicle_name"],
+                    class_name="vehicle-card-image",
+                ),
+                rx.box(
+                    rx.icon("car-front", size=38, stroke_width=1.25),
+                    rx.text("Imagem não cadastrada"),
+                    class_name="vehicle-card-image vehicle-card-image-empty",
+                ),
             ),
-            rx.box(
-                rx.text("Imagem não cadastrada", class_name="muted"),
-                width="100%",
-                height="190px",
-                display="flex",
-                align_items="center",
-                justify_content="center",
-            ),
+            class_name="vehicle-card-media",
         ),
         rx.vstack(
-            rx.heading(row["_vehicle_name"], size="4"),
-            rx.text(row["_vehicle_year_display"]),
-            rx.text(row["_vehicle_price_display"]),
+            rx.cond(
+                row["_vehicle_status"] != "",
+                _vehicle_status_badge(
+                    row["_vehicle_status"],
+                    row["_vehicle_status_class"],
+                ),
+                rx.fragment(),
+            ),
+            rx.heading(row["_vehicle_name"], size="4", class_name="vehicle-card-title"),
+            rx.grid(
+                _vehicle_info("Ano", row["_vehicle_year"]),
+                _vehicle_info("Valor", row["_vehicle_price"]),
+                _vehicle_info("Km", row["_vehicle_mileage"]),
+                _vehicle_info("Comb.", row["_vehicle_fuel"]),
+                class_name="vehicle-card-info",
+            ),
             rx.link(
-                "Abrir veículo",
+                rx.hstack(
+                    rx.text("Ver Detalhes"),
+                    rx.icon("arrow-right", size=16, stroke_width=1.7),
+                    justify="center",
+                    align="center",
+                    width="100%",
+                ),
                 href=rx.Var.create(f"{endpoint.rstrip('/')}/") + row["id"].to_string(),
+                class_name="vehicle-details-link",
             ),
             align="start",
             width="100%",
+            class_name="vehicle-card-content",
         ),
-        width="100%",
+        class_name="vehicle-card",
+    )
+
+
+def _vehicle_status_badge(label: rx.Var, status_class: rx.Var) -> rx.Component:
+    return rx.cond(
+        status_class == "status-available",
+        rx.badge(label, class_name="vehicle-status status-available"),
+        rx.cond(
+            status_class == "status-reserved",
+            rx.badge(label, class_name="vehicle-status status-reserved"),
+            rx.cond(
+                status_class == "status-sold",
+                rx.badge(label, class_name="vehicle-status status-sold"),
+                rx.badge(label, class_name="vehicle-status status-neutral"),
+            ),
+        ),
+    )
+
+
+def _vehicle_info(label: str, value: rx.Var) -> rx.Component:
+    return rx.vstack(
+        rx.text(label, class_name="vehicle-info-label"),
+        rx.text(value, class_name="vehicle-info-value"),
+        align="start",
+        class_name="vehicle-info-item",
     )
 
 
 def resource_page(
     title: str, endpoint: str, new_href: str | None = None, allowed: rx.Var = True
 ) -> rx.Component:
+    can_create = AuthState.is_manager if endpoint == "/veiculos" else True
     return shell(
         rx.vstack(
             rx.hstack(
-                rx.input(
-                    placeholder="Buscar…",
-                    value=ResourceState.query,
-                    on_change=ResourceState.set_query,
+                rx.hstack(
+                    rx.icon("search", size=18, stroke_width=1.8),
+                    rx.input(
+                        placeholder=(
+                            "Buscar por modelo, marca, placa..."
+                            if endpoint == "/veiculos"
+                            else "Buscar…"
+                        ),
+                        aria_label="Buscar veículos por modelo, marca ou placa"
+                        if endpoint == "/veiculos"
+                        else "Buscar registros",
+                        value=ResourceState.query,
+                        on_change=ResourceState.set_query,
+                        class_name="vehicle-search-input"
+                        if endpoint == "/veiculos"
+                        else "resource-search-input",
+                    ),
+                    class_name="vehicle-search"
+                    if endpoint == "/veiculos"
+                    else "resource-search",
                 ),
                 rx.spacer(),
-                rx.cond(new_href is not None, rx.link(rx.button("Novo"), href=new_href or "#"), rx.fragment()),
-                class_name="toolbar",
+                rx.cond(
+                    new_href is not None and can_create,
+                    rx.link(
+                        rx.button(
+                            rx.hstack(
+                                rx.icon("plus", size=17, stroke_width=2),
+                                rx.text("Novo"),
+                                align="center",
+                                spacing="2",
+                            ),
+                            class_name="vehicle-new-button"
+                            if endpoint == "/veiculos"
+                            else "",
+                        ),
+                        href=new_href or "#",
+                    ),
+                    rx.fragment(),
+                ),
+                class_name="toolbar vehicle-toolbar"
+                if endpoint == "/veiculos"
+                else "toolbar",
             ),
             feedback(ResourceState.error, ResourceState.loading),
             rx.cond(
@@ -65,11 +146,16 @@ def resource_page(
                             ResourceState.filtered_records,
                             lambda row: _vehicle_card(row, endpoint),
                         ),
-                        columns="repeat(auto-fit, minmax(260px, 1fr))",
-                        spacing="4",
+                        class_name="vehicle-grid",
                         width="100%",
                     ),
-                    empty_state("A API não retornou veículos para esta consulta."),
+                    empty_state(
+                        rx.cond(
+                            ResourceState.query == "",
+                            "A API não retornou veículos para esta consulta.",
+                            "Nenhum veículo corresponde à busca.",
+                        )
+                    ),
                 ),
                 rx.cond(
                     ResourceState.filtered_records.length() > 0,
@@ -112,7 +198,9 @@ def resource_page(
                 ),
             ),
             on_mount=ResourceState.load(endpoint, title),
-            class_name="page-stack",
+            class_name="page-stack vehicle-page"
+            if endpoint == "/veiculos"
+            else "page-stack",
         ),
         title,
         allowed,

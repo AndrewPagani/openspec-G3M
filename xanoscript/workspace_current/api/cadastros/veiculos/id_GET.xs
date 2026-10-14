@@ -40,6 +40,7 @@ query "veiculos/{id}" verb=GET {
     Chassi          : $veiculo.Chassi
     Quilometragem   : $veiculo.Quilometragem
     Preco           : $veiculo.Preco
+    Imagem_url      : $veiculo.Imagem_url
     status_id       : $veiculo.status_id
     status_descricao: ($status.Descricao ?? "")
     created_at      : $veiculo.created_at

@@ -10,6 +10,7 @@ from app.state.dashboard_state import (
     _percentage,
     _report_rows,
     _chart_rows,
+    _vehicle_status_chart_rows,
     _trend_chart_rows,
     _has_chart_values,
 )
@@ -180,6 +181,24 @@ class DashboardStateTests(unittest.TestCase):
             [
                 {"nome": "Boleto", "quantidade": 2.0},
                 {"nome": "PIX", "quantidade": 0.0},
+            ],
+        )
+
+    def test_colors_vehicle_status_chart_rows_by_status(self) -> None:
+        self.assertEqual(
+            _vehicle_status_chart_rows(
+                [
+                    {"descricao": "Disponível", "quantidade": 3},
+                    {"descricao": "Reservado", "quantidade": 2},
+                    {"descricao": "Vendido", "quantidade": 1},
+                    {"descricao": "Em preparação", "quantidade": 0},
+                ]
+            ),
+            [
+                {"nome": "Disponível", "quantidade": 3.0, "cor": "#35c979"},
+                {"nome": "Reservado", "quantidade": 2.0, "cor": "#f4be44"},
+                {"nome": "Vendido", "quantidade": 1.0, "cor": "#f46262"},
+                {"nome": "Em preparação", "quantidade": 0.0, "cor": "#8291a4"},
             ],
         )
 
