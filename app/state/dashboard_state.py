@@ -257,7 +257,11 @@ def _build_params(
     tipo_item: str = "",
     status_veiculo_id: str = "",
 ) -> dict[str, str | int]:
-    params: dict[str, str | int] = {"data_inicio": data_inicio, "data_fim": data_fim}
+    params: dict[str, str | int] = {}
+    if data_inicio.strip():
+        params["data_inicio"] = data_inicio.strip()
+    if data_fim.strip():
+        params["data_fim"] = data_fim.strip()
     if not is_manager:
         return params
 

@@ -292,6 +292,12 @@ class DashboardStateTests(unittest.TestCase):
         with self.assertRaises(XanoError):
             _build_params("2026-10-01", "2026-10-31", is_manager=True, tipo_item="other")
 
+    def test_omits_empty_dashboard_query_filters(self) -> None:
+        self.assertEqual(
+            _build_params("", "", is_manager=True),
+            {},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
