@@ -43,6 +43,42 @@ def _report(title: str, rows: rx.Var, description: str = "") -> rx.Component:
     )
 
 
+def _salespeople_report() -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.heading("Vendas por vendedor", size="4"),
+            rx.input(
+                placeholder="Pesquisar vendedor pelo nome",
+                aria_label="Pesquisar vendedor pelo nome",
+                value=DashboardState.filtro_vendedor_nome,
+                on_change=DashboardState.set_filtro_vendedor_nome,
+                width="100%",
+            ),
+            rx.cond(
+                DashboardState.vendedores_visiveis.length() > 0,
+                rx.box(
+                    rx.vstack(
+                        rx.foreach(
+                            DashboardState.vendedores_visiveis,
+                            lambda row: rx.text(row, class_name="report-row"),
+                        ),
+                        align="start",
+                        width="100%",
+                    ),
+                    max_height="240px",
+                    overflow_y="auto",
+                    width="100%",
+                ),
+                empty_state("Nenhum vendedor encontrado."),
+            ),
+            align="start",
+            width="100%",
+        ),
+        class_name="dashboard-card",
+        width="100%",
+    )
+
+
 def _chart_empty(rows: rx.Var, message: str) -> rx.Component:
     return rx.vstack(
         rx.callout(message, icon="info", color_scheme="gray"),
@@ -157,7 +193,7 @@ def _payment_chart() -> rx.Component:
                 class_name="muted",
             ),
             rx.cond(
-                DashboardState.pagamentos_com_movimento,
+                DashboardState.chart_formas_pagamento.length() > 0,
                 rx.recharts.pie_chart(
                     rx.recharts.pie(
                         rx.recharts.cell(fill="#0f766e"),
@@ -177,10 +213,11 @@ def _payment_chart() -> rx.Component:
                     width="100%",
                     height=300,
                 ),
-                _chart_empty(
-                    DashboardState.chart_formas_pagamento,
-                    "Não há quantidades de vendas por método para desenhar no período "
-                    "selecionado. Verifique as vendas e o intervalo de datas no Xano.",
+                rx.callout(
+                    "A API não retornou vendas com quantidade positiva por forma de pagamento "
+                    "para o período selecionado.",
+                    icon="info",
+                    color_scheme="gray",
                 ),
             ),
             align="start",
@@ -430,6 +467,11 @@ def gerenciamento() -> rx.Component:
             feedback(DashboardState.error, DashboardState.loading),
             rx.grid(
                 _metric(
+                    "Vendas no período",
+                    DashboardState.total_vendas,
+                    "Total de vendas filtradas",
+                ),
+                _metric(
                     "Faturamento recebido",
                     DashboardState.valor_liquido,
                     "Baixas registradas no período",
@@ -442,7 +484,12 @@ def gerenciamento() -> rx.Component:
                 _metric(
                     "Ticket médio",
                     DashboardState.ticket_medio,
-                    "Média das vendas pagas",
+                    "Valor bruto dividido pela quantidade de vendas no período",
+                ),
+                _metric(
+                    "Valor bruto vendido",
+                    DashboardState.valor_bruto,
+                    "Total bruto no período",
                 ),
                 _metric(
                     "Cancelamentos",
@@ -452,7 +499,7 @@ def gerenciamento() -> rx.Component:
                 columns=rx.breakpoints(
                     initial="1fr",
                     sm="repeat(2, minmax(0, 1fr))",
-                    lg="repeat(4, minmax(0, 1fr))",
+                    lg="repeat(3, minmax(0, 1fr))",
                 ),
                 spacing="4",
                 width="100%",
@@ -486,25 +533,13 @@ def gerenciamento() -> rx.Component:
                             "Itens com quantidade igual ou inferior a 5",
                         ),
                         _vehicle_status_chart(),
-                        _unsupported_analysis(
-                            "Conversão e giro de estoque",
-                            "O Xano não retorna quantidade de propostas ou histórico de entradas "
-                            "e saídas de estoque para calcular estas taxas.",
-                        ),
-                        _unsupported_analysis(
+                        _report(
                             "Veículos vendidos por marca",
-                            "O endpoint atual não relaciona os itens vendidos à marca do veículo "
-                            "nem retorna faturamento ou participação por marca.",
+                            DashboardState.veiculos_vendidos_por_marca,
                         ),
-                        _unsupported_analysis(
-                            "Peças por categoria e fabricante",
-                            "O schema de peças atual não contém categoria nem marca do fabricante "
-                            "ou vínculo com a marca do veículo de destino.",
-                        ),
-                        _unsupported_analysis(
-                            "Canal de venda x forma de pagamento",
-                            "O schema de venda não registra canal (balcão, oficina, atacado ou "
-                            "e-commerce), então não há base para esse comparativo.",
+                        _report(
+                            "Peças vendidas por categoria",
+                            DashboardState.pecas_vendidas_por_categoria,
                         ),
                         columns=rx.breakpoints(
                             initial="1fr", lg="repeat(2, minmax(0, 1fr))"
@@ -517,14 +552,9 @@ def gerenciamento() -> rx.Component:
                 ),
                 rx.fragment(),
             ),
-            rx.cond(
-                AuthState.is_manager | (DashboardState.pecas_baixo_estoque_labels.length() > 0),
-                _low_stock_parts(),
-                rx.fragment(),
-            ),
             rx.grid(
                 _report("Vendas por status", DashboardState.vendas_por_status),
-                _report("Vendas por vendedor", DashboardState.vendas_por_vendedor),
+                _salespeople_report(),
                 columns=rx.breakpoints(initial="1fr", lg="repeat(2, minmax(0, 1fr))"),
                 spacing="4",
                 width="100%",

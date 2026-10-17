@@ -5,27 +5,44 @@ from app.state.dashboard_state import (
     _build_params,
     _count,
     _currency,
+    _average_currency,
     _extract_kpis,
     _extract_series,
     _percentage,
     _report_rows,
+    _analysis_rows,
     _chart_rows,
     _vehicle_status_chart_rows,
     _trend_chart_rows,
     _has_chart_values,
+    _payment_chart_rows,
     _low_stock_labels,
     _normalize_low_stock_rows,
+    _salesperson_rows,
 )
 from app.state.auth_state import _role_is_manager
 
 
 class DashboardStateTests(unittest.TestCase):
-    def test_manager_role_matches_xano_role_variants(self) -> None:
-        self.assertTrue(_role_is_manager("Gerente Comercial"))
-        self.assertTrue(_role_is_manager("Administrador Geral"))
+    def test_manager_role_matches_xano_roles(self) -> None:
+        self.assertTrue(_role_is_manager("Gerente"))
+        self.assertFalse(_role_is_manager("Vendedor"))
+        self.assertFalse(_role_is_manager("Cliente"))
+        self.assertFalse(_role_is_manager("Gerente Comercial"))
+        self.assertFalse(_role_is_manager("Administrador"))
 
     def test_formats_currency_in_brazilian_locale(self) -> None:
         self.assertEqual(_currency("1234.5", "valor"), "R$ 1.234,50")
+
+    def test_calculates_average_sales_in_frontend(self) -> None:
+        self.assertEqual(
+            _average_currency("1000", "4", "vendas no período"),
+            "R$ 250,00",
+        )
+        self.assertEqual(
+            _average_currency("1000", "0", "vendas no período"),
+            "R$ 0,00",
+        )
 
     def test_formats_percentage_in_brazilian_locale(self) -> None:
         self.assertEqual(_percentage("12.5", "cancelamentos"), "12,50%")
@@ -57,6 +74,19 @@ class DashboardStateTests(unittest.TestCase):
         with self.assertRaises(XanoError):
             _report_rows({"unexpected": True}, "vendas por período")
 
+    def test_normalizes_new_xano_analysis_objects(self) -> None:
+        self.assertEqual(
+            _analysis_rows(
+                {"disponivel": True, "propostas_total": 10, "taxa_conversao": 20},
+                "conversão",
+            ),
+            ["Disponivel: True · Propostas total: 10 · Taxa conversao: 20,00%"],
+        )
+        self.assertEqual(
+            _analysis_rows({"disponivel": False, "giro": 0}, "giro"),
+            ["Não disponível no contrato atual do Xano."],
+        )
+
     def test_normalizes_low_stock_parts_for_display(self) -> None:
         rows = _normalize_low_stock_rows(
             [
@@ -69,6 +99,20 @@ class DashboardStateTests(unittest.TestCase):
         self.assertEqual(
             _low_stock_labels(rows),
             ["Filtro — Sem estoque", "Pastilha — Quantidade: 3"],
+        )
+
+    def test_normalizes_salespeople_with_sale_counts(self) -> None:
+        self.assertEqual(
+            _salesperson_rows(
+                [
+                    {"nome": "Ana", "total_vendas": 3},
+                    {"UNome": "Bruno", "quantidade": 1},
+                ]
+            ),
+            [
+                {"nome": "Ana", "quantidade": 3},
+                {"nome": "Bruno", "quantidade": 1},
+            ],
         )
 
     def test_groups_daily_sales_into_weekly_monthly_and_yearly_series(self) -> None:
@@ -227,6 +271,17 @@ class DashboardStateTests(unittest.TestCase):
         self.assertFalse(_has_chart_values([{"nome": "PIX", "quantidade": 0.0}]))
         self.assertTrue(_has_chart_values([{"nome": "PIX", "quantidade": 1.0}]))
 
+    def test_payment_chart_uses_only_positive_api_values(self) -> None:
+        self.assertEqual(
+            _payment_chart_rows(
+                [
+                    {"metodo": "PIX", "total_vendas": 3},
+                    {"metodo": "Boleto", "total_vendas": 0},
+                ]
+            ),
+            [{"nome": "PIX", "quantidade": 3.0}],
+        )
+
     def test_accepts_enveloped_payment_rows_and_xano_field_variants(self) -> None:
         self.assertEqual(
             _chart_rows(
@@ -236,6 +291,17 @@ class DashboardStateTests(unittest.TestCase):
                 value_key="total_vendas",
             ),
             [{"nome": "PIX", "quantidade": 3.0}],
+        )
+
+    def test_accepts_payment_object_and_count_field_variants(self) -> None:
+        self.assertEqual(
+            _chart_rows(
+                [{"forma_pagamento": {"Metodo": "PIX"}, "count": 4}],
+                "pagamentos",
+                name_key="metodo",
+                value_key="total_vendas",
+            ),
+            [{"nome": "PIX", "quantidade": 4.0}],
         )
 
     def test_preserves_nested_indicator_payload_when_kpis_are_at_root(self) -> None:

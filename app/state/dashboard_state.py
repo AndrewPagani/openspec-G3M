@@ -26,6 +26,16 @@ def _currency(value: Any, label: str) -> str:
     return f"R$ {formatted}"
 
 
+def _average_currency(total: Any, count: Any, label: str) -> str:
+    total_amount = _decimal(total, f"total de {label}")
+    count_amount = _decimal(count, f"quantidade de {label}")
+    if count_amount < 0 or count_amount != count_amount.to_integral_value():
+        raise XanoError(f"A API retornou uma quantidade inválida para {label}.")
+    if count_amount == 0:
+        return _currency(0, label)
+    return _currency(total_amount / count_amount, label)
+
+
 def _percentage(value: Any, label: str) -> str:
     return f"{_decimal(value, label):.2f}%".replace(".", ",")
 
@@ -65,6 +75,62 @@ def _report_rows(value: Any, label: str) -> list[str]:
             columns.append(f"{title}: {item}")
         rows.append(" · ".join(columns) or "Registro disponível")
     return rows
+
+
+def _analysis_rows(value: Any, label: str) -> list[str]:
+    if isinstance(value, dict) and value.get("disponivel") is False:
+        return ["Não disponível no contrato atual do Xano."]
+    if isinstance(value, dict):
+        columns = []
+        for key, item in value.items():
+            normalized_key = str(key).lower()
+            title = str(key).replace("_", " ").capitalize()
+            if isinstance(item, (int, float, Decimal)) and not isinstance(item, bool):
+                if "percentual" in normalized_key or normalized_key.startswith("taxa"):
+                    item = _percentage(item, title)
+                elif "valor" in normalized_key:
+                    item = _currency(item, title)
+                elif normalized_key in {
+                    "propostas_total",
+                    "propostas_convertidas",
+                    "entradas_quantidade",
+                    "saidas_quantidade",
+                }:
+                    item = _count(item, title)
+            columns.append(f"{title}: {item}")
+        return [" · ".join(columns) or "Registro disponível"]
+    return _report_rows(value, label)
+
+
+def _salesperson_rows(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        for key in ("items", "data", "results", "rows", "vendas_por_vendedor"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                value = nested
+                break
+    if not isinstance(value, list):
+        raise XanoError("A API retornou uma lista inválida para vendas por vendedor.")
+
+    rows = []
+    for row in value:
+        if not isinstance(row, dict):
+            raise XanoError("A API retornou um registro inválido para vendas por vendedor.")
+        name = row.get("nome") or row.get("UNome") or row.get("name") or row.get("vendedor")
+        if name is None:
+            raise XanoError("A API não informou o nome de um vendedor.")
+        quantity = next(
+            (
+                row.get(key)
+                for key in ("total_vendas", "quantidade", "count", "qtd")
+                if row.get(key) is not None
+            ),
+            0,
+        )
+        rows.append({"nome": str(name), "quantidade": int(_count(quantity, "vendas por vendedor"))})
+    return sorted(rows, key=lambda row: row["quantidade"], reverse=True)
 
 
 def _extract_kpis(result: dict[str, Any]) -> dict[str, Any]:
@@ -212,14 +278,34 @@ def _chart_rows(value: Any, label: str, *, name_key: str, value_key: str) -> lis
             raise XanoError(f"A API retornou um registro inválido para {label}.")
         name = row.get(name_key)
         if name is None and name_key == "metodo":
-            name = row.get("Metodo") or row.get("forma_pagamento") or row.get("nome")
+            name = (
+                row.get("Metodo")
+                or row.get("forma_pagamento")
+                or row.get("forma")
+                or row.get("nome")
+                or row.get("descricao")
+            )
+            if isinstance(name, dict):
+                name = (
+                    name.get("metodo")
+                    or name.get("Metodo")
+                    or name.get("nome")
+                    or name.get("Metodo_nome")
+                )
         if name is None and name_key == "descricao":
             name = row.get("Descricao") or row.get("status") or row.get("nome")
         if name is None:
             raise XanoError(f"A API não informou a categoria de {label}.")
         amount_value = row.get(value_key)
         if amount_value is None:
-            amount_value = row.get("quantidade", row.get("total", 0))
+            amount_value = next(
+                (
+                    row.get(key)
+                    for key in ("quantidade", "total", "count", "qtd", "valor")
+                    if row.get(key) is not None
+                ),
+                0,
+            )
         amount = _decimal(amount_value, label)
         rows.append({"nome": str(name), "quantidade": float(amount)})
     rows.sort(key=lambda row: row["quantidade"], reverse=True)
@@ -244,6 +330,16 @@ def _vehicle_status_chart_rows(value: Any) -> list[dict[str, Any]]:
 
 def _has_chart_values(rows: list[dict[str, Any]]) -> bool:
     return any(row.get("quantidade", 0) > 0 for row in rows)
+
+
+def _payment_chart_rows(value: Any) -> list[dict[str, Any]]:
+    rows = _chart_rows(
+        value,
+        "vendas por forma de pagamento",
+        name_key="metodo",
+        value_key="total_vendas",
+    )
+    return [row for row in rows if row["quantidade"] > 0]
 
 
 def _normalize_low_stock_rows(value: Any) -> list[dict[str, Any]]:
@@ -339,7 +435,6 @@ class DashboardState(rx.State):
     total_vendas: str = "—"
     vendas_pagas: str = "—"
     ticket_medio: str = "—"
-    descontos: str = "—"
     valor_bruto: str = "—"
     vendas_canceladas: str = "—"
     percentual_canceladas: str = "—"
@@ -350,6 +445,10 @@ class DashboardState(rx.State):
     pecas_sem_estoque: str = "—"
     pecas_baixo_estoque: list[dict] = []
     pecas_baixo_estoque_labels: list[str] = []
+    veiculos_vendidos_por_marca: list[str] = []
+    pecas_vendidas_por_categoria: list[str] = []
+    conversao_estoque: list[str] = []
+    giro_estoque: list[str] = []
     vendas_por_periodo: list[str] = []
     chart_vendas_por_periodo: list[dict] = []
     chart_formas_pagamento: list[dict] = []
@@ -361,7 +460,8 @@ class DashboardState(rx.State):
     timeline_rows: list[dict] = []
     vendas_por_status: list[str] = []
     vendas_por_pagamento: list[str] = []
-    vendas_por_vendedor: list[str] = []
+    vendas_por_vendedor: list[dict] = []
+    filtro_vendedor_nome: str = ""
     mix_itens: list[str] = []
     veiculos_por_status: list[str] = []
     filtro_status_id: str = ""
@@ -382,6 +482,19 @@ class DashboardState(rx.State):
 
     def set_filtro_vendedor_id(self, value: str) -> None:
         self.filtro_vendedor_id = value
+
+    def set_filtro_vendedor_nome(self, value: str) -> None:
+        self.filtro_vendedor_nome = value
+
+    @rx.var
+    def vendedores_visiveis(self) -> list[str]:
+        search = self.filtro_vendedor_nome.strip().casefold()
+        return [
+            f"{row['nome']} — {row['quantidade']} "
+            f"{'venda' if row['quantidade'] == 1 else 'vendas'}"
+            for row in self.vendas_por_vendedor
+            if not search or search in row["nome"].casefold()
+        ]
 
     def set_filtro_forma_pagamento_id(self, value: str) -> None:
         self.filtro_forma_pagamento_id = value
@@ -408,7 +521,6 @@ class DashboardState(rx.State):
         self.total_vendas = "—"
         self.vendas_pagas = "—"
         self.ticket_medio = "—"
-        self.descontos = "—"
         self.valor_bruto = "—"
         self.vendas_canceladas = "—"
         self.percentual_canceladas = "—"
@@ -419,6 +531,10 @@ class DashboardState(rx.State):
         self.pecas_sem_estoque = "—"
         self.pecas_baixo_estoque = []
         self.pecas_baixo_estoque_labels = []
+        self.veiculos_vendidos_por_marca = []
+        self.pecas_vendidas_por_categoria = []
+        self.conversao_estoque = []
+        self.giro_estoque = []
         self.vendas_por_periodo = []
         self.chart_vendas_por_periodo = []
         self.chart_formas_pagamento = []
@@ -477,12 +593,10 @@ class DashboardState(rx.State):
                     result["kpis"] = nested_result["kpis"]
 
             kpis = _extract_kpis(result)
-
             required_kpis = [
+                "total_vendas_periodo",
                 "valor_liquido_recebido_periodo",
                 "vendas_pagas",
-                "ticket_medio_vendas_pagas",
-                "descontos",
                 "valor_bruto_vendido",
                 "vendas_canceladas",
                 "percentual_vendas_canceladas",
@@ -498,14 +612,15 @@ class DashboardState(rx.State):
                 )
 
             self.valor_liquido = _currency(kpis["valor_liquido_recebido_periodo"], "valor líquido")
-            total_vendas = kpis.get("total_vendas_periodo")
-            self.total_vendas = (
-                _count(total_vendas, "vendas no período") if total_vendas is not None else "—"
-            )
+            total_vendas = kpis["total_vendas_periodo"]
+            self.total_vendas = _count(total_vendas, "vendas no período")
             self.vendas_pagas = _count(kpis["vendas_pagas"], "vendas pagas")
-            self.ticket_medio = _currency(kpis["ticket_medio_vendas_pagas"], "ticket médio")
-            self.descontos = _currency(kpis["descontos"], "descontos")
             self.valor_bruto = _currency(kpis["valor_bruto_vendido"], "valor bruto vendido")
+            self.ticket_medio = _average_currency(
+                kpis["valor_bruto_vendido"],
+                total_vendas,
+                "vendas no período",
+            )
             self.vendas_canceladas = _count(kpis["vendas_canceladas"], "vendas canceladas")
             self.percentual_canceladas = _percentage(
                 kpis["percentual_vendas_canceladas"], "percentual de vendas canceladas"
@@ -513,6 +628,22 @@ class DashboardState(rx.State):
             low_stock = _extract_series(result, "pecas_baixo_estoque")
             self.pecas_baixo_estoque = _normalize_low_stock_rows(low_stock)
             self.pecas_baixo_estoque_labels = _low_stock_labels(self.pecas_baixo_estoque)
+            self.veiculos_vendidos_por_marca = _analysis_rows(
+                _extract_series(result, "veiculos_vendidos_por_marca"),
+                "veículos vendidos por marca",
+            )
+            self.pecas_vendidas_por_categoria = _analysis_rows(
+                _extract_series(result, "pecas_vendidas_por_categoria"),
+                "peças vendidas por categoria",
+            )
+            self.conversao_estoque = _analysis_rows(
+                _extract_series(result, "conversao_estoque"),
+                "conversão de estoque",
+            )
+            self.giro_estoque = _analysis_rows(
+                _extract_series(result, "giro_estoque"),
+                "giro de estoque",
+            )
             if auth_state.is_manager:
                 self.veiculos_disponiveis = _count(kpis["veiculos_disponiveis"], "veículos disponíveis")
                 self.pecas_disponiveis = _count(kpis["pecas_qtd_disponivel"], "peças disponíveis")
@@ -552,18 +683,15 @@ class DashboardState(rx.State):
                 ),
                 "vendas por forma de pagamento",
             )
-            self.chart_formas_pagamento = _chart_rows(
+            self.chart_formas_pagamento = _payment_chart_rows(
                 _extract_series(
                     result,
                     "vendas_por_forma_pagamento",
                     "vendas_por_metodo_pagamento",
                     "pagamentos",
-                ),
-                "vendas por forma de pagamento",
-                name_key="metodo",
-                value_key="total_vendas",
+                )
             )
-            self.pagamentos_com_movimento = _has_chart_values(self.chart_formas_pagamento)
+            self.pagamentos_com_movimento = len(self.chart_formas_pagamento) > 0
             mix_rows = _extract_series(result, "mix_itens", "vendas_por_tipo_item")
             self.mix_itens = _report_rows(mix_rows, "mix de itens")
             self.chart_mix_itens = _chart_rows(
@@ -574,8 +702,8 @@ class DashboardState(rx.State):
             )
             self.mix_com_movimento = _has_chart_values(self.chart_mix_itens)
             if auth_state.is_manager:
-                self.vendas_por_vendedor = _report_rows(
-                    _extract_series(result, "vendas_por_vendedor"), "vendas por vendedor"
+                self.vendas_por_vendedor = _salesperson_rows(
+                    _extract_series(result, "vendas_por_vendedor")
                 )
                 self.veiculos_por_status = _report_rows(
                     _extract_series(
@@ -610,7 +738,6 @@ class DashboardState(rx.State):
                 ("Valor líquido recebido", self.valor_liquido),
                 ("Ticket médio", self.ticket_medio),
                 ("Valor bruto vendido", self.valor_bruto),
-                ("Descontos", self.descontos),
                 ("Vendas canceladas", self.vendas_canceladas),
                 ("Percentual de cancelamentos", self.percentual_canceladas),
             )

@@ -6,12 +6,7 @@ from app.services.xano_client import XanoError, client
 
 
 def _role_is_manager(role: str) -> bool:
-    normalized = role.strip().lower()
-    return (
-        normalized in ("gerente", "manager", "administrador", "admin")
-        or "gerente" in normalized
-        or "administrador" in normalized
-    )
+    return role.strip().casefold() == "gerente"
 
 
 class AuthState(rx.State):
@@ -30,8 +25,7 @@ class AuthState(rx.State):
 
     @rx.var
     def is_admin(self) -> bool:
-        role = self.profile.strip().lower()
-        return role in ("administrador", "admin") or "administrador" in role
+        return False
 
     @rx.var
     def is_manager(self) -> bool:

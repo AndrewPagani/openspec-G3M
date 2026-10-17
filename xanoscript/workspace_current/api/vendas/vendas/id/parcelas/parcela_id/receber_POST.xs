@@ -28,9 +28,9 @@ query "vendas/{id}/parcelas/{parcela_id}/receber" verb=POST {
       field_value = $usuario.perfil_id
     } as $perfil
   
-    precondition ($perfil != null && ($perfil.Cargo == "Gerente" || $perfil.Cargo == "Administrador")) {
+    precondition ($perfil != null && $perfil.Cargo == "Gerente") {
       error_type = "accessdenied"
-      error = "Apenas Gerente ou Administrador podem confirmar recebimentos"
+      error = "Apenas Gerente pode confirmar recebimentos"
     }
   
     db.get venda {
@@ -133,11 +133,11 @@ query "vendas/{id}/parcelas/{parcela_id}/receber" verb=POST {
                   field_name = "id"
                   field_value = $parcela_transacao.id
                   data = {
-                    status             : "RECEBIDA"
-                    forma_recebida_id  : $forma_recebida.id
-                    recebido_em        : now
-                    recebido_por       : $auth.id
-                    updated_at         : now
+                    status           : "RECEBIDA"
+                    forma_recebida_id: $forma_recebida.id
+                    recebido_em      : now
+                    recebido_por     : $auth.id
+                    updated_at       : now
                   }
                 } as $parcela_recebida
               
@@ -185,17 +185,17 @@ query "vendas/{id}/parcelas/{parcela_id}/receber" verb=POST {
   }
 
   response = {
-    venda_id          : $input.id
-    id                : $parcela_final.id
-    numero_parcela    : $parcela_final.numero_parcela
-    total_parcelas    : $parcela_final.total_parcelas
-    valor             : $parcela_final.valor
-    vencimento        : $parcela_final.vencimento
-    status            : $parcela_final.status
-    forma_recebida    : ($forma_final.Metodo ?? null)
-    recebido_em       : $parcela_final.recebido_em
-    recebido_por      : $parcela_final.recebido_por
-    status_venda      : ($status_venda_final.Descricao_venda ?? "")
+    venda_id      : $input.id
+    id            : $parcela_final.id
+    numero_parcela: $parcela_final.numero_parcela
+    total_parcelas: $parcela_final.total_parcelas
+    valor         : $parcela_final.valor
+    vencimento    : $parcela_final.vencimento
+    status        : $parcela_final.status
+    forma_recebida: ($forma_final.Metodo ?? null)
+    recebido_em   : $parcela_final.recebido_em
+    recebido_por  : $parcela_final.recebido_por
+    status_venda  : ($status_venda_final.Descricao_venda ?? "")
   }
 
   guid = "7I6SdNjYCv-HXWOsgkmDr2E6G5c"

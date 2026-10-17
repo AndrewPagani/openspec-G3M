@@ -122,29 +122,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 5. Parsing e validacao de vendedor_id
-    var $parsed_vendedor_id {
-      value = null
-    }
-  
-    conditional {
-      if ($input.vendedor_id != null && $input.vendedor_id != "") {
-        var $v_int {
-          value = $input.vendedor_id|to_int
-        }
-      
-        precondition ($v_int > 0) {
-          error_type = "inputerror"
-          error = "Parametro vendedor_id invalido. Deve ser um numero inteiro positivo"
-        }
-      
-        var.update $parsed_vendedor_id {
-          value = $v_int
-        }
-      }
-    }
-  
-    // 6. Parsing e validacao de forma_pagamento_id
+    // 5. Parsing e validacao de forma_pagamento_id
     var $parsed_forma_pagamento_id {
       value = null
     }
@@ -211,16 +189,8 @@ query indicadores verb=GET {
     }
   
     // 9. Determinar escopo de autorizacao (Vendedor restrito exclusivamente as suas vendas)
-    var $cargo_normalizado {
-      value = (($perfil.Cargo ?? "")|to_text)|to_lower
-    }
-
     var $is_gerencia {
-      value = ($perfil != null && (
-        ($cargo_normalizado|contains:"gerente")
-        || ($cargo_normalizado|contains:"administrador")
-        || ($cargo_normalizado|contains:"admin")
-      ))
+      value = ($perfil != null && $perfil.Cargo == "Gerente")
     }
   
     var $vendedor_filtro {
@@ -235,8 +205,23 @@ query indicadores verb=GET {
       }
     
       else {
-        var.update $vendedor_filtro {
-          value = $parsed_vendedor_id
+        conditional {
+          if ($input.vendedor_id != null && $input.vendedor_id != "") {
+            precondition (($input.vendedor_id|to_int) > 0) {
+              error_type = "inputerror"
+              error = "Parametro vendedor_id invalido. Deve ser um numero inteiro positivo"
+            }
+
+            var.update $vendedor_filtro {
+              value = $input.vendedor_id|to_int
+            }
+          }
+        
+          else {
+            var.update $vendedor_filtro {
+              value = null
+            }
+          }
         }
       }
     }
@@ -282,34 +267,329 @@ query indicadores verb=GET {
       }
     }
   
-    // 11. Considerar somente baixas manuais locais; o periodo segue data_venda.
-    // recebido_em e opcional no schema e nao pode excluir uma venda ja recebida.
+    // 11. Auditoria e agregacao das parcelas recebidas
+    // Carrega parcelas e vendas para diagnostico e calculo consistente de recebimentos
     db.query venda_parcela {
-      join = {
-        venda: {
-          table: "venda"
-          where: $db.venda_parcela.venda_id == $db.venda.id
-        }
-      }
-    
-      where = $db.venda_parcela.status == "RECEBIDA" && ($vendedor_filtro == null || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_status_id == null || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == null || $db.venda_parcela.forma_recebida_id == $parsed_forma_pagamento_id) && ($parsed_data_inicio == null || $db.venda.data_venda >= $parsed_data_inicio) && ($parsed_data_fim == null || $db.venda.data_venda <= $parsed_data_fim)
       return = {type: "list"}
-    } as $parcelas_recebidas
+    } as $todas_as_parcelas_banco
   
-    var $valor_liquido_recebido_periodo {
-      value = (($parcelas_recebidas|map:$$.valor)|sum) ?? 0
+    var $parcelas_candidatas {
+      value = 0
     }
   
+    var $parcelas_recebidas_validas {
+      value = []
+    }
+  
+    var $parcelas_fora_periodo {
+      value = 0
+    }
+  
+    var $parcelas_com_valor_zero {
+      value = 0
+    }
+  
+    var $parcelas_sem_venda {
+      value = 0
+    }
+  
+    var $total_parcelas_banco {
+      value = $todas_as_parcelas_banco|count
+    }
+  
+    var $status_distintos_raw {
+      value = ($todas_as_parcelas_banco|map:$$.status)|unique
+    }
+  
+    var $com_valor_maior_zero {
+      value = 0
+    }
+  
+    var $com_recebido_em {
+      value = 0
+    }
+  
+    var $com_forma_recebida_id {
+      value = 0
+    }
+  
+    var $com_recebido_por {
+      value = 0
+    }
+  
+    var $com_venda_id {
+      value = 0
+    }
+  
+    var $com_venda_existente {
+      value = 0
+    }
+  
+    var $totais_por_status {
+      value = ```
+        {
+          RECEBIDA       : 0
+          PENDENTE       : 0
+          CANCELADA      : 0
+          OUTROS_OU_NULOS: 0
+        }
+        ```
+    }
+  
+    var $exemplos_parcelas_recebidas {
+      value = []
+    }
+  
+    foreach ($todas_as_parcelas_banco) {
+      each as $p {
+        var $st_raw {
+          value = $p.status
+        }
+      
+        var $st_norm {
+          value = ($st_raw != null) ? (($st_raw|trim)|to_upper) : ""
+        }
+      
+        conditional {
+          if ($st_norm == "RECEBIDA") {
+            var.update $totais_por_status {
+              value = $totais_por_status
+                |set:"RECEBIDA":$totais_por_status.RECEBIDA + 1
+            }
+          }
+        
+          elseif ($st_norm == "PENDENTE") {
+            var.update $totais_por_status {
+              value = $totais_por_status
+                |set:"PENDENTE":$totais_por_status.PENDENTE + 1
+            }
+          }
+        
+          elseif ($st_norm == "CANCELADA") {
+            var.update $totais_por_status {
+              value = $totais_por_status
+                |set:"CANCELADA":$totais_por_status.CANCELADA + 1
+            }
+          }
+        
+          else {
+            var.update $totais_por_status {
+              value = $totais_por_status
+                |set:"OUTROS_OU_NULOS":$totais_por_status.OUTROS_OU_NULOS + 1
+            }
+          }
+        }
+      
+        conditional {
+          if (($p.valor ?? 0) > 0) {
+            var.update $com_valor_maior_zero {
+              value = $com_valor_maior_zero + 1
+            }
+          }
+        }
+      
+        conditional {
+          if ($p.recebido_em != null) {
+            var.update $com_recebido_em {
+              value = $com_recebido_em + 1
+            }
+          }
+        }
+      
+        conditional {
+          if ($p.forma_recebida_id != null) {
+            var.update $com_forma_recebida_id {
+              value = $com_forma_recebida_id + 1
+            }
+          }
+        }
+      
+        conditional {
+          if ($p.recebido_por != null) {
+            var.update $com_recebido_por {
+              value = $com_recebido_por + 1
+            }
+          }
+        }
+      
+        conditional {
+          if ($p.venda_id != null) {
+            var.update $com_venda_id {
+              value = $com_venda_id + 1
+            }
+          }
+        }
+      
+        var $venda_match {
+          value = null
+        }
+
+        conditional {
+          if ($p.venda_id != null) {
+            db.get venda {
+              field_name = "id"
+              field_value = $p.venda_id
+            } as $venda_encontrada
+
+            var.update $venda_match {
+              value = $venda_encontrada
+            }
+          }
+        }
+      
+        conditional {
+          if ($venda_match != null) {
+            var.update $com_venda_existente {
+              value = $com_venda_existente + 1
+            }
+          }
+        }
+      
+        // Filtro de escopo de autorizacao e status da venda
+        var $escopo_ok {
+          value = ($venda_match != null) && ($vendedor_filtro == null || $venda_match.vendedor_id == $vendedor_filtro) && ($parsed_status_id == null || $venda_match.status_id == $parsed_status_id)
+        }
+      
+        conditional {
+          if ($escopo_ok) {
+            var.update $parcelas_candidatas {
+              value = $parcelas_candidatas + 1
+            }
+          
+            // Regra oficial de parcela recebida:
+            // 1. Status normalizado igual a RECEBIDA; OU
+            // 2. Status nao e PENDENTE nem CANCELADA, e possui a triade recebido_em, forma_recebida_id e recebido_por.
+            var $is_p_recebida {
+              value = false
+            }
+          
+            conditional {
+              if ($st_norm != "PENDENTE" && $st_norm != "CANCELADA") {
+                conditional {
+                  if ($st_norm == "RECEBIDA" || ($p.recebido_em != null && $p.forma_recebida_id != null && $p.recebido_por != null)) {
+                    var.update $is_p_recebida {
+                      value = true
+                    }
+                  }
+                }
+              }
+            }
+          
+            conditional {
+              if ($is_p_recebida) {
+                conditional {
+                  if (($p.valor ?? 0) <= 0) {
+                    var.update $parcelas_com_valor_zero {
+                      value = $parcelas_com_valor_zero + 1
+                    }
+                  }
+                
+                  else {
+                    // Periodo: utiliza preferencialmente recebido_em, com fallback em data_venda para dados legados
+                    var $dt_ref {
+                      value = $p.recebido_em ?? $venda_match.data_venda
+                    }
+                  
+                    var $passou_periodo {
+                      value = ($dt_ref != null) && ($parsed_data_inicio == null || $dt_ref >= $parsed_data_inicio) && ($parsed_data_fim == null || $dt_ref <= $parsed_data_fim)
+                    }
+                  
+                    conditional {
+                      if ($passou_periodo == false) {
+                        var.update $parcelas_fora_periodo {
+                          value = $parcelas_fora_periodo + 1
+                        }
+                      }
+                    
+                      else {
+                        // Forma de pagamento recebida (com fallback para a forma da venda)
+                        var $passou_forma {
+                          value = ($parsed_forma_pagamento_id == null || $p.forma_recebida_id == $parsed_forma_pagamento_id || ($p.forma_recebida_id == null && $venda_match.forma_pagamento_id == $parsed_forma_pagamento_id))
+                        }
+                      
+                        conditional {
+                          if ($passou_forma) {
+                            var $item_com_venda {
+                              value = {
+                                id                : $p.id
+                                venda_id          : $p.venda_id
+                                valor             : $p.valor
+                                status_original   : $st_raw
+                                status_normalizado: $st_norm
+                                recebido_em       : $p.recebido_em
+                                forma_recebida_id : $p.forma_recebida_id
+                                recebido_por      : $p.recebido_por
+                                data_venda        : $venda_match.data_venda
+                                Valor_final       : $venda_match.Valor_final
+                              }
+                            }
+                          
+                            array.push $parcelas_recebidas_validas {
+                              value = $item_com_venda
+                            }
+                          
+                            conditional {
+                              if (($exemplos_parcelas_recebidas|count) < 10) {
+                                array.push $exemplos_parcelas_recebidas {
+                                  value = $item_com_venda
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        
+          else {
+            conditional {
+              if ($p.venda_id == null || $venda_match == null) {
+                var.update $parcelas_sem_venda {
+                  value = $parcelas_sem_venda + 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  
+    var $valor_liquido_recebido_periodo {
+      value = (($parcelas_recebidas_validas|map:$$.valor)|sum) ?? 0
+    }
+  
+    // Contagem de vendas distintas que possuem pelo menos uma parcela recebida valida
     var $vendas_pagas_ids {
-      value = ($parcelas_recebidas|map:$$.venda_id)|unique
+      value = ($parcelas_recebidas_validas|map:$$.venda_id)|unique
     }
   
     var $vendas_pagas_count {
       value = $vendas_pagas_ids|count
     }
   
-    var $vendas_pagas_detalhe {
-      value = $vendas_filtradas|filter:($vendas_pagas_ids|some:$$ == $this.id)
+    // Soma de Valor_final de cada venda distinta paga (sem duplicar se houver multiplas parcelas)
+    var $soma_valor_final_vendas_pagas {
+      value = 0
+    }
+  
+    foreach ($vendas_pagas_ids) {
+      each as $vid {
+        var $p_venda {
+          value = $parcelas_recebidas_validas|find:$$.venda_id == $vid
+        }
+      
+        conditional {
+          if ($p_venda != null) {
+            var.update $soma_valor_final_vendas_pagas {
+              value = $soma_valor_final_vendas_pagas + ($p_venda.Valor_final ?? 0)
+            }
+          }
+        }
+      }
     }
   
     var $ticket_medio_vendas_pagas {
@@ -318,13 +598,36 @@ query indicadores verb=GET {
   
     conditional {
       if ($vendas_pagas_count > 0) {
-        var $soma_valor_pagas {
-          value = (($vendas_pagas_detalhe|map:$$.Valor_final)|sum) ?? 0
-        }
-      
         var.update $ticket_medio_vendas_pagas {
-          value = $soma_valor_pagas / $vendas_pagas_count
+          value = $soma_valor_final_vendas_pagas / $vendas_pagas_count
         }
+      }
+    }
+  
+    var $mensagem_diagnostico {
+      value = ($vendas_pagas_count > 0) ? "Parcelas recebidas processadas com sucesso." : "Nenhuma parcela qualificada foi encontrada na tabela venda_parcela."
+    }
+  
+    var $diagnostico_parcelas {
+      value = {
+        mensagem                     : $mensagem_diagnostico
+        parcelas_candidatas          : $parcelas_candidatas
+        parcelas_recebidas_validas   : $parcelas_recebidas_validas|count
+        parcelas_fora_periodo        : $parcelas_fora_periodo
+        parcelas_com_valor_zero      : $parcelas_com_valor_zero
+        parcelas_sem_venda           : $parcelas_sem_venda
+        vendas_pagas_distintas       : $vendas_pagas_count
+        soma_valores_recebidos       : $valor_liquido_recebido_periodo
+        soma_valor_final_vendas_pagas: $soma_valor_final_vendas_pagas
+        total_parcelas_banco         : $total_parcelas_banco
+        status_distintos_encontrados : $status_distintos_raw
+        total_por_status             : $totais_por_status
+        com_recebido_em              : $com_recebido_em
+        com_forma_recebida_id        : $com_forma_recebida_id
+        com_recebido_por             : $com_recebido_por
+        com_valor_maior_zero         : $com_valor_maior_zero
+        com_venda_valida             : $com_venda_existente
+        exemplos_parcelas_recebidas  : $exemplos_parcelas_recebidas
       }
     }
   
@@ -334,25 +637,39 @@ query indicadores verb=GET {
     }
   
     var $vendas_por_periodo {
-      value = ```
-        $datas_unicas|map:{
-                periodo: $$,
-                total_vendas: ($vendas_filtradas|filter:($$.data_venda|format_timestamp:"Y-m-d":"UTC") == $this)|count,
-                valor_total: ((($vendas_filtradas|filter:($$.data_venda|format_timestamp:"Y-m-d":"UTC") == $this)|map:$$.Valor_final)|sum) ?? 0
-              }
-        ```
+      value = []
     }
-
+  
+    foreach ($datas_unicas) {
+      each as $dt {
+        var $vendas_desta_data {
+          value = $vendas_filtradas|filter:($$.data_venda|format_timestamp:"Y-m-d":"UTC") == $dt
+        }
+      
+        var $total_valor_data {
+          value = (($vendas_desta_data|map:$$.Valor_final)|sum) ?? 0
+        }
+      
+        array.push $vendas_por_periodo {
+          value = {
+            periodo     : $dt
+            total_vendas: $vendas_desta_data|count
+            valor_total : $total_valor_data
+          }
+        }
+      }
+    }
+  
     // Fonte da timeline: uma linha por venda, diretamente de data_venda.
     // A agregação final é feita no estado Reflex para preservar dia/semana/mês/ano.
     var $vendas_timeline {
       value = ```
-        $vendas_filtradas|map:{
-          periodo: $$.data_venda,
-          total_vendas: 1,
-          valor_total: $$.Valor_final
-        }
-      ```
+          $vendas_filtradas|map:{
+            periodo: $$.data_venda,
+            total_vendas: 1,
+            valor_total: $$.Valor_final
+          }
+        ```
     }
   
     // 13. Agregacao vendas_por_status_pagamento
@@ -361,13 +678,23 @@ query indicadores verb=GET {
     } as $lista_status_venda
   
     var $vendas_por_status_pagamento {
-      value = ```
-        $lista_status_venda|map:{
-                status_id: $$.id,
-                descricao: $$.Descricao_venda,
-                total_vendas: ($vendas_filtradas|filter:$$.status_id == $this.id)|count
-              }
-        ```
+      value = []
+    }
+  
+    foreach ($lista_status_venda) {
+      each as $sv {
+        var $vendas_deste_status {
+          value = $vendas_filtradas|filter:$$.status_id == $sv.id
+        }
+      
+        array.push $vendas_por_status_pagamento {
+          value = {
+            status_id   : $sv.id
+            descricao   : $sv.Descricao_venda
+            total_vendas: $vendas_deste_status|count
+          }
+        }
+      }
     }
   
     // 14. Agregacao vendas_por_forma_pagamento
@@ -376,13 +703,23 @@ query indicadores verb=GET {
     } as $lista_formas_pagamento
   
     var $vendas_por_forma_pagamento {
-      value = ```
-        $lista_formas_pagamento|map:{
-                forma_id: $$.id,
-                metodo: $$.Metodo,
-                total_vendas: ($vendas_filtradas|filter:$$.forma_pagamento_id == $this.id)|count
-              }
-        ```
+      value = []
+    }
+  
+    foreach ($lista_formas_pagamento) {
+      each as $fp {
+        var $vendas_desta_forma {
+          value = $vendas_filtradas|filter:$$.forma_pagamento_id == $fp.id
+        }
+      
+        array.push $vendas_por_forma_pagamento {
+          value = {
+            forma_id    : $fp.id
+            metodo      : $fp.Metodo
+            total_vendas: $vendas_desta_forma|count
+          }
+        }
+      }
     }
   
     // 15. Agregacao mix_itens (veiculos vs pecas vendidos no periodo)
@@ -415,11 +752,11 @@ query indicadores verb=GET {
         var.update $mix_itens {
           value = [
             {
-              tipo: "veiculo",
+              tipo      : "veiculo"
               quantidade: $qtd_itens_veic
             },
             {
-              tipo: "peca",
+              tipo      : "peca"
               quantidade: $qtd_itens_pecas
             }
           ]
@@ -427,7 +764,294 @@ query indicadores verb=GET {
       }
     }
   
-    // 16. Agregacoes gerenciais exclusivas (estoque global e vendas_por_vendedor)
+    // 16. Veiculos vendidos por marca
+    var $veiculos_vendidos_por_marca {
+      value = []
+    }
+  
+    var $itens_veiculos {
+      value = $itens_das_vendas|filter:$$.veiculo_id != null
+    }
+  
+    conditional {
+      if (($itens_veiculos|count) > 0) {
+        var $veiculo_ids_vendidos {
+          value = ($itens_veiculos|map:$$.veiculo_id)|unique
+        }
+      
+        db.query veiculo {
+          where = $db.veiculo.id in $veiculo_ids_vendidos
+          return = {type: "list"}
+        } as $veiculos_cadastrados
+      
+        var $veiculos_itens_formatados {
+          value = []
+        }
+      
+        var $valor_total_veiculos_vendidos {
+          value = 0
+        }
+      
+        foreach ($itens_veiculos) {
+          each as $iv {
+            var $veic_ref {
+              value = $veiculos_cadastrados|find:$$.id == $iv.veiculo_id
+            }
+          
+            var $marca_nome {
+              value = "Sem marca"
+            }
+          
+            conditional {
+              if ($veic_ref != null && $veic_ref.Marca != null && (($veic_ref.Marca|trim) != "")) {
+                var.update $marca_nome {
+                  value = $veic_ref.Marca|trim
+                }
+              }
+            }
+          
+            var $iv_qtd {
+              value = $iv.qtd ?? 1
+            }
+          
+            var $iv_val {
+              value = $iv_qtd * ($iv.preco_unit ?? 0)
+            }
+          
+            var.update $valor_total_veiculos_vendidos {
+              value = $valor_total_veiculos_vendidos + $iv_val
+            }
+          
+            array.push $veiculos_itens_formatados {
+              value = {marca: $marca_nome, qtd: $iv_qtd, valor: $iv_val}
+            }
+          }
+        }
+      
+        var $marcas_unicas {
+          value = ($veiculos_itens_formatados|map:$$.marca)|unique
+        }
+      
+        foreach ($marcas_unicas) {
+          each as $m {
+            var $itens_marca {
+              value = $veiculos_itens_formatados|filter:$$.marca == $m
+            }
+          
+            var $qtd_marca {
+              value = (($itens_marca|map:$$.qtd)|sum) ?? 0
+            }
+          
+            var $valor_marca {
+              value = (($itens_marca|map:$$.valor)|sum) ?? 0
+            }
+          
+            var $pct_marca {
+              value = 0
+            }
+          
+            conditional {
+              if ($valor_total_veiculos_vendidos > 0) {
+                var.update $pct_marca {
+                  value = (($valor_marca * 100) / $valor_total_veiculos_vendidos)|round:2
+                }
+              }
+            }
+          
+            array.push $veiculos_vendidos_por_marca {
+              value = {
+                marca      : $m
+                quantidade : $qtd_marca
+                valor_total: $valor_marca
+                percentual : $pct_marca
+              }
+            }
+          }
+        }
+      
+        var.update $veiculos_vendidos_por_marca {
+          value = $veiculos_vendidos_por_marca
+            |sort:"valor_total":"number":false
+        }
+      }
+    }
+  
+    // 17. Pecas vendidas por categoria
+    var $pecas_vendidas_por_categoria {
+      value = []
+    }
+  
+    var $itens_pecas {
+      value = $itens_das_vendas|filter:$$.peca_id != null
+    }
+  
+    conditional {
+      if (($itens_pecas|count) > 0) {
+        var $peca_ids_vendidas {
+          value = ($itens_pecas|map:$$.peca_id)|unique
+        }
+      
+        db.query peca {
+          where = $db.peca.id in $peca_ids_vendidas
+          return = {type: "list"}
+        } as $pecas_cadastradas
+      
+        var $area_ids {
+          value = (($pecas_cadastradas|filter:$$.area_id != null)|map:$$.area_id)|unique
+        }
+      
+        var $areas_cadastradas {
+          value = []
+        }
+      
+        conditional {
+          if (($area_ids|count) > 0) {
+            db.query veiculo_area {
+              where = $db.veiculo_area.id in $area_ids
+              return = {type: "list"}
+            } as $areas_cadastradas_db
+          
+            var.update $areas_cadastradas {
+              value = $areas_cadastradas_db
+            }
+          }
+        }
+      
+        var $pecas_itens_formatados {
+          value = []
+        }
+      
+        var $valor_total_pecas_vendidas {
+          value = 0
+        }
+      
+        foreach ($itens_pecas) {
+          each as $ip {
+            var $peca_ref {
+              value = $pecas_cadastradas|find:$$.id == $ip.peca_id
+            }
+          
+            var $cat_nome {
+              value = "Sem categoria"
+            }
+          
+            conditional {
+              if ($peca_ref != null && $peca_ref.area_id != null) {
+                var $area_ref {
+                  value = $areas_cadastradas|find:$$.id == $peca_ref.area_id
+                }
+              
+                conditional {
+                  if ($area_ref != null && $area_ref.Secao != null && (($area_ref.Secao|trim) != "")) {
+                    var.update $cat_nome {
+                      value = $area_ref.Secao|trim
+                    }
+                  }
+                }
+              }
+            }
+          
+            var $ip_qtd {
+              value = $ip.qtd ?? 1
+            }
+          
+            var $ip_val {
+              value = $ip_qtd * ($ip.preco_unit ?? 0)
+            }
+          
+            var.update $valor_total_pecas_vendidas {
+              value = $valor_total_pecas_vendidas + $ip_val
+            }
+          
+            array.push $pecas_itens_formatados {
+              value = {categoria: $cat_nome, qtd: $ip_qtd, valor: $ip_val}
+            }
+          }
+        }
+      
+        var $categorias_unicas {
+          value = ($pecas_itens_formatados|map:$$.categoria)|unique
+        }
+      
+        foreach ($categorias_unicas) {
+          each as $c {
+            var $itens_cat {
+              value = $pecas_itens_formatados|filter:$$.categoria == $c
+            }
+          
+            var $qtd_cat {
+              value = (($itens_cat|map:$$.qtd)|sum) ?? 0
+            }
+          
+            var $valor_cat {
+              value = (($itens_cat|map:$$.valor)|sum) ?? 0
+            }
+          
+            var $pct_cat {
+              value = 0
+            }
+          
+            conditional {
+              if ($valor_total_pecas_vendidas > 0) {
+                var.update $pct_cat {
+                  value = (($valor_cat * 100) / $valor_total_pecas_vendidas)|round:2
+                }
+              }
+            }
+          
+            array.push $pecas_vendidas_por_categoria {
+              value = {
+                categoria  : $c
+                quantidade : $qtd_cat
+                valor_total: $valor_cat
+                percentual : $pct_cat
+              }
+            }
+          }
+        }
+      
+        var.update $pecas_vendidas_por_categoria {
+          value = $pecas_vendidas_por_categoria
+            |sort:"valor_total":"number":false
+        }
+      }
+    }
+  
+    // 18. Pecas vendidas por fabricante (indisponivel: nao ha campo fabricante na tabela peca)
+    var $pecas_vendidas_por_fabricante {
+      value = []
+    }
+  
+    var $fabricante_disponivel {
+      value = false
+    }
+  
+    // 19. Conversao de estoque (indisponivel: nao ha estrutura de propostas/orcamentos no schema)
+    var $conversao_estoque {
+      value = ```
+        {
+          disponivel           : false
+          propostas_total      : 0
+          propostas_convertidas: 0
+          taxa_conversao       : 0
+        }
+        ```
+    }
+  
+    // 20. Giro de estoque (indisponivel: nao ha historico de movimentacoes de estoque no schema)
+    var $giro_estoque {
+      value = ```
+        {
+          disponivel         : false
+          entradas_quantidade: 0
+          saidas_quantidade  : 0
+          estoque_medio      : 0
+          giro               : 0
+        }
+        ```
+    }
+  
+    // 21. Agregacoes gerenciais exclusivas (estoque global e vendas_por_vendedor)
     var $veiculos_disponiveis {
       value = 0
     }
@@ -447,11 +1071,11 @@ query indicadores verb=GET {
     var $pecas_sem_estoque {
       value = 0
     }
-
+  
     var $pecas_baixo_estoque {
       value = []
     }
-
+  
     var $veiculos_por_status {
       value = []
     }
@@ -499,11 +1123,13 @@ query indicadores verb=GET {
           value = (($pecas_em_estoque|map:($$.PCvalor * $$.qtd_disp))|sum) ?? 0
         }
       
+        // Consulta pecas com estoque baixo (qtd_disp <= 5 ou null)
         db.query peca {
           where = $db.peca.qtd_disp <= 5 || $db.peca.qtd_disp == null
           return = {type: "list"}
         } as $pecas_baixo_estoque_db
-
+      
+        // Mapeia pecas de baixo estoque com id, nome, quantidade e valor unitario
         var.update $pecas_baixo_estoque {
           value = ```
             $pecas_baixo_estoque_db|map:{
@@ -515,6 +1141,7 @@ query indicadores verb=GET {
             ```
         }
       
+        // Atualiza pecas_sem_estoque com a contagem da lista pecas_baixo_estoque
         var.update $pecas_sem_estoque {
           value = $pecas_baixo_estoque|count
         }
@@ -529,13 +1156,23 @@ query indicadores verb=GET {
         } as $todos_veiculos_base
       
         var.update $veiculos_por_status {
-          value = ```
-            $todos_status_veic|map:{
-                        status_id: $$.id,
-                        descricao: $$.Descricao,
-                        quantidade: ($todos_veiculos_base|filter:$$.status_id == $this.id)|count
-                      }
-            ```
+          value = []
+        }
+      
+        foreach ($todos_status_veic) {
+          each as $tsv {
+            var $veic_deste_status {
+              value = $todos_veiculos_base|filter:$$.status_id == $tsv.id
+            }
+          
+            array.push $veiculos_por_status {
+              value = {
+                status_id : $tsv.id
+                descricao : $tsv.Descricao
+                quantidade: $veic_deste_status|count
+              }
+            }
+          }
         }
       
         // vendas_por_vendedor
@@ -544,21 +1181,35 @@ query indicadores verb=GET {
         } as $todos_usuarios
       
         var.update $vendas_por_vendedor {
-          value = ```
-            $todos_usuarios|map:{
-                        vendedor_id: $$.id,
-                        nome: $$.UNome,
-                        total_vendas: ($vendas_filtradas|filter:$$.vendedor_id == $this.id)|count,
-                        valor_total: ((($vendas_filtradas|filter:$$.vendedor_id == $this.id)|map:$$.Valor_final)|sum) ?? 0
-                      }
-            ```
+          value = []
+        }
+      
+        foreach ($todos_usuarios) {
+          each as $tu {
+            var $vendas_deste_vendedor {
+              value = $vendas_filtradas|filter:$$.vendedor_id == $tu.id
+            }
+          
+            var $valor_deste_vendedor {
+              value = (($vendas_deste_vendedor|map:$$.Valor_final)|sum) ?? 0
+            }
+          
+            array.push $vendas_por_vendedor {
+              value = {
+                vendedor_id : $tu.id
+                nome        : $tu.UNome
+                total_vendas: $vendas_deste_vendedor|count
+                valor_total : $valor_deste_vendedor
+              }
+            }
+          }
         }
       }
     }
   }
 
   response = {
-    kpis                       : ```
+    kpis                         : ```
       {
         total_vendas_periodo: $total_vendas_periodo,
         valor_bruto_vendido: $valor_bruto_vendido,
@@ -572,17 +1223,24 @@ query indicadores verb=GET {
         pecas_qtd_disponivel: $pecas_qtd_disponivel
       }
       ```
-    vendas_por_periodo         : $vendas_por_periodo
-    vendas_timeline             : $vendas_timeline
-    vendas_por_status_pagamento: $vendas_por_status_pagamento
-    vendas_por_forma_pagamento : $vendas_por_forma_pagamento
-    vendas_por_vendedor        : $vendas_por_vendedor
-    mix_itens                  : $mix_itens
-    veiculos_por_status        : $veiculos_por_status
-    valor_veiculos_disponiveis : $valor_veiculos_disponiveis
-    valor_estoque_pecas        : $valor_estoque_pecas
-    pecas_sem_estoque          : $pecas_sem_estoque
-    pecas_baixo_estoque        : $pecas_baixo_estoque
+    vendas_por_periodo           : $vendas_por_periodo
+    vendas_timeline              : $vendas_timeline
+    vendas_por_status_pagamento  : $vendas_por_status_pagamento
+    vendas_por_forma_pagamento   : $vendas_por_forma_pagamento
+    vendas_por_vendedor          : $vendas_por_vendedor
+    mix_itens                    : $mix_itens
+    veiculos_por_status          : $veiculos_por_status
+    valor_veiculos_disponiveis   : $valor_veiculos_disponiveis
+    valor_estoque_pecas          : $valor_estoque_pecas
+    pecas_sem_estoque            : $pecas_sem_estoque
+    pecas_baixo_estoque          : $pecas_baixo_estoque
+    veiculos_vendidos_por_marca  : $veiculos_vendidos_por_marca
+    pecas_vendidas_por_categoria : $pecas_vendidas_por_categoria
+    pecas_vendidas_por_fabricante: $pecas_vendidas_por_fabricante
+    fabricante_disponivel        : $fabricante_disponivel
+    conversao_estoque            : $conversao_estoque
+    giro_estoque                 : $giro_estoque
+    diagnostico_parcelas         : $diagnostico_parcelas
   }
 
   test "chamada sem nenhum filtro" {
@@ -657,6 +1315,16 @@ query indicadores verb=GET {
     expect.to_throw {
       exception = ""
     }
+  }
+
+  test "valida novas series de dashboard" {
+    expect.to_be_defined ($response.veiculos_vendidos_por_marca)
+    expect.to_be_defined ($response.pecas_vendidas_por_categoria)
+    expect.to_be_defined ($response.pecas_vendidas_por_fabricante)
+    expect.to_be_defined ($response.fabricante_disponivel)
+    expect.to_be_defined ($response.conversao_estoque)
+    expect.to_be_defined ($response.giro_estoque)
+    expect.to_be_defined ($response.diagnostico_parcelas)
   }
 
   guid = "zilVzjhxE40-X8XJFz5HtV9lwdE"
