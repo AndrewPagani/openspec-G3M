@@ -160,12 +160,12 @@ def _trend_chart() -> rx.Component:
                 DashboardState.chart_vendas_por_periodo.length() > 0,
                 rx.recharts.area_chart(
                     rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
-                    rx.recharts.x_axis(data_key="periodo"),
-                    rx.recharts.y_axis(),
+                    rx.recharts.x_axis(data_key="periodo_formatado"),
+                    rx.recharts.y_axis(label={"value": "R$"}),
                     rx.recharts.tooltip(),
                     rx.recharts.area(
                         data_key="valor_total",
-                        name="Valor registrado",
+                        name="Valor (R$)",
                         stroke="#0f766e",
                         fill="#99f6e4",
                         type="monotone",
@@ -175,6 +175,105 @@ def _trend_chart() -> rx.Component:
                     height=320,
                 ),
                 empty_state("Sem vendas para exibir no período selecionado."),
+            ),
+            align="start",
+            width="100%",
+        ),
+        class_name="dashboard-card",
+        width="100%",
+    )
+
+
+def _vehicles_sold_by_brand_chart() -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.heading("Veículos vendidos por marca", size="4"),
+            rx.text(
+                "Quantidade de veículos vendidos por marca no período selecionado.",
+                class_name="muted",
+            ),
+            rx.cond(
+                DashboardState.chart_veiculos_vendidos_por_marca.length() > 0,
+                rx.recharts.bar_chart(
+                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
+                    rx.recharts.x_axis(
+                        data_key="nome",
+                        interval=0,
+                        min_tick_gap=0,
+                        text_anchor="middle",
+                    ),
+                    rx.recharts.y_axis(),
+                    rx.recharts.tooltip(),
+                    rx.recharts.bar(
+                        rx.foreach(
+                            DashboardState.chart_veiculos_vendidos_por_marca,
+                            lambda row: rx.recharts.cell(fill=row["cor"]),
+                        ),
+                        data_key="quantidade",
+                        name="Veículos vendidos",
+                        unit=" unidades",
+                        fill="#0f766e",
+                        bar_size=40,
+                        radius=[6, 6, 0, 0],
+                    ),
+                    data=DashboardState.chart_veiculos_vendidos_por_marca,
+                    width="100%",
+                    height=300,
+                ),
+                empty_state("Não há veículos vendidos por marca no período selecionado."),
+            ),
+            align="start",
+            width="100%",
+        ),
+        class_name="dashboard-card",
+        width="100%",
+    )
+
+
+def _parts_sold_by_category_chart() -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.heading("Peças vendidas por categoria", size="4"),
+            rx.text(
+                "Quantidade de peças vendidas por categoria no período selecionado.",
+                class_name="muted",
+            ),
+            rx.cond(
+                DashboardState.chart_pecas_vendidas_por_categoria.length() > 0,
+                rx.recharts.bar_chart(
+                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
+                    rx.recharts.x_axis(data_key="nome"),
+                    rx.recharts.y_axis(),
+                    rx.recharts.tooltip(),
+                    rx.recharts.bar(
+                        rx.foreach(
+                            DashboardState.chart_pecas_vendidas_por_categoria,
+                            lambda row: rx.recharts.cell(fill=row["cor"]),
+                        ),
+                        data_key="quantidade",
+                        name="Peças vendidas",
+                        unit=" unidades",
+                        fill="#2563eb",
+                        bar_size=44,
+                        radius=[6, 6, 0, 0],
+                    ),
+                    rx.recharts.y_axis(data_key="valor_total", y_axis_id="valor", hide=True),
+                    rx.recharts.bar(
+                        data_key="valor_total",
+                        name="Valor total (R$)",
+                        y_axis_id="valor",
+                        fill="transparent",
+                        stroke="transparent",
+                        bar_size=44,
+                        legend_type="none",
+                    ),
+                    data=DashboardState.chart_pecas_vendidas_por_categoria,
+                    width="100%",
+                    height=300,
+                    bar_category_gap="5%",
+                    bar_gap=0,
+                ),
+                empty_state("Não há peças vendidas por categoria no período selecionado."),
             ),
             align="start",
             width="100%",
@@ -533,14 +632,8 @@ def gerenciamento() -> rx.Component:
                             "Itens com quantidade igual ou inferior a 5",
                         ),
                         _vehicle_status_chart(),
-                        _report(
-                            "Veículos vendidos por marca",
-                            DashboardState.veiculos_vendidos_por_marca,
-                        ),
-                        _report(
-                            "Peças vendidas por categoria",
-                            DashboardState.pecas_vendidas_por_categoria,
-                        ),
+                        _vehicles_sold_by_brand_chart(),
+                        _parts_sold_by_category_chart(),
                         columns=rx.breakpoints(
                             initial="1fr", lg="repeat(2, minmax(0, 1fr))"
                         ),

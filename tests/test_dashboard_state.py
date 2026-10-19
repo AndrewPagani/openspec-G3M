@@ -9,6 +9,7 @@ from app.state.dashboard_state import (
     _extract_kpis,
     _extract_series,
     _percentage,
+    _rounded_number,
     _report_rows,
     _analysis_rows,
     _chart_rows,
@@ -33,6 +34,22 @@ class DashboardStateTests(unittest.TestCase):
 
     def test_formats_currency_in_brazilian_locale(self) -> None:
         self.assertEqual(_currency("1234.5", "valor"), "R$ 1.234,50")
+
+    def test_rounds_chart_values_to_two_decimal_places(self) -> None:
+        self.assertEqual(_rounded_number("3123723.305", "valor"), 3123723.31)
+
+    def test_builds_brand_chart_rows(self) -> None:
+        brands = [{"marca": f"Marca {index}", "quantidade": index} for index in range(1, 10)]
+        self.assertEqual(
+            _chart_rows(
+                brands,
+                "veículos vendidos por marca",
+                name_key="marca",
+                value_key="quantidade",
+                max_categories=None,
+            ),
+            [{"nome": f"Marca {index}", "quantidade": float(index)} for index in range(9, 0, -1)],
+        )
 
     def test_calculates_average_sales_in_frontend(self) -> None:
         self.assertEqual(
@@ -68,6 +85,22 @@ class DashboardStateTests(unittest.TestCase):
         self.assertEqual(
             rows,
             ["Data: 2026-10-01 · Quantidade: 3 · Valor liquido: R$ 1.200,50"],
+        )
+
+    def test_formats_status_quantity_as_count_not_currency(self) -> None:
+        rows = _report_rows(
+            [
+                {
+                    "descricao": "Concluída",
+                    "total_vendas": 99,
+                    "valor_total": 3123723.30,
+                }
+            ],
+            "vendas por status",
+        )
+        self.assertEqual(
+            rows,
+            ["Descricao: Concluída · Total vendas: 99 · Valor total: R$ 3.123.723,30"],
         )
 
     def test_rejects_non_list_report_data(self) -> None:
@@ -112,6 +145,26 @@ class DashboardStateTests(unittest.TestCase):
             [
                 {"nome": "Ana", "quantidade": 3},
                 {"nome": "Bruno", "quantidade": 1},
+            ],
+        )
+
+    def test_builds_category_chart_rows(self) -> None:
+        categories = [
+            {"categoria": "Motor", "quantidade": 12, "valor_total": 3200.5},
+            {"categoria": "Freios", "quantidade": 7, "valor_total": 900},
+        ]
+        self.assertEqual(
+            _chart_rows(
+                categories,
+                "peças vendidas por categoria",
+                name_key="categoria",
+                value_key="quantidade",
+                secondary_value_key="valor_total",
+                max_categories=None,
+            ),
+            [
+                {"nome": "Motor", "quantidade": 12.0, "valor_total": 3200.5},
+                {"nome": "Freios", "quantidade": 7.0, "valor_total": 900.0},
             ],
         )
 

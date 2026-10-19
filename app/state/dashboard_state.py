@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 from datetime import date, datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
 import reflex as rx
@@ -18,6 +18,10 @@ def _decimal(value: Any, label: str) -> Decimal:
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
         raise XanoError(f"A API retornou um valor inválido para {label}.") from exc
+
+
+def _rounded_number(value: Any, label: str) -> float:
+    return float(_decimal(value, label).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def _currency(value: Any, label: str) -> str:
@@ -67,6 +71,8 @@ def _report_rows(value: Any, label: str) -> list[str]:
             if isinstance(item, (int, float, Decimal)):
                 if "percentual" in normalized_key or normalized_key.endswith("_percent"):
                     item = _percentage(item, title)
+                elif normalized_key in {"total_vendas", "quantidade", "count", "qtd"}:
+                    item = _count(item, title)
                 elif any(
                     term in normalized_key
                     for term in ("valor", "bruto", "liquido", "total", "ticket", "desconto")
@@ -203,7 +209,35 @@ def _trend_chart_rows(value: Any, period: str) -> list[dict[str, Any]]:
         amount = _timeline_value(row)
         bucket["total_vendas"] += int(_count(quantity, "vendas"))
         bucket["valor_total"] += float(_decimal(amount, "valor vendido"))
-    return [grouped[key] for key in sorted(grouped)]
+    return [
+        {
+            **grouped[key],
+            "valor_total": _rounded_number(grouped[key]["valor_total"], "valor vendido"),
+        }
+        for key in sorted(grouped)
+    ]
+
+
+def _timeline_chart_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            **row,
+            "periodo_formatado": _format_timeline_period(row["periodo"]),
+        }
+        for row in rows
+    ]
+
+
+def _format_timeline_period(periodo: Any) -> str:
+    value = str(periodo)
+    try:
+        if len(value) == 7:
+            return date.fromisoformat(f"{value}-01").strftime("%d/%m/%Y")
+        if len(value) == 4:
+            return date.fromisoformat(f"{value}-01-01").strftime("%d/%m/%Y")
+        return date.fromisoformat(value[:10]).strftime("%d/%m/%Y")
+    except ValueError:
+        return value
 
 
 def _timeline_date(row: dict[str, Any]) -> Any:
@@ -261,7 +295,15 @@ def _timeline_value(row: dict[str, Any]) -> Any:
     return 0
 
 
-def _chart_rows(value: Any, label: str, *, name_key: str, value_key: str) -> list[dict[str, Any]]:
+def _chart_rows(
+    value: Any,
+    label: str,
+    *,
+    name_key: str,
+    value_key: str,
+    secondary_value_key: str | None = None,
+    max_categories: int | None = 8,
+) -> list[dict[str, Any]]:
     if value is None:
         return []
     if isinstance(value, dict):
@@ -294,6 +336,8 @@ def _chart_rows(value: Any, label: str, *, name_key: str, value_key: str) -> lis
                 )
         if name is None and name_key == "descricao":
             name = row.get("Descricao") or row.get("status") or row.get("nome")
+        if name is None and name_key == "marca":
+            name = row.get("Marca") or row.get("nome") or row.get("marca_nome")
         if name is None:
             raise XanoError(f"A API não informou a categoria de {label}.")
         amount_value = row.get(value_key)
@@ -307,13 +351,51 @@ def _chart_rows(value: Any, label: str, *, name_key: str, value_key: str) -> lis
                 0,
             )
         amount = _decimal(amount_value, label)
-        rows.append({"nome": str(name), "quantidade": float(amount)})
+        chart_row = {"nome": str(name), "quantidade": float(amount)}
+        if secondary_value_key is not None:
+            secondary_value = row.get(secondary_value_key)
+            if secondary_value is None:
+                secondary_value = row.get("valor") or row.get("valor_total") or 0
+            chart_row["valor_total"] = _rounded_number(secondary_value, label)
+        rows.append(chart_row)
     rows.sort(key=lambda row: row["quantidade"], reverse=True)
-    if len(rows) > 8:
-        rows = rows[:7] + [
-            {"nome": "Outros", "quantidade": sum(row["quantidade"] for row in rows[7:])}
+    if max_categories is not None and len(rows) > max_categories:
+        rows = rows[: max_categories - 1] + [
+            {
+                "nome": "Outros",
+                "quantidade": sum(row["quantidade"] for row in rows[max_categories - 1 :]),
+                **(
+                    {
+                        "valor_total": sum(
+                            row.get("valor_total", 0)
+                            for row in rows[max_categories - 1 :]
+                        )
+                    }
+                    if secondary_value_key is not None
+                    else {}
+                ),
+            }
         ]
     return rows
+
+
+_CHART_COLORS = (
+    "#0f766e",
+    "#2563eb",
+    "#7c3aed",
+    "#ea580c",
+    "#db2777",
+    "#ca8a04",
+    "#0891b2",
+    "#65a30d",
+)
+
+
+def _color_chart_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {**row, "cor": _CHART_COLORS[index % len(_CHART_COLORS)]}
+        for index, row in enumerate(rows)
+    ]
 
 
 def _vehicle_status_chart_rows(value: Any) -> list[dict[str, Any]]:
@@ -446,6 +528,8 @@ class DashboardState(rx.State):
     pecas_baixo_estoque: list[dict] = []
     pecas_baixo_estoque_labels: list[str] = []
     veiculos_vendidos_por_marca: list[str] = []
+    chart_veiculos_vendidos_por_marca: list[dict] = []
+    chart_pecas_vendidas_por_categoria: list[dict] = []
     pecas_vendidas_por_categoria: list[str] = []
     conversao_estoque: list[str] = []
     giro_estoque: list[str] = []
@@ -510,8 +594,8 @@ class DashboardState(rx.State):
             raise XanoError("Selecione um período válido para o gráfico.")
         self.periodo_ativo = value
         if self.timeline_rows:
-            self.chart_vendas_por_periodo = _trend_chart_rows(
-                self.timeline_rows, self.periodo_ativo
+            self.chart_vendas_por_periodo = _timeline_chart_rows(
+                _trend_chart_rows(self.timeline_rows, self.periodo_ativo)
             )
             return
         await self.load()
@@ -532,6 +616,8 @@ class DashboardState(rx.State):
         self.pecas_baixo_estoque = []
         self.pecas_baixo_estoque_labels = []
         self.veiculos_vendidos_por_marca = []
+        self.chart_veiculos_vendidos_por_marca = []
+        self.chart_pecas_vendidas_por_categoria = []
         self.pecas_vendidas_por_categoria = []
         self.conversao_estoque = []
         self.giro_estoque = []
@@ -628,13 +714,34 @@ class DashboardState(rx.State):
             low_stock = _extract_series(result, "pecas_baixo_estoque")
             self.pecas_baixo_estoque = _normalize_low_stock_rows(low_stock)
             self.pecas_baixo_estoque_labels = _low_stock_labels(self.pecas_baixo_estoque)
+            marcas_vendidas = _extract_series(result, "veiculos_vendidos_por_marca")
             self.veiculos_vendidos_por_marca = _analysis_rows(
-                _extract_series(result, "veiculos_vendidos_por_marca"),
+                marcas_vendidas,
                 "veículos vendidos por marca",
             )
+            self.chart_veiculos_vendidos_por_marca = _color_chart_rows(
+                _chart_rows(
+                    marcas_vendidas,
+                    "veículos vendidos por marca",
+                    name_key="marca",
+                    value_key="quantidade",
+                    max_categories=None,
+                )
+            )
+            categorias_vendidas = _extract_series(result, "pecas_vendidas_por_categoria")
             self.pecas_vendidas_por_categoria = _analysis_rows(
-                _extract_series(result, "pecas_vendidas_por_categoria"),
+                categorias_vendidas,
                 "peças vendidas por categoria",
+            )
+            self.chart_pecas_vendidas_por_categoria = _color_chart_rows(
+                _chart_rows(
+                    categorias_vendidas,
+                    "peças vendidas por categoria",
+                    name_key="categoria",
+                    value_key="quantidade",
+                    secondary_value_key="valor_total",
+                    max_categories=None,
+                )
             )
             self.conversao_estoque = _analysis_rows(
                 _extract_series(result, "conversao_estoque"),
@@ -667,8 +774,8 @@ class DashboardState(rx.State):
                 timeline_rows = _extract_series(result, "vendas_por_periodo")
             self.timeline_rows = timeline_rows if isinstance(timeline_rows, list) else []
             self.vendas_por_periodo = _report_rows(timeline_rows, "vendas por período")
-            self.chart_vendas_por_periodo = _trend_chart_rows(
-                timeline_rows, self.periodo_ativo
+            self.chart_vendas_por_periodo = _timeline_chart_rows(
+                _trend_chart_rows(timeline_rows, self.periodo_ativo)
             )
             self.vendas_por_status = _report_rows(
                 _extract_series(result, "vendas_por_status_pagamento", "vendas_por_status"),

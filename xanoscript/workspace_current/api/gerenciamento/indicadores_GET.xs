@@ -16,7 +16,7 @@ query indicadores verb=GET {
   }
 
   stack {
-    // 1. Obter usuario e perfil autenticado
+    // 1. Obter usuario e perfil autenticado (Gerente e Vendedor permitidos; Cliente negado)
     db.get user {
       field_name = "id"
       field_value = $auth.id
@@ -26,6 +26,33 @@ query indicadores verb=GET {
       field_name = "id"
       field_value = $user.perfil_id
     } as $perfil
+  
+    precondition ($perfil != null && ($perfil.Cargo == "Gerente" || $perfil.Cargo == "Vendedor")) {
+      error_type = "accessdenied"
+      error = "Acesso nao autorizado ao dashboard gerencial"
+    }
+  
+    var $is_gerente {
+      value = ($perfil.Cargo == "Gerente")
+    }
+  
+    var $vendedor_filtro {
+      value = null
+    }
+  
+    conditional {
+      if ($is_gerente == false) {
+        var.update $vendedor_filtro {
+          value = $auth.id
+        }
+      }
+    
+      else {
+        var.update $vendedor_filtro {
+          value = $parsed_vendedor_id
+        }
+      }
+    }
   
     // 2. Parsing e validacao segura de data_inicio (suporta YYYY-MM-DD e ISO)
     var $parsed_data_inicio {
@@ -122,7 +149,29 @@ query indicadores verb=GET {
       }
     }
   
-    // 5. Parsing e validacao de forma_pagamento_id
+    // 5. Parsing e validacao de vendedor_id
+    var $parsed_vendedor_id {
+      value = null
+    }
+  
+    conditional {
+      if ($input.vendedor_id != null && $input.vendedor_id != "") {
+        var $v_int {
+          value = $input.vendedor_id|to_int
+        }
+      
+        precondition ($v_int > 0) {
+          error_type = "inputerror"
+          error = "Parametro vendedor_id invalido. Deve ser um numero inteiro positivo"
+        }
+      
+        var.update $parsed_vendedor_id {
+          value = $v_int
+        }
+      }
+    }
+  
+    // 6. Parsing e validacao de forma_pagamento_id
     var $parsed_forma_pagamento_id {
       value = null
     }
@@ -188,45 +237,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 9. Determinar escopo de autorizacao (Vendedor restrito exclusivamente as suas vendas)
-    var $is_gerencia {
-      value = ($perfil != null && $perfil.Cargo == "Gerente")
-    }
-  
-    var $vendedor_filtro {
-      value = null
-    }
-  
-    conditional {
-      if ($is_gerencia == false) {
-        var.update $vendedor_filtro {
-          value = $auth.id
-        }
-      }
-    
-      else {
-        conditional {
-          if ($input.vendedor_id != null && $input.vendedor_id != "") {
-            precondition (($input.vendedor_id|to_int) > 0) {
-              error_type = "inputerror"
-              error = "Parametro vendedor_id invalido. Deve ser um numero inteiro positivo"
-            }
-
-            var.update $vendedor_filtro {
-              value = $input.vendedor_id|to_int
-            }
-          }
-        
-          else {
-            var.update $vendedor_filtro {
-              value = null
-            }
-          }
-        }
-      }
-    }
-  
-    // 10. Consultar vendas aplicando filtros de periodo, vendedor, status e forma no banco
+    // 9. Consultar vendas aplicando filtros de periodo, vendedor, status e forma no banco
     db.query venda {
       where = ($vendedor_filtro == null || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_status_id == null || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == null || $db.venda.forma_pagamento_id == $parsed_forma_pagamento_id) && ($parsed_data_inicio == null || $db.venda.data_venda >= $parsed_data_inicio) && ($parsed_data_fim == null || $db.venda.data_venda <= $parsed_data_fim)
       sort = {id: "desc"}
@@ -267,8 +278,57 @@ query indicadores verb=GET {
       }
     }
   
-    // 11. Auditoria e agregacao das parcelas recebidas
-    // Carrega parcelas e vendas para diagnostico e calculo consistente de recebimentos
+    // Contagem de vendas concluidas (status exatamente "Concluída", com normalizacao de espacos e maiusculas/minusculas)
+    var $vendas_concluidas {
+      value = 0
+    }
+  
+    foreach ($vendas_filtradas) {
+      each as $vf_item {
+        var $status_venda_item {
+          value = null
+        }
+      
+        conditional {
+          if ($vf_item.status_id != null) {
+            db.get status_venda {
+              field_name = "id"
+              field_value = $vf_item.status_id
+            } as $db_status_venda_item
+          
+            var.update $status_venda_item {
+              value = $db_status_venda_item
+            }
+          }
+        }
+      
+        conditional {
+          if ($status_venda_item != null && $status_venda_item.Descricao_venda != null) {
+            var $desc_raw {
+              value = $status_venda_item.Descricao_venda|trim
+            }
+          
+            var $desc_lower {
+              value = $desc_raw|to_lower
+            }
+          
+            var $desc_upper {
+              value = $desc_raw|to_upper
+            }
+          
+            conditional {
+              if ($desc_lower == "concluída" || $desc_lower == "concluida" || $desc_upper == "CONCLUÍDA" || $desc_upper == "CONCLUIDA" || $desc_raw == "Concluída" || $desc_raw == "Concluida") {
+                var.update $vendas_concluidas {
+                  value = $vendas_concluidas + 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  
+    // 10. Auditoria e agregacao das parcelas recebidas via busca direta da venda por venda_id
     db.query venda_parcela {
       return = {type: "list"}
     } as $todas_as_parcelas_banco
@@ -412,27 +472,24 @@ query indicadores verb=GET {
           }
         }
       
+        // Busca direta da venda por chave primaria venda_id (evita limites de paginacao ou find)
+        var $venda_match {
+          value = null
+        }
+      
         conditional {
           if ($p.venda_id != null) {
             var.update $com_venda_id {
               value = $com_venda_id + 1
             }
-          }
-        }
-      
-        var $venda_match {
-          value = null
-        }
-
-        conditional {
-          if ($p.venda_id != null) {
+          
             db.get venda {
               field_name = "id"
               field_value = $p.venda_id
-            } as $venda_encontrada
-
+            } as $db_venda_found
+          
             var.update $venda_match {
-              value = $venda_encontrada
+              value = $db_venda_found
             }
           }
         }
@@ -445,7 +502,7 @@ query indicadores verb=GET {
           }
         }
       
-        // Filtro de escopo de autorizacao e status da venda
+        // Filtro de escopo do endpoint (vendedor e status de venda)
         var $escopo_ok {
           value = ($venda_match != null) && ($vendedor_filtro == null || $venda_match.vendedor_id == $vendedor_filtro) && ($parsed_status_id == null || $venda_match.status_id == $parsed_status_id)
         }
@@ -485,9 +542,17 @@ query indicadores verb=GET {
                   }
                 
                   else {
-                    // Periodo: utiliza preferencialmente recebido_em, com fallback em data_venda para dados legados
+                    // Periodo: utiliza preferencialmente recebido_em; se vazio, fallback em data_venda apenas para RECEBIDA
                     var $dt_ref {
-                      value = $p.recebido_em ?? $venda_match.data_venda
+                      value = $p.recebido_em
+                    }
+                  
+                    conditional {
+                      if ($dt_ref == null && $st_norm == "RECEBIDA") {
+                        var.update $dt_ref {
+                          value = $venda_match.data_venda
+                        }
+                      }
                     }
                   
                     var $passou_periodo {
@@ -571,7 +636,7 @@ query indicadores verb=GET {
       value = $vendas_pagas_ids|count
     }
   
-    // Soma de Valor_final de cada venda distinta paga (sem duplicar se houver multiplas parcelas)
+    // Soma de Valor_final de cada venda distinta paga (somado apenas uma vez por venda)
     var $soma_valor_final_vendas_pagas {
       value = 0
     }
@@ -611,6 +676,7 @@ query indicadores verb=GET {
     var $diagnostico_parcelas {
       value = {
         mensagem                     : $mensagem_diagnostico
+        total_parcelas_banco         : $total_parcelas_banco
         parcelas_candidatas          : $parcelas_candidatas
         parcelas_recebidas_validas   : $parcelas_recebidas_validas|count
         parcelas_fora_periodo        : $parcelas_fora_periodo
@@ -619,7 +685,6 @@ query indicadores verb=GET {
         vendas_pagas_distintas       : $vendas_pagas_count
         soma_valores_recebidos       : $valor_liquido_recebido_periodo
         soma_valor_final_vendas_pagas: $soma_valor_final_vendas_pagas
-        total_parcelas_banco         : $total_parcelas_banco
         status_distintos_encontrados : $status_distintos_raw
         total_por_status             : $totais_por_status
         com_recebido_em              : $com_recebido_em
@@ -631,7 +696,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 12. Agregacao vendas_por_periodo (agrupamento por data)
+    // 11. Agregacao vendas_por_periodo (agrupamento por data)
     var $datas_unicas {
       value = ($vendas_filtradas|map:($$.data_venda|format_timestamp:"Y-m-d":"UTC"))|unique
     }
@@ -672,7 +737,7 @@ query indicadores verb=GET {
         ```
     }
   
-    // 13. Agregacao vendas_por_status_pagamento
+    // 12. Agregacao vendas_por_status_pagamento
     db.query status_venda {
       return = {type: "list"}
     } as $lista_status_venda
@@ -697,7 +762,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 14. Agregacao vendas_por_forma_pagamento
+    // 13. Agregacao vendas_por_forma_pagamento
     db.query forma_pagamento {
       return = {type: "list"}
     } as $lista_formas_pagamento
@@ -722,7 +787,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 15. Agregacao mix_itens (veiculos vs pecas vendidos no periodo)
+    // 14. Agregacao mix_itens (veiculos vs pecas vendidos no periodo)
     db.query venda_item {
       join = {
         venda: {
@@ -764,7 +829,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 16. Veiculos vendidos por marca
+    // 15. Veiculos vendidos por marca
     var $veiculos_vendidos_por_marca {
       value = []
     }
@@ -876,7 +941,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 17. Pecas vendidas por categoria
+    // 16. Pecas vendidas por categoria
     var $pecas_vendidas_por_categoria {
       value = []
     }
@@ -1017,7 +1082,7 @@ query indicadores verb=GET {
       }
     }
   
-    // 18. Pecas vendidas por fabricante (indisponivel: nao ha campo fabricante na tabela peca)
+    // 17. Pecas vendidas por fabricante (indisponivel: nao ha campo fabricante na tabela peca)
     var $pecas_vendidas_por_fabricante {
       value = []
     }
@@ -1026,7 +1091,7 @@ query indicadores verb=GET {
       value = false
     }
   
-    // 19. Conversao de estoque (indisponivel: nao ha estrutura de propostas/orcamentos no schema)
+    // 18. Conversao de estoque (indisponivel: nao ha estrutura de propostas/orcamentos no schema)
     var $conversao_estoque {
       value = ```
         {
@@ -1038,7 +1103,7 @@ query indicadores verb=GET {
         ```
     }
   
-    // 20. Giro de estoque (indisponivel: nao ha historico de movimentacoes de estoque no schema)
+    // 19. Giro de estoque (indisponivel: nao ha historico de movimentacoes de estoque no schema)
     var $giro_estoque {
       value = ```
         {
@@ -1051,7 +1116,7 @@ query indicadores verb=GET {
         ```
     }
   
-    // 21. Agregacoes gerenciais exclusivas (estoque global e vendas_por_vendedor)
+    // 20. Agregacoes gerenciais exclusivas (estoque global e vendas_por_vendedor)
     var $veiculos_disponiveis {
       value = 0
     }
@@ -1085,7 +1150,7 @@ query indicadores verb=GET {
     }
   
     conditional {
-      if ($is_gerencia) {
+      if ($is_gerente) {
         // Status veiculo disponivel
         db.query status_veiculo {
           where = $db.status_veiculo.Descricao == "Disponível" || $db.status_veiculo.Descricao == "Disponivel"
@@ -1216,6 +1281,7 @@ query indicadores verb=GET {
         valor_liquido_recebido_periodo: $valor_liquido_recebido_periodo,
         vendas_pagas: $vendas_pagas_count,
         ticket_medio_vendas_pagas: $ticket_medio_vendas_pagas,
+        vendas_concluidas: $vendas_concluidas,
         descontos: $descontos,
         vendas_canceladas: $vendas_canceladas,
         percentual_vendas_canceladas: $percentual_vendas_canceladas,
@@ -1325,6 +1391,7 @@ query indicadores verb=GET {
     expect.to_be_defined ($response.conversao_estoque)
     expect.to_be_defined ($response.giro_estoque)
     expect.to_be_defined ($response.diagnostico_parcelas)
+    expect.to_be_defined ($response.kpis.vendas_concluidas)
   }
 
   guid = "zilVzjhxE40-X8XJFz5HtV9lwdE"
