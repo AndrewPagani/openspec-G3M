@@ -85,6 +85,67 @@ def _vehicle_info(label: str, value: rx.Var) -> rx.Component:
     )
 
 
+def _part_card(row: rx.Var, endpoint: str) -> rx.Component:
+    return rx.card(
+        rx.box(
+            rx.cond(
+                row["_part_image_url"] != "",
+                rx.image(
+                    src=row["_part_image_url"],
+                    alt=row["_part_name"],
+                    class_name="part-card-image",
+                ),
+                rx.box(
+                    rx.icon("package", size=38, stroke_width=1.25),
+                    rx.text("Imagem não cadastrada"),
+                    class_name="part-card-image part-card-image-empty",
+                ),
+            ),
+            class_name="part-card-media",
+        ),
+        rx.vstack(
+            rx.badge(
+                rx.cond(
+                    row["_part_stock_class"] == "stock-out",
+                    "Sem estoque",
+                    rx.cond(
+                        row["_part_stock_class"] == "stock-low",
+                        "Estoque baixo",
+                        "Disponível",
+                    ),
+                ),
+                class_name="part-stock-badge",
+            ),
+            rx.heading(row["_part_name"], size="4", class_name="vehicle-card-title"),
+            rx.text(row["_part_area"], class_name="part-card-area"),
+            rx.text(row["_part_price"], class_name="part-card-price"),
+            rx.hstack(
+                rx.text(row["_part_quantity"]),
+                rx.text(" unidades disponíveis"),
+                class_name="part-card-quantity",
+            ),
+            rx.link(
+                rx.button(
+                    rx.hstack(
+                        rx.icon("shopping-cart", size=16, stroke_width=1.8),
+                        rx.text("Comprar"),
+                        align="center",
+                        spacing="2",
+                    ),
+                    disabled=row["_part_quantity_number"] == 0,
+                    width="100%",
+                ),
+                href="/vendas/nova",
+                width="100%",
+            ),
+            align="start",
+            width="100%",
+            class_name="part-card-content",
+        ),
+        class_name="part-card",
+    )
+
+
 def resource_page(
     title: str, endpoint: str, new_href: str | None = None, allowed: rx.Var = True
 ) -> rx.Component:
@@ -158,8 +219,28 @@ def resource_page(
                     ),
                 ),
                 rx.cond(
-                    ResourceState.filtered_records.length() > 0,
-                    rx.table.root(
+                    ResourceState.endpoint == "/pecas",
+                    rx.cond(
+                        ResourceState.filtered_records.length() > 0,
+                        rx.grid(
+                            rx.foreach(
+                                ResourceState.filtered_records,
+                                lambda row: _part_card(row, endpoint),
+                            ),
+                            class_name="part-grid",
+                            width="100%",
+                        ),
+                        empty_state(
+                            rx.cond(
+                                ResourceState.query == "",
+                                "A API não retornou peças para esta consulta.",
+                                "Nenhuma peça corresponde à busca.",
+                            )
+                        ),
+                    ),
+                    rx.cond(
+                        ResourceState.filtered_records.length() > 0,
+                        rx.table.root(
                         rx.table.header(
                             rx.table.row(
                                 rx.table.column_header_cell(
@@ -194,7 +275,8 @@ def resource_page(
                             )
                         ),
                     ),
-                    empty_state("A API não retornou registros para esta consulta."),
+                        empty_state("A API não retornou registros para esta consulta."),
+                    ),
                 ),
             ),
             on_mount=ResourceState.load(endpoint, title),

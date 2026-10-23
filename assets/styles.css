@@ -428,6 +428,48 @@ html, body {
 .dashboard-page .recharts-cartesian-axis-tick-value,
 .dashboard-page .recharts-legend-item-text { fill: var(--muted); color: var(--muted); }
 
+.part-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 18px;
+}
+.part-card {
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 12px 28px var(--shadow);
+}
+.part-card-media, .part-card-image {
+  width: 100%;
+  height: 190px;
+}
+.part-card-image {
+  display: block;
+  box-sizing: border-box;
+  object-fit: contain;
+  object-position: center;
+  padding: 10px;
+  background: var(--panel);
+}
+.part-card-image-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0;
+  background: var(--panel-border);
+  color: var(--muted);
+}
+.part-card-content { padding: 16px; }
+.part-card-area, .part-card-quantity { color: var(--muted); }
+.part-card-price { color: var(--text); font-size: 1.1rem; font-weight: 700; }
+.part-stock-badge { font-size: 0.72rem; }
+.stock-out { color: #dc2626; }
+.stock-low { color: #ca8a04; }
+.stock-available { color: #16a34a; }
+
 @media (max-width: 760px) {
   .sidebar { width: 190px; padding: 18px 10px; }
   .main { margin-left: 190px; padding: 18px; }
@@ -836,6 +878,7 @@ html, body {
   .vehicle-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .part-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

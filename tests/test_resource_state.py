@@ -8,11 +8,43 @@ from app.services.xano_client import XanoError
 from app.services.vehicle_status import vehicle_status_class
 from app.state.auth_state import AuthState
 from app.state.form_state import _build_vehicle_payload
-from app.state.resource_state import ResourceState, _normalize_record
+from app.state.resource_state import ResourceState, _normalize_record, _pagination_total_pages
 from app.state.form_state import FormState
 
 
 class ResourceStateTests(unittest.TestCase):
+    def test_normalizes_part_catalog_fields(self) -> None:
+        part = _normalize_record(
+            {
+                "PCNome": "Pastilha de freio",
+                "PCvalor": 299.9,
+                "qtd_disp": 8,
+                "area_secao": "Freios",
+            },
+            "/pecas",
+        )
+
+        self.assertEqual(part["_part_name"], "Pastilha de freio")
+        self.assertEqual(part["_part_price"], "R$ 299,90")
+        self.assertEqual(part["_part_area"], "Freios")
+        self.assertEqual(part["_part_quantity"], "8")
+        self.assertEqual(part["_part_stock_class"], "stock-available")
+        self.assertEqual(part["_part_image_url"], "")
+
+    def test_classifies_empty_and_low_part_stock(self) -> None:
+        self.assertEqual(
+            _normalize_record({"qtd_disp": 0}, "/pecas")["_part_stock_class"],
+            "stock-out",
+        )
+        self.assertEqual(
+            _normalize_record({"qtd_disp": 5}, "/pecas")["_part_stock_class"],
+            "stock-low",
+        )
+
+    def test_rejects_invalid_part_quantity(self) -> None:
+        with self.assertRaisesRegex(XanoError, "quantidade de peças inválida"):
+            _normalize_record({"qtd_disp": -1}, "/pecas")
+
     def test_normalizes_vehicle_fields_from_xano_record(self) -> None:
         vehicle = _normalize_record(
             {
@@ -160,6 +192,17 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(request.call_args_list[0].kwargs["token"], "test-token")
         self.assertFalse(state.loading)
         self.assertEqual(state.error, "")
+
+    def test_accepts_integer_equivalent_pagination_values(self) -> None:
+        self.assertEqual(_pagination_total_pages({"total_pages": 2}, "Peças"), 2)
+        self.assertEqual(_pagination_total_pages({"total_pages": 2.0}, "Peças"), 2)
+        self.assertEqual(_pagination_total_pages({"total_pages": "2"}, "Peças"), 2)
+
+    def test_rejects_non_integral_pagination_values(self) -> None:
+        for value in (True, 1.5, "2.0", "", None, 0):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(XanoError, "paginação inválida"):
+                    _pagination_total_pages({"total_pages": value}, "Peças")
 
 
 class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):

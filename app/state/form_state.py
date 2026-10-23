@@ -32,7 +32,7 @@ def _build_vehicle_payload(
         "Quilometragem": ("Quilometragem", "decimal", False),
         "Preço": ("Preco", "decimal", True),
         "Status (ID)": ("status_id", "int", True),
-        "URL da imagem": ("Imagem_url", "url", False),
+        "URL da imagem": ("imagem_url", "url", False),
     }
     valid_status_ids = {
         str(status.get("id"))
@@ -159,7 +159,7 @@ class FormState(rx.State):
                     "Quilometragem": ("Quilometragem", "decimal", False),
                     "Preço": ("Preco", "decimal", True),
                     "Status (ID)": ("status_id", "int", True),
-                    "URL da imagem": ("Imagem_url", "url", False),
+                    "URL da imagem": ("imagem_url", "url", False),
                 },
                 "pecas": {
                     "Nome": ("PCNome", "text", True),
