@@ -257,13 +257,11 @@ def _vehicle_details_panel() -> rx.Component:
             rx.grid(
                 _vehicle_select_field("UF de registro", "map", FormState.uf_options),
                 _vehicle_field("Cidade de registro", "map-pin"),
-                _vehicle_field("Ano de fabricação", "calendar", "number"),
                 _vehicle_field("Motorização / cilindrada", "gauge"),
                 _vehicle_select_field("Combustível", "fuel", FormState.fuel_options),
                 _vehicle_select_field(
                     "Câmbio / transmissão", "settings", FormState.transmission_options
                 ),
-                _vehicle_field("Quilometragem atual", "milestone", "number"),
                 _vehicle_select_field("Número de portas", "door-open", FormState.door_options),
                 _vehicle_select_field("Número de lugares", "users", FormState.seat_options),
                 class_name="vehicle-form-fields-grid",

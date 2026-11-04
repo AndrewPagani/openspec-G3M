@@ -140,8 +140,17 @@ def _build_vehicle_details_payload(values: dict[str, str]) -> dict[str, object]:
                 raise XanoError(f"Selecione uma opção válida para {label}.")
             payload[field] = value
 
+    raw_year = values.get("Ano", "").strip()
+    if raw_year:
+        try:
+            year = int(raw_year)
+        except ValueError as exc:
+            raise XanoError("Valor inválido no campo Ano.") from exc
+        if not 1900 <= year <= 2100:
+            raise XanoError("O campo Ano precisa estar entre 1900 e 2100.")
+        payload["ano_fabricacao"] = year
+
     integer_fields = {
-        "Ano de fabricação": ("ano_fabricacao", 1900, 2100),
         "Número de portas": ("numero_portas", 1, 20),
         "Número de lugares": ("numero_lugares", 1, 100),
     }
@@ -157,7 +166,7 @@ def _build_vehicle_details_payload(values: dict[str, str]) -> dict[str, object]:
             raise XanoError(f"O campo {label} precisa estar entre {minimum} e {maximum}.")
         payload[field] = value
 
-    raw_mileage = values.get("Quilometragem atual", "").strip()
+    raw_mileage = values.get("Quilometragem", "").strip()
     if raw_mileage:
         try:
             mileage = Decimal(raw_mileage.replace(",", "."))

@@ -31,8 +31,8 @@ class ResourceStateTests(unittest.TestCase):
                 "UF de registro": "SP",
                 "Combustível": "Gasolina",
                 "Câmbio / transmissão": "Automático",
-                "Ano de fabricação": "2023",
-                "Quilometragem atual": "25000",
+                "Ano": "2023",
+                "Quilometragem": "25000",
                 "Opcionais e equipamentos": "Teto Solar, Couro, Sensor de Ré",
             }
         )
@@ -352,11 +352,16 @@ class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.state.form_state.client.request", return_value={"id": 15}) as request:
             await FormState.save.fn(state, "veiculos")
 
-        self.assertEqual(request.call_args.args[:2], ("POST", "/veiculos"))
-        self.assertEqual(request.call_args.kwargs["json"]["status_id"], 2)
+        self.assertEqual(request.call_args_list[0].args[:2], ("POST", "/veiculos"))
+        self.assertEqual(request.call_args_list[0].kwargs["json"]["status_id"], 2)
         self.assertEqual(
-            request.call_args.kwargs["json"]["imagem_url"],
+            request.call_args_list[0].kwargs["json"]["imagem_url"],
             "https://images.example.test/sedan.png",
+        )
+        self.assertEqual(request.call_args_list[1].args[:2], ("POST", "/veiculos/15/detalhes"))
+        self.assertEqual(
+            request.call_args_list[1].kwargs["json"]["ano_fabricacao"],
+            2025,
         )
         self.assertEqual(state.values, {})
         self.assertEqual(state.vehicle_statuses[1]["Descricao"], "Reservado")
