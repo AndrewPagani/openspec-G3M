@@ -62,6 +62,32 @@ def _vehicle_field(label: str, icon: str, input_type: str = "text") -> rx.Compon
     )
 
 
+def _vehicle_select_field(
+    label: str, icon: str, options: rx.Var
+) -> rx.Component:
+    return rx.vstack(
+        rx.text(label, class_name="vehicle-form-label"),
+        rx.hstack(
+            rx.select.root(
+                rx.select.trigger(placeholder=f"Selecione {label.lower()}"),
+                rx.select.content(
+                    rx.foreach(
+                        options,
+                        lambda option: rx.select.item(option, value=option),
+                    )
+                ),
+                value=FormState.values.get(label, ""),
+                on_change=lambda value, name=label: FormState.set_field(name, value),
+                class_name="vehicle-form-select",
+            ),
+            rx.icon(icon, size=17, stroke_width=1.6, class_name="vehicle-form-field-icon"),
+            align="center",
+            class_name="vehicle-form-input-wrap",
+        ),
+        class_name="vehicle-form-field",
+    )
+
+
 def _vehicle_status_select() -> rx.Component:
     return rx.vstack(
         rx.text("Status", class_name="vehicle-form-label"),
@@ -214,11 +240,66 @@ def _vehicle_information_panel() -> rx.Component:
     )
 
 
+def _vehicle_details_panel() -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.hstack(
+                rx.icon("file-text", size=19, stroke_width=1.6),
+                rx.heading("Identificação e especificações", size="4"),
+                align="center",
+                spacing="2",
+                class_name="vehicle-form-panel-heading",
+            ),
+            rx.text(
+                "Campos complementares do documento e da ficha técnica. Todos são opcionais.",
+                class_name="vehicle-form-hint",
+            ),
+            rx.grid(
+                _vehicle_select_field("UF de registro", "map", FormState.uf_options),
+                _vehicle_field("Cidade de registro", "map-pin"),
+                _vehicle_field("Ano de fabricação", "calendar", "number"),
+                _vehicle_field("Motorização / cilindrada", "gauge"),
+                _vehicle_select_field("Combustível", "fuel", FormState.fuel_options),
+                _vehicle_select_field(
+                    "Câmbio / transmissão", "settings", FormState.transmission_options
+                ),
+                _vehicle_field("Quilometragem atual", "milestone", "number"),
+                _vehicle_select_field("Número de portas", "door-open", FormState.door_options),
+                _vehicle_select_field("Número de lugares", "users", FormState.seat_options),
+                class_name="vehicle-form-fields-grid",
+            ),
+            rx.vstack(
+                rx.text("Opcionais e equipamentos", class_name="vehicle-form-label"),
+                rx.text_area(
+                    placeholder="Ex.: Teto Solar, Couro, Ar Digital, Sensor de Ré",
+                    aria_label="Opcionais e equipamentos",
+                    value=FormState.values.get("Opcionais e equipamentos", ""),
+                    on_change=lambda value: FormState.set_field(
+                        "Opcionais e equipamentos", value
+                    ),
+                    class_name="vehicle-form-input",
+                    width="100%",
+                ),
+                rx.text(
+                    "Separe os itens por vírgula.",
+                    class_name="vehicle-form-hint",
+                ),
+                align="start",
+                width="100%",
+            ),
+            align="stretch",
+            class_name="vehicle-form-panel-content",
+        ),
+        class_name="vehicle-form-panel",
+    )
+
+
 def _vehicle_form() -> rx.Component:
     return rx.form(
         rx.vstack(
             _vehicle_media_panel(),
             _vehicle_information_panel(),
+            _vehicle_details_panel(),
             rx.cond(
                 FormState.error != "",
                 rx.callout(
@@ -289,6 +370,163 @@ def _vehicle_form() -> rx.Component:
     )
 
 
+def _part_field(label: str, icon: str, input_type: str = "text") -> rx.Component:
+    return rx.vstack(
+        rx.text(label, class_name="vehicle-form-label"),
+        rx.hstack(
+            rx.input(
+                type=input_type,
+                placeholder=label,
+                aria_label=label,
+                value=FormState.values.get(label, ""),
+                on_change=lambda value, name=label: FormState.set_field(name, value),
+                min="0" if label == "Quantidade" else None,
+                step="0.01" if label == "Preço" else "1",
+                required=label in ("Nome", "Preço"),
+                class_name="vehicle-form-input",
+            ),
+            rx.cond(
+                label == "Preço",
+                rx.text("R$", class_name="vehicle-form-currency-prefix"),
+                rx.fragment(),
+            ),
+            rx.icon(icon, size=17, stroke_width=1.6, class_name="vehicle-form-field-icon"),
+            align="center",
+            class_name="vehicle-form-input-wrap",
+        ),
+        rx.cond(
+            label == "Quantidade",
+            rx.text("Opcional; se vazio, a API grava 0.", class_name="vehicle-form-hint"),
+            rx.fragment(),
+        ),
+        class_name="vehicle-form-field",
+    )
+
+
+def _part_area_select() -> rx.Component:
+    return rx.vstack(
+        rx.text("Área do veículo", class_name="vehicle-form-label"),
+        rx.select.root(
+            rx.select.trigger(placeholder="Selecione a área (opcional)"),
+            rx.select.content(
+                rx.foreach(
+                    FormState.part_areas,
+                    lambda area: rx.select.item(area["Secao"], value=area["id"]),
+                )
+            ),
+            value=FormState.values.get("Área (ID)", ""),
+            on_change=lambda value: FormState.set_field("Área (ID)", value),
+            disabled=FormState.loading_part_areas,
+            class_name="vehicle-form-select",
+        ),
+        rx.cond(
+            FormState.loading_part_areas,
+            rx.text("Carregando áreas do Xano...", class_name="vehicle-form-hint"),
+            rx.fragment(),
+        ),
+        rx.cond(
+            FormState.part_area_error != "",
+            rx.callout(
+                FormState.part_area_error,
+                color_scheme="red",
+                role="alert",
+                class_name="vehicle-form-feedback",
+            ),
+            rx.fragment(),
+        ),
+        class_name="vehicle-form-field",
+    )
+
+
+def _part_form() -> rx.Component:
+    return rx.form(
+        rx.vstack(
+            rx.card(
+                rx.vstack(
+                    rx.hstack(
+                        rx.icon("package", size=19, stroke_width=1.6),
+                        rx.heading("Informações da peça", size="4"),
+                        align="center",
+                        spacing="2",
+                        class_name="vehicle-form-panel-heading",
+                    ),
+                    rx.grid(
+                        _part_field("Nome", "tag"),
+                        _part_field("Preço", "banknote", "number"),
+                        _part_field("Quantidade", "boxes", "number"),
+                        _part_area_select(),
+                        columns="repeat(2, minmax(0, 1fr))",
+                        class_name="vehicle-form-fields-grid",
+                    ),
+                    align="stretch",
+                    class_name="vehicle-form-panel-content",
+                ),
+                class_name="vehicle-form-panel",
+            ),
+            rx.cond(
+                FormState.error != "",
+                rx.callout(
+                    FormState.error,
+                    color_scheme="red",
+                    role="alert",
+                    class_name="vehicle-form-feedback",
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(
+                FormState.success != "",
+                rx.callout(
+                    FormState.success,
+                    color_scheme="green",
+                    role="status",
+                    class_name="vehicle-form-feedback",
+                ),
+                rx.fragment(),
+            ),
+            rx.vstack(
+                rx.hstack(
+                    rx.button(
+                        rx.hstack(
+                            rx.icon("save", size=17, stroke_width=1.8),
+                            rx.text(
+                                rx.cond(FormState.saving, "Salvando...", "Salvar Peça")
+                            ),
+                            align="center",
+                            spacing="2",
+                        ),
+                        type="submit",
+                        disabled=FormState.saving | FormState.loading_part_areas,
+                        class_name="vehicle-save-button",
+                    ),
+                    rx.link(
+                        rx.button(
+                            "Cancelar",
+                            type="button",
+                            class_name="vehicle-cancel-button",
+                        ),
+                        href="/pecas",
+                    ),
+                    justify="end",
+                    class_name="vehicle-form-actions",
+                ),
+                rx.text(
+                    "Nome e preço são obrigatórios. Quantidade e área são opcionais.",
+                    class_name="vehicle-form-footer-note",
+                ),
+                align="end",
+                width="100%",
+                class_name="vehicle-form-footer",
+            ),
+            align="stretch",
+            width="100%",
+            class_name="vehicle-form-layout",
+        ),
+        on_submit=FormState.save("pecas"),
+        reset_on_submit=False,
+        class_name="vehicle-create-form",
+    )
+
+
 def form_page(
     title: str, endpoint: str, fields: tuple[str, ...], allowed: rx.Var = True
 ) -> rx.Component:
@@ -297,6 +535,16 @@ def form_page(
             rx.vstack(
                 _vehicle_form(),
                 on_mount=FormState.load_vehicle_statuses,
+                class_name="vehicle-create-page",
+            ),
+            title,
+            allowed,
+        )
+    if endpoint == "pecas":
+        return shell(
+            rx.vstack(
+                _part_form(),
+                on_mount=FormState.load_part_areas,
                 class_name="vehicle-create-page",
             ),
             title,

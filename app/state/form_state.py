@@ -72,14 +72,130 @@ def _build_vehicle_payload(
     return payload
 
 
+def _build_part_payload(values: dict[str, str]) -> dict[str, str | int | float]:
+    name = values.get("Nome", "").strip()
+    if not name:
+        raise XanoError("O campo Nome é obrigatório.")
+
+    raw_price = values.get("Preço", "").strip()
+    if not raw_price:
+        raise XanoError("O campo Preço é obrigatório.")
+
+    try:
+        price = Decimal(raw_price.replace(",", "."))
+        if not price.is_finite() or price < 0:
+            raise XanoError("O campo Preço precisa ser um valor finito e não negativo.")
+    except XanoError:
+        raise
+    except (ValueError, InvalidOperation) as exc:
+        raise XanoError("Valor inválido no campo Preço.") from exc
+
+    payload: dict[str, str | int | float] = {
+        "PCNome": name,
+        "PCvalor": float(price),
+    }
+    for label, field in (("Quantidade", "qtd_disp"), ("Área (ID)", "area_id")):
+        raw_value = values.get(label, "").strip()
+        if not raw_value:
+            continue
+        try:
+            parsed_value = int(raw_value)
+        except ValueError as exc:
+            raise XanoError(f"Valor inválido no campo {label}.") from exc
+        if parsed_value < 0:
+            raise XanoError(f"O campo {label} não pode ser negativo.")
+        payload[field] = parsed_value
+    return payload
+
+
+def _build_vehicle_details_payload(values: dict[str, str]) -> dict[str, object]:
+    text_fields = {
+        "UF de registro": "uf_registro",
+        "Cidade de registro": "cidade_registro",
+        "Motorização / cilindrada": "motorizacao",
+    }
+    payload: dict[str, object] = {}
+    for label, field in text_fields.items():
+        value = values.get(label, "").strip()
+        if value:
+            payload[field] = value
+
+    choices = {
+        "UF de registro": {
+            "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+            "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+            "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+        },
+        "Combustível": {"Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"},
+        "Câmbio / transmissão": {"Automático", "Manual", "CVT", "Automatizado"},
+    }
+    for label, field in (
+        ("UF de registro", "uf_registro"),
+        ("Combustível", "combustivel"),
+        ("Câmbio / transmissão", "cambio"),
+    ):
+        value = values.get(label, "").strip()
+        if value:
+            if value not in choices[label]:
+                raise XanoError(f"Selecione uma opção válida para {label}.")
+            payload[field] = value
+
+    integer_fields = {
+        "Ano de fabricação": ("ano_fabricacao", 1900, 2100),
+        "Número de portas": ("numero_portas", 1, 20),
+        "Número de lugares": ("numero_lugares", 1, 100),
+    }
+    for label, (field, minimum, maximum) in integer_fields.items():
+        raw_value = values.get(label, "").strip()
+        if not raw_value:
+            continue
+        try:
+            value = int(raw_value)
+        except ValueError as exc:
+            raise XanoError(f"Valor inválido no campo {label}.") from exc
+        if not minimum <= value <= maximum:
+            raise XanoError(f"O campo {label} precisa estar entre {minimum} e {maximum}.")
+        payload[field] = value
+
+    raw_mileage = values.get("Quilometragem atual", "").strip()
+    if raw_mileage:
+        try:
+            mileage = Decimal(raw_mileage.replace(",", "."))
+        except InvalidOperation as exc:
+            raise XanoError("Valor inválido no campo Quilometragem atual.") from exc
+        if not mileage.is_finite() or mileage < 0:
+            raise XanoError("A Quilometragem atual precisa ser não negativa.")
+        payload["quilometragem"] = float(mileage)
+
+    raw_options = values.get("Opcionais e equipamentos", "").strip()
+    if raw_options:
+        payload["opcionais"] = [
+            item.strip() for item in raw_options.split(",") if item.strip()
+        ]
+
+    return payload
+
+
 class FormState(rx.State):
     values: dict[str, str] = {}
     vehicle_statuses: list[dict] = []
+    part_areas: list[dict] = []
     saving: bool = False
     loading_statuses: bool = False
+    loading_part_areas: bool = False
     error: str = ""
     success: str = ""
     status_error: str = ""
+    part_area_error: str = ""
+    uf_options: list[str] = [
+        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+        "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+        "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+    ]
+    fuel_options: list[str] = ["Flex", "Gasolina", "Diesel", "Elétrico", "Híbrido"]
+    transmission_options: list[str] = ["Automático", "Manual", "CVT", "Automatizado"]
+    door_options: list[str] = ["2", "3", "4", "5"]
+    seat_options: list[str] = ["2", "3", "4", "5", "6", "7", "8", "9"]
 
     @rx.var
     def image_preview_url(self) -> str:
@@ -139,6 +255,28 @@ class FormState(rx.State):
         finally:
             self.loading_statuses = False
 
+    async def load_part_areas(self) -> None:
+        self.loading_part_areas, self.part_area_error = True, ""
+        try:
+            auth_state = await self.get_state(AuthState)
+            result = client.request("GET", "/veiculo-areas", token=auth_state.token)
+            if not isinstance(result, list) or any(
+                not isinstance(area, dict)
+                or area.get("id") is None
+                or not isinstance(area.get("Secao"), str)
+                for area in result
+            ):
+                raise XanoError("A API retornou uma lista de áreas de peças inválida.")
+            self.part_areas = [
+                {"id": str(area["id"]), "Secao": area["Secao"].strip()}
+                for area in result
+                if area["Secao"].strip()
+            ]
+        except XanoError as exc:
+            self.part_areas, self.part_area_error = [], str(exc)
+        finally:
+            self.loading_part_areas = False
+
     async def save(self, endpoint: str) -> None:
         self.saving, self.error, self.success = True, "", ""
         try:
@@ -176,8 +314,13 @@ class FormState(rx.State):
 
             if endpoint.strip("/") == "veiculos":
                 payload = _build_vehicle_payload(self.values, self.vehicle_statuses)
+                details_payload = _build_vehicle_details_payload(self.values)
+            elif endpoint.strip("/") == "pecas":
+                payload = _build_part_payload(self.values)
+                details_payload = {}
             else:
                 payload: dict[str, str | int | float] = {}
+                details_payload = {}
                 for label, (field, kind, required) in schema.items():
                     raw_value = self.values.get(label, "").strip()
                     if not raw_value:
@@ -204,12 +347,24 @@ class FormState(rx.State):
                         raise XanoError(f"Valor inválido no campo {label}.") from exc
 
             auth_state = await self.get_state(AuthState)
-            client.request(
+            response = client.request(
                 "POST",
                 f"/{endpoint.strip('/')}",
                 token=auth_state.token,
                 json=payload,
             )
+            if endpoint.strip("/") == "veiculos" and details_payload:
+                vehicle_id = response.get("id") if isinstance(response, dict) else None
+                if vehicle_id is None:
+                    raise XanoError(
+                        "O veículo foi salvo, mas a API não retornou o ID para salvar os detalhes."
+                    )
+                client.request(
+                    "POST",
+                    f"/veiculos/{vehicle_id}/detalhes",
+                    token=auth_state.token,
+                    json=details_payload,
+                )
             self.success = "Registro salvo no Xano com sucesso."
             self.values = {}
         except XanoError as exc:

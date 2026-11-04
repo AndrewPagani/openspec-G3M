@@ -52,7 +52,7 @@ query vendas verb=GET {
     }
   
     conditional {
-      if ($input.vendedor_id != null && $input.vendedor_id != "" && $input.vendedor_id != []) {
+      if ($input.vendedor_id != null && $input.vendedor_id != "" && $input.vendedor_id != [] && $input.vendedor_id != "{}") {
         var $v_int {
           value = $input.vendedor_id|to_int
         }
@@ -87,7 +87,7 @@ query vendas verb=GET {
     }
   
     conditional {
-      if ($input.cliente_id != null && $input.cliente_id != "" && $input.cliente_id != []) {
+      if ($input.cliente_id != null && $input.cliente_id != "" && $input.cliente_id != [] && $input.cliente_id != "{}") {
         var $c_int {
           value = $input.cliente_id|to_int
         }
@@ -108,7 +108,7 @@ query vendas verb=GET {
     }
   
     conditional {
-      if ($input.status_id != null && $input.status_id != "" && $input.status_id != []) {
+      if ($input.status_id != null && $input.status_id != "" && $input.status_id != [] && $input.status_id != "{}") {
         var $s_int {
           value = $input.status_id|to_int
         }
@@ -129,7 +129,7 @@ query vendas verb=GET {
     }
   
     conditional {
-      if ($input.forma_pagamento_id != null && $input.forma_pagamento_id != "" && $input.forma_pagamento_id != []) {
+      if ($input.forma_pagamento_id != null && $input.forma_pagamento_id != "" && $input.forma_pagamento_id != [] && $input.forma_pagamento_id != "{}") {
         var $f_int {
           value = $input.forma_pagamento_id|to_int
         }
@@ -150,7 +150,7 @@ query vendas verb=GET {
     }
   
     conditional {
-      if ($input.data_inicio != null && $input.data_inicio != "" && $input.data_inicio != []) {
+      if ($input.data_inicio != null && $input.data_inicio != "" && $input.data_inicio != [] && $input.data_inicio != "{}") {
         var $di_str {
           value = $input.data_inicio|to_text
         }
@@ -176,7 +176,7 @@ query vendas verb=GET {
     }
   
     conditional {
-      if ($input.data_fim != null && $input.data_fim != "" && $input.data_fim != []) {
+      if ($input.data_fim != null && $input.data_fim != "" && $input.data_fim != [] && $input.data_fim != "{}") {
         var $df_str {
           value = $input.data_fim|to_text
         }

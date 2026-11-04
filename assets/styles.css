@@ -19,6 +19,52 @@
 
 * { box-sizing: border-box; }
 
+.sale-picker-carousel {
+  width: 100%;
+  min-height: 230px;
+  padding: 8px 2px 14px;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+.sale-picker-carousel > div {
+  width: max-content;
+  min-width: 100%;
+}
+
+.sale-picker-carousel > div > div {
+  width: max-content;
+}
+
+.sale-picker-card {
+  flex: 0 0 220px;
+  min-height: 205px;
+  gap: 10px;
+  padding: 14px;
+}
+
+.sale-picker-image {
+  width: 100%;
+  height: 104px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.sale-picker-empty {
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  background: #e9edf3;
+}
+
+.sale-selected-item,
+.sale-totals {
+  padding: 12px 14px;
+  border: 1px solid #e3e8f0;
+  border-radius: 8px;
+}
+
 html, body {
   margin: 0;
   font-family: Inter, "Segoe UI", sans-serif;
@@ -470,12 +516,73 @@ html, body {
 .stock-low { color: #ca8a04; }
 .stock-available { color: #16a34a; }
 
+.vehicle-detail-card {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 28px var(--shadow);
+}
+.vehicle-detail-hero {
+  padding: 22px 4px 10px;
+}
+.vehicle-detail-kicker {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.vehicle-detail-image {
+  width: 220px;
+  height: 140px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--panel);
+}
+.vehicle-detail-section-heading {
+  color: var(--text);
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 12px;
+}
+.vehicle-detail-fields {
+  gap: 18px 24px;
+  padding-top: 18px;
+}
+.vehicle-detail-field {
+  min-width: 0;
+  gap: 5px;
+}
+.vehicle-detail-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.vehicle-detail-value {
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.vehicle-detail-status {
+  font-size: 0.78rem;
+}
+
 @media (max-width: 760px) {
   .sidebar { width: 190px; padding: 18px 10px; }
   .main { margin-left: 190px; padding: 18px; }
 }
 
 @media (max-width: 680px) {
+  .vehicle-detail-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .vehicle-detail-image {
+    width: 100%;
+    height: 180px;
+  }
+  .vehicle-detail-fields {
+    grid-template-columns: 1fr;
+  }
   .dashboard-periods { justify-content: flex-start; width: 100%; }
   .dashboard-periods button { flex: 1 1 auto; }
   .login-visual-panel .login-illustration {

@@ -73,7 +73,6 @@ def _normalize_record(record: dict[str, Any], endpoint: str) -> dict[str, Any]:
         model = _first_value(record, "Modelo", "modelo")
         image_url = _first_value(
             record,
-            "Imagem_url",
             "imagem_url",
             "image_url",
             "Imagem",
@@ -123,7 +122,6 @@ def _normalize_record(record: dict[str, Any], endpoint: str) -> dict[str, Any]:
         )
         image_url = _first_value(
             record,
-            "Imagem_url",
             "imagem_url",
             "image_url",
             "Imagem",

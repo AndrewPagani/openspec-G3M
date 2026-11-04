@@ -7,12 +7,96 @@ from unittest.mock import patch
 from app.services.xano_client import XanoError
 from app.services.vehicle_status import vehicle_status_class
 from app.state.auth_state import AuthState
-from app.state.form_state import _build_vehicle_payload
+from app.state.form_state import (
+    _build_part_payload,
+    _build_vehicle_details_payload,
+    _build_vehicle_payload,
+)
 from app.state.resource_state import ResourceState, _normalize_record, _pagination_total_pages
+from app.state.vehicle_detail_state import _normalize_detail
 from app.state.form_state import FormState
+from app.state.vendas_state import _format_local_datetime
 
 
 class ResourceStateTests(unittest.TestCase):
+    def test_formats_xano_millisecond_timestamp(self) -> None:
+        self.assertEqual(
+            _format_local_datetime(1769292430000, include_time=True),
+            "24/01/2026 19:07",
+        )
+
+    def test_builds_vehicle_details_payload(self) -> None:
+        payload = _build_vehicle_details_payload(
+            {
+                "UF de registro": "SP",
+                "Combustível": "Gasolina",
+                "Câmbio / transmissão": "Automático",
+                "Ano de fabricação": "2023",
+                "Quilometragem atual": "25000",
+                "Opcionais e equipamentos": "Teto Solar, Couro, Sensor de Ré",
+            }
+        )
+        self.assertEqual(payload["ano_fabricacao"], 2023)
+        self.assertEqual(payload["uf_registro"], "SP")
+        self.assertEqual(payload["combustivel"], "Gasolina")
+        self.assertEqual(payload["cambio"], "Automático")
+        self.assertEqual(payload["quilometragem"], 25000.0)
+        self.assertEqual(
+            payload["opcionais"],
+            ["Teto Solar", "Couro", "Sensor de Ré"],
+        )
+
+    def test_vehicle_details_payload_ignores_empty_fields(self) -> None:
+        self.assertEqual(_build_vehicle_details_payload({}), {})
+
+    def test_normalizes_vehicle_detail_and_related_data(self) -> None:
+        detail = _normalize_detail(
+            {
+                "veiculo": {"id": 7, "Marca": "BMW", "Modelo": "X1", "Ano": 2023},
+                "detalhes": {
+                    "veiculo_id": 7,
+                    "motorizacao": "2.0 Turbo",
+                    "combustivel": "Gasolina",
+                },
+            }
+        )
+        self.assertEqual(detail["id"], "7")
+        self.assertEqual(detail["marca"], "BMW")
+        self.assertEqual(detail["motorizacao"], "2.0 Turbo")
+        self.assertEqual(detail["ano_fabricacao"], "2023")
+        self.assertEqual(detail["combustivel"], "Gasolina")
+
+    def test_vehicle_detail_defaults_missing_fields(self) -> None:
+        detail = _normalize_detail({"veiculo": {"id": 7}})
+    def test_builds_part_payload_from_api_contract(self) -> None:
+        self.assertEqual(
+            _build_part_payload(
+                {
+                    "Nome": "Pastilha de freio",
+                    "Preço": "299,90",
+                    "Quantidade": "8",
+                    "Área (ID)": "2",
+                }
+            ),
+            {
+                "PCNome": "Pastilha de freio",
+                "PCvalor": 299.9,
+                "qtd_disp": 8,
+                "area_id": 2,
+            },
+        )
+
+    def test_part_quantity_and_area_are_optional(self) -> None:
+        self.assertEqual(
+            _build_part_payload({"Nome": "Filtro", "Preço": "10"}),
+            {"PCNome": "Filtro", "PCvalor": 10.0},
+        )
+
+    def test_part_payload_requires_name_and_price(self) -> None:
+        with self.assertRaisesRegex(XanoError, "Nome"):
+            _build_part_payload({"Preço": "10"})
+        with self.assertRaisesRegex(XanoError, "Preço"):
+            _build_part_payload({"Nome": "Filtro"})
     def test_normalizes_part_catalog_fields(self) -> None:
         part = _normalize_record(
             {
@@ -54,7 +138,7 @@ class ResourceStateTests(unittest.TestCase):
                 "Quilometragem": 25000,
                 "Preco": 189990.5,
                 "Combustivel": "Flex",
-                "Imagem_url": "https://example.test/song-pro.jpg",
+                "imagem_url": "https://example.test/song-pro.jpg",
                 "status_descricao": "Disponível",
             },
             "/veiculos",
@@ -134,7 +218,7 @@ class ResourceStateTests(unittest.TestCase):
                 "Quilometragem": 12500.0,
                 "Preco": 123456.78,
                 "status_id": 3,
-                "Imagem_url": "https://images.example.test/sedan.png",
+                "imagem_url": "https://images.example.test/sedan.png",
             },
         )
 
@@ -271,7 +355,7 @@ class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(request.call_args.args[:2], ("POST", "/veiculos"))
         self.assertEqual(request.call_args.kwargs["json"]["status_id"], 2)
         self.assertEqual(
-            request.call_args.kwargs["json"]["Imagem_url"],
+            request.call_args.kwargs["json"]["imagem_url"],
             "https://images.example.test/sedan.png",
         )
         self.assertEqual(state.values, {})

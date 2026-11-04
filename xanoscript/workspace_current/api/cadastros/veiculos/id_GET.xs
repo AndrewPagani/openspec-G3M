@@ -28,9 +28,16 @@ query "veiculos/{id}" verb=GET {
       field_name = "id"
       field_value = $veiculo.status_id
     } as $status
+
+    db.query veiculo_detalhe {
+      where = $db.veiculo_detalhe.veiculo_id == $input.id
+      return = {type: "single"}
+    } as $detalhes
   }
 
-  response = {
+  response = ```
+  {
+    veiculo: {
     id              : $veiculo.id
     Marca           : $veiculo.Marca
     Modelo          : $veiculo.Modelo
@@ -40,11 +47,14 @@ query "veiculos/{id}" verb=GET {
     Chassi          : $veiculo.Chassi
     Quilometragem   : $veiculo.Quilometragem
     Preco           : $veiculo.Preco
-    Imagem_url      : $veiculo.Imagem_url
+    imagem_url      : $veiculo.imagem_url
     status_id       : $veiculo.status_id
     status_descricao: ($status.Descricao ?? "")
     created_at      : $veiculo.created_at
+    }
+    detalhes: ($detalhes ?? {})
   }
+  ```
 
   guid = "c2cdn4hOtT2I4yvVfGEQ84oVa_I"
 }
