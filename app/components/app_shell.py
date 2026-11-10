@@ -21,6 +21,7 @@ def nav_item(
                 spacing="3",
             ),
             href=href,
+            aria_label=label,
             class_name=rx.cond(
                 active,
                 "nav-item nav-item-active",
@@ -42,20 +43,13 @@ def shell(
                 rx.vstack(
                     rx.hstack(
                         rx.box("G3M", class_name="sidebar-brand-mark"),
-                        rx.vstack(
-                            rx.heading("AutoGestão", size="4"),
-                            rx.text("GESTÃO AUTOMOTIVA", class_name="sidebar-brand-caption"),
-                            align="start",
-                            spacing="0",
-                        ),
                         align="center",
-                        spacing="3",
                         class_name="sidebar-brand",
                     ),
                     rx.divider(class_name="sidebar-divider"),
                     nav_item(
                         "Dashboard", "/gerenciamento", "layout-dashboard",
-                        title == "Gerenciamento",
+                        title in ("Dashboard", "Gerenciamento"),
                     ),
                     nav_item("Clientes", "/clientes", "users-round", title in ("Clientes", "Novo cliente", "Detalhe do cliente")),
                     nav_item(
@@ -95,12 +89,6 @@ def shell(
                             rx.text(
                                 AuthState.profile + ": " + AuthState.user_name,
                                 class_name="user-label",
-                            ),
-                            rx.hstack(
-                                rx.box(class_name="sidebar-online-indicator"),
-                                rx.text("On-line", class_name="sidebar-online-label"),
-                                align="center",
-                                spacing="2",
                             ),
                             align="start",
                             spacing="0",
@@ -146,12 +134,16 @@ def shell(
                     class_name="main",
                 ),
                 class_name=rx.cond(
-                    title == "Veículos",
-                    "app-shell internal-app-shell vehicle-app-shell",
+                    title == "Dashboard",
+                    "app-shell internal-app-shell dashboard-app-shell",
                     rx.cond(
-                        title == "Novo veículo",
+                        title == "Veículos",
                         "app-shell internal-app-shell vehicle-app-shell",
-                        "app-shell internal-app-shell",
+                        rx.cond(
+                            title == "Novo veículo",
+                            "app-shell internal-app-shell vehicle-app-shell",
+                            "app-shell internal-app-shell",
+                        ),
                     ),
                 ),
             ),

@@ -1,8 +1,8 @@
 VEHICLE_STATUS_CHART_COLORS = {
-    "status-available": "#35c979",
-    "status-reserved": "#f4be44",
-    "status-sold": "#f46262",
-    "status-neutral": "#8291a4",
+    "status-available": "#10b981",
+    "status-reserved": "#f59e0b",
+    "status-sold": "#f43f5e",
+    "status-neutral": "#64748b",
 }
 
 

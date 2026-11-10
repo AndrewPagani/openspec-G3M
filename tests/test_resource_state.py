@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import unittest
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from app.services.xano_client import XanoError
 from app.services.vehicle_status import vehicle_status_class
@@ -12,13 +14,69 @@ from app.state.form_state import (
     _build_vehicle_details_payload,
     _build_vehicle_payload,
 )
-from app.state.resource_state import ResourceState, _normalize_record, _pagination_total_pages
+from app.state.resource_state import (
+    ResourceState,
+    _client_activity_and_metrics,
+    _normalize_record,
+    _pagination_total_pages,
+)
 from app.state.vehicle_detail_state import _normalize_detail
 from app.state.form_state import FormState
 from app.state.vendas_state import _format_local_datetime
 
 
 class ResourceStateTests(unittest.TestCase):
+    def test_normalizes_client_contact_fields(self) -> None:
+        client = _normalize_record(
+            {
+                "id": 8,
+                "CNome": "Ana Almeida",
+                "CPF": "100.007.919-89",
+                "Telefone": "(11) 99999-1111",
+                "Email": "ana@example.test",
+                "_client_last_activity": "08/11/2026, 14:30",
+            },
+            "/clientes",
+        )
+
+        self.assertEqual(client["_client_name"], "Ana Almeida")
+        self.assertEqual(client["_client_initials"], "AA")
+        self.assertEqual(client["_client_cpf"], "100.007.919-89")
+        self.assertEqual(client["_client_phone"], "(11) 99999-1111")
+        self.assertEqual(client["_client_email"], "ana@example.test")
+        self.assertEqual(client["_client_last_activity"], "08/11/2026, 14:30")
+
+    def test_client_metrics_use_creation_date_and_latest_sale(self) -> None:
+        activity, new_this_month, pending_purchases = _client_activity_and_metrics(
+            [
+                {"id": 1, "created_at": "2026-11-02T10:00:00Z"},
+                {"id": 2, "created_at": "2026-10-30T10:00:00Z"},
+            ],
+            [
+                {
+                    "cliente_id": 1,
+                    "data_venda": "2026-11-03T10:00:00Z",
+                    "status_venda": "Reservado",
+                },
+                {
+                    "cliente": {"id": 1},
+                    "data_venda": "2026-11-08T10:00:00Z",
+                    "status": {"Descricao_venda": "Concluída"},
+                },
+                {
+                    "cliente_id": 2,
+                    "data_venda": "2026-11-04T10:00:00Z",
+                    "status_venda": "Pendente",
+                },
+            ],
+            now=datetime(2026, 11, 9, tzinfo=ZoneInfo("America/Sao_Paulo")),
+        )
+
+        self.assertEqual(activity["1"], "08/11/2026, 07:00")
+        self.assertEqual(activity["2"], "04/11/2026, 07:00")
+        self.assertEqual(new_this_month, 1)
+        self.assertEqual(pending_purchases, 2)
+
     def test_formats_xano_millisecond_timestamp(self) -> None:
         self.assertEqual(
             _format_local_datetime(1769292430000, include_time=True),
@@ -242,6 +300,59 @@ class ResourceStateTests(unittest.TestCase):
 
 
 class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_loads_client_contacts_and_sales_derived_activity(self) -> None:
+        async def get_state(_state_type):
+            return SimpleNamespace(token="test-token")
+
+        state = SimpleNamespace(
+            endpoint="",
+            title="",
+            loading=False,
+            error="",
+            records=[],
+            clients_new_this_month=0,
+            pending_purchases=0,
+            client_page=1,
+            get_state=get_state,
+        )
+        client_response = {
+            "items": [
+                {
+                    "id": 12,
+                    "CNome": "Ana Almeida",
+                    "CPF": "100.007.919-89",
+                    "Email": "ana@example.test",
+                    "created_at": "2026-11-02T10:00:00Z",
+                }
+            ],
+            "pagination": {"total_pages": 1},
+        }
+        sales_response = {
+            "items": [
+                {
+                    "cliente_id": 12,
+                    "data_venda": "2026-11-08T10:00:00Z",
+                    "status_venda": "Reservado",
+                }
+            ],
+            "pagination": {"total_pages": 1},
+        }
+
+        with patch(
+            "app.state.resource_state.client.request",
+            side_effect=[client_response, sales_response],
+        ) as request:
+            await ResourceState.load.fn(state, "/clientes", "Clientes")
+
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(request.call_args_list[0].args[:2], ("GET", "/clientes"))
+        self.assertEqual(request.call_args_list[1].args[:2], ("GET", "/vendas"))
+        self.assertEqual(state.records[0]["_client_email"], "ana@example.test")
+        self.assertEqual(state.records[0]["_client_last_activity"], "08/11/2026, 07:00")
+        self.assertEqual(state.pending_purchases, 1)
+        self.assertFalse(state.loading)
+        self.assertEqual(state.error, "")
+
     async def test_load_fetches_every_vehicle_page(self) -> None:
         async def get_state(_state_type):
             return SimpleNamespace(token="test-token")

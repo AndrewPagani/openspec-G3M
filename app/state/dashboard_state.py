@@ -139,6 +139,75 @@ def _salesperson_rows(value: Any) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: row["quantidade"], reverse=True)
 
 
+def _filter_options(
+    value: Any,
+    label: str,
+    *,
+    id_keys: tuple[str, ...],
+    name_keys: tuple[str, ...],
+) -> list[dict[str, str]]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        for key in ("items", "data", "results", "rows"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                value = nested
+                break
+    if not isinstance(value, list):
+        raise XanoError(f"A API retornou uma lista inválida para opções de {label}.")
+
+    options = []
+    for row in value:
+        if not isinstance(row, dict):
+            raise XanoError(f"A API retornou uma opção inválida para {label}.")
+        option_id = next((row.get(key) for key in id_keys if row.get(key) is not None), None)
+        name = next((row.get(key) for key in name_keys if row.get(key) is not None), None)
+        if option_id is None or name is None or not str(name).strip():
+            raise XanoError(f"A API não informou o identificador ou nome de {label}.")
+        options.append({"id": str(option_id), "nome": str(name).strip()})
+    return options
+
+
+def _sales_status_rows(value: Any) -> list[dict[str, str]]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        for key in ("items", "data", "results", "rows", "vendas_por_status_pagamento"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                value = nested
+                break
+    if not isinstance(value, list):
+        raise XanoError("A API retornou uma lista inválida para vendas por status.")
+
+    rows = []
+    for row in value:
+        if not isinstance(row, dict):
+            raise XanoError("A API retornou um registro inválido para vendas por status.")
+        name = row.get("descricao") or row.get("Descricao_venda") or row.get("status")
+        if name is None:
+            raise XanoError("A API não informou a descrição de um status de venda.")
+        count = next(
+            (
+                row.get(key)
+                for key in ("total_vendas", "quantidade", "count", "qtd")
+                if row.get(key) is not None
+            ),
+            0,
+        )
+        result = {
+            "nome": str(name),
+            "quantidade": _count(count, "vendas por status"),
+            "valor_total": "",
+        }
+        amount = row.get("valor_total")
+        if amount is not None:
+            result["valor_total"] = _currency(amount, "valor por status")
+        rows.append(result)
+    return rows
+
+
 def _extract_kpis(result: dict[str, Any]) -> dict[str, Any]:
     kpis = result.get("kpis")
     if isinstance(kpis, dict):
@@ -492,7 +561,7 @@ def _build_params(
         ("forma_pagamento_id", forma_pagamento_id),
         ("status_veiculo_id", status_veiculo_id),
     ):
-        if raw_value.strip():
+        if raw_value.strip() and raw_value.strip().casefold() != "todos":
             try:
                 value = int(raw_value)
             except ValueError as exc:
@@ -501,7 +570,7 @@ def _build_params(
                 raise XanoError(f"O filtro {key} deve ser um número inteiro positivo.")
             params[key] = value
 
-    if tipo_item:
+    if tipo_item and tipo_item.strip().casefold() != "todos":
         if tipo_item not in ("veiculo", "peca"):
             raise XanoError("O tipo de item deve ser Veículo ou Peça.")
         params["tipo_item"] = tipo_item
@@ -542,17 +611,21 @@ class DashboardState(rx.State):
     mix_com_movimento: bool = False
     estoque_com_movimento: bool = False
     timeline_rows: list[dict] = []
-    vendas_por_status: list[str] = []
+    vendas_por_status: list[dict[str, str]] = []
     vendas_por_pagamento: list[str] = []
     vendas_por_vendedor: list[dict] = []
+    status_venda_opcoes: list[dict] = []
+    vendedor_opcoes: list[dict] = []
+    forma_pagamento_opcoes: list[dict] = []
+    status_veiculo_opcoes: list[dict] = []
     filtro_vendedor_nome: str = ""
     mix_itens: list[str] = []
     veiculos_por_status: list[str] = []
-    filtro_status_id: str = ""
-    filtro_vendedor_id: str = ""
-    filtro_forma_pagamento_id: str = ""
-    filtro_tipo_item: str = ""
-    filtro_status_veiculo_id: str = ""
+    filtro_status_id: str = "todos"
+    filtro_vendedor_id: str = "todos"
+    filtro_forma_pagamento_id: str = "todos"
+    filtro_tipo_item: str = "todos"
+    filtro_status_veiculo_id: str = "todos"
     periodo_ativo: str = "dia"
 
     def set_data_inicio(self, value: str) -> None:
@@ -635,6 +708,10 @@ class DashboardState(rx.State):
         self.vendas_por_vendedor = []
         self.mix_itens = []
         self.veiculos_por_status = []
+        self.status_venda_opcoes = []
+        self.vendedor_opcoes = []
+        self.forma_pagamento_opcoes = []
+        self.status_veiculo_opcoes = []
         self.vendas_por_periodo = []
         self.vendas_por_status = []
         self.vendas_por_pagamento = []
@@ -777,10 +854,16 @@ class DashboardState(rx.State):
             self.chart_vendas_por_periodo = _timeline_chart_rows(
                 _trend_chart_rows(timeline_rows, self.periodo_ativo)
             )
-            self.vendas_por_status = _report_rows(
-                _extract_series(result, "vendas_por_status_pagamento", "vendas_por_status"),
-                "vendas por status",
+            status_sales = _extract_series(
+                result, "vendas_por_status_pagamento", "vendas_por_status"
             )
+            self.status_venda_opcoes = _filter_options(
+                status_sales,
+                "status da venda",
+                id_keys=("status_id", "id"),
+                name_keys=("descricao", "Descricao_venda", "status"),
+            )
+            self.vendas_por_status = _sales_status_rows(status_sales)
             self.vendas_por_pagamento = _report_rows(
                 _extract_series(
                     result,
@@ -798,6 +881,18 @@ class DashboardState(rx.State):
                     "pagamentos",
                 )
             )
+            payment_rows = _extract_series(
+                result,
+                "vendas_por_forma_pagamento",
+                "vendas_por_metodo_pagamento",
+                "pagamentos",
+            )
+            self.forma_pagamento_opcoes = _filter_options(
+                payment_rows,
+                "forma de pagamento",
+                id_keys=("forma_id", "forma_pagamento_id", "id"),
+                name_keys=("metodo", "Metodo", "nome"),
+            )
             self.pagamentos_com_movimento = len(self.chart_formas_pagamento) > 0
             mix_rows = _extract_series(result, "mix_itens", "vendas_por_tipo_item")
             self.mix_itens = _report_rows(mix_rows, "mix de itens")
@@ -812,6 +907,12 @@ class DashboardState(rx.State):
                 self.vendas_por_vendedor = _salesperson_rows(
                     _extract_series(result, "vendas_por_vendedor")
                 )
+                self.vendedor_opcoes = _filter_options(
+                    _extract_series(result, "vendas_por_vendedor"),
+                    "vendedor",
+                    id_keys=("vendedor_id", "id"),
+                    name_keys=("nome", "UNome", "name", "vendedor"),
+                )
                 self.veiculos_por_status = _report_rows(
                     _extract_series(
                         result, "veiculos_por_status", "estoque_veiculos_por_status"
@@ -822,6 +923,14 @@ class DashboardState(rx.State):
                     _extract_series(
                         result, "veiculos_por_status", "estoque_veiculos_por_status"
                     )
+                )
+                self.status_veiculo_opcoes = _filter_options(
+                    _extract_series(
+                        result, "veiculos_por_status", "estoque_veiculos_por_status"
+                    ),
+                    "status do veículo",
+                    id_keys=("status_id", "id"),
+                    name_keys=("descricao", "Descricao", "status", "nome"),
                 )
                 self.estoque_com_movimento = _has_chart_values(
                     self.chart_veiculos_por_status

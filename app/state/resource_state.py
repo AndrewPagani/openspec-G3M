@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from unicodedata import combining, normalize as normalize_unicode
+from zoneinfo import ZoneInfo
 
 import reflex as rx
 
 from app.services.xano_client import XanoError, client
 from app.services.vehicle_status import vehicle_status_class
 from app.state.auth_state import AuthState
+
+_LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 def _first_value(record: dict[str, Any], *keys: str) -> str:
@@ -62,12 +67,106 @@ def _parse_part_quantity(value: str) -> int:
     return int(amount)
 
 
+def _parse_api_datetime(value: Any) -> datetime | None:
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, (int, float)) or (
+            isinstance(value, str) and value.strip().isdigit()
+        ):
+            timestamp = float(value)
+            if abs(timestamp) > 100_000_000_000:
+                timestamp /= 1000
+            parsed = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        elif isinstance(value, str):
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+        else:
+            raise ValueError
+    except (OverflowError, OSError, TypeError, ValueError) as exc:
+        raise XanoError("A API retornou uma data de cliente ou venda inválida.") from exc
+    return parsed.astimezone(_LOCAL_TIMEZONE)
+
+
+def _client_activity_and_metrics(
+    clients: list[dict[str, Any]],
+    sales: list[dict[str, Any]],
+    now: datetime | None = None,
+) -> tuple[dict[str, str], int, int]:
+    latest_sales: dict[str, datetime] = {}
+    pending_count = 0
+
+    for sale in sales:
+        related_client = sale.get("cliente")
+        related_client_id = (
+            related_client.get("id") if isinstance(related_client, dict) else None
+        )
+        client_id = _first_value(sale, "cliente_id", "client_id") or (
+            str(related_client_id) if related_client_id is not None else ""
+        )
+
+        status_value = sale.get("status")
+        if status_value is None:
+            status_value = sale.get("status_venda")
+        if isinstance(status_value, dict):
+            status_value = _first_value(
+                status_value, "Descricao_venda", "descricao", "status"
+            )
+        status = _first_value(sale, "status_descricao", "Descricao_venda") or (
+            str(status_value).strip() if status_value is not None else ""
+        )
+        normalized_status = "".join(
+            char
+            for char in normalize_unicode("NFKD", status)
+            if not combining(char)
+        ).casefold()
+        if normalized_status in {"reservado", "pendente"}:
+            pending_count += 1
+
+        sale_date = _parse_api_datetime(sale.get("data_venda"))
+        if client_id and sale_date and (
+            client_id not in latest_sales or sale_date > latest_sales[client_id]
+        ):
+            latest_sales[client_id] = sale_date
+
+    activity = {
+        client_id: sale_date.strftime("%d/%m/%Y, %H:%M")
+        for client_id, sale_date in latest_sales.items()
+    }
+    current_time = (now or datetime.now(_LOCAL_TIMEZONE)).astimezone(_LOCAL_TIMEZONE)
+    new_this_month = 0
+    for customer in clients:
+        created_at = _parse_api_datetime(
+            customer.get("created_at") or customer.get("Created_at")
+        )
+        if created_at and (created_at.year, created_at.month) == (
+            current_time.year,
+            current_time.month,
+        ):
+            new_this_month += 1
+    return activity, new_this_month, pending_count
+
+
 def _normalize_record(record: dict[str, Any], endpoint: str) -> dict[str, Any]:
     normalized = dict(record)
     if endpoint == "/clientes":
         name = _first_value(record, "CNome", "Nome", "nome", "name")
         cpf = _first_value(record, "CPF", "cpf")
+        email = _first_value(record, "Email", "email", "E-mail")
         normalized["_display_label"] = f"{name} - {cpf}" if cpf else name
+        normalized["_client_name"] = name or "Cliente sem nome"
+        normalized["_client_initials"] = "".join(
+            part[0] for part in normalized["_client_name"].split()[:2]
+        ).upper()
+        normalized["_client_cpf"] = cpf or "Não informado"
+        normalized["_client_phone"] = (
+            _first_value(record, "Telefone", "telefone") or "Telefone não informado"
+        )
+        normalized["_client_email"] = email or "Não informado"
+        normalized["_client_last_activity"] = _first_value(
+            record, "_client_last_activity"
+        ) or "Sem compras"
     elif endpoint == "/veiculos":
         make = _first_value(record, "Marca", "marca")
         model = _first_value(record, "Modelo", "modelo")
@@ -201,13 +300,16 @@ class ResourceState(rx.State):
     error: str = ""
     endpoint: str = ""
     title: str = ""
+    clients_new_this_month: int = 0
+    pending_purchases: int = 0
+    client_page: int = 1
 
     async def load(self, endpoint: str, title: str) -> None:
         self.endpoint, self.title = endpoint, title
         self.loading, self.error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            if endpoint in ("/veiculos", "/pecas"):
+            if endpoint in ("/veiculos", "/pecas", "/clientes"):
                 result = client.request(
                     "GET",
                     endpoint,
@@ -216,7 +318,13 @@ class ResourceState(rx.State):
                 )
                 records = _records_from_response(result)
                 pagination = result.get("pagination", {}) if isinstance(result, dict) else {}
-                total_pages = _pagination_total_pages(pagination, title)
+                total_pages = (
+                    1
+                    if not records
+                    and isinstance(pagination, dict)
+                    and pagination.get("total_pages") in (0, "0")
+                    else _pagination_total_pages(pagination, title)
+                )
                 for page in range(2, total_pages + 1):
                     page_result = client.request(
                         "GET",
@@ -228,14 +336,70 @@ class ResourceState(rx.State):
             else:
                 result = client.request("GET", endpoint, token=auth_state.token)
                 records = _records_from_response(result)
+            if endpoint == "/clientes":
+                sales_result = client.request(
+                    "GET",
+                    "/vendas",
+                    token=auth_state.token,
+                    params={"page": 1, "per_page": 100},
+                )
+                sales = _records_from_response(sales_result)
+                sales_pagination = (
+                    sales_result.get("pagination", {})
+                    if isinstance(sales_result, dict)
+                    else {}
+                )
+                sales_total_pages = (
+                    1
+                    if not sales
+                    and isinstance(sales_pagination, dict)
+                    and sales_pagination.get("total_pages") in (0, "0")
+                    else _pagination_total_pages(sales_pagination, "Vendas")
+                )
+                for page in range(2, sales_total_pages + 1):
+                    page_result = client.request(
+                        "GET",
+                        "/vendas",
+                        token=auth_state.token,
+                        params={"page": page, "per_page": 100},
+                    )
+                    sales.extend(_records_from_response(page_result))
+                activity, new_this_month, pending_count = _client_activity_and_metrics(
+                    records, sales
+                )
+                self.clients_new_this_month = new_this_month
+                self.pending_purchases = pending_count
+                records = [
+                    {
+                        **record,
+                        "_client_last_activity": activity.get(
+                            str(record.get("id", "")), ""
+                        ),
+                    }
+                    for record in records
+                ]
+                self.client_page = 1
             self.records = [_normalize_record(row, endpoint) for row in records]
         except XanoError as exc:
             self.records, self.error = [], str(exc)
+            self.clients_new_this_month = 0
+            self.pending_purchases = 0
         finally:
             self.loading = False
 
     def set_query(self, value: str) -> None:
         self.query = value
+        if self.endpoint == "/clientes":
+            self.client_page = 1
+
+    def set_client_page(self, page: int) -> None:
+        self.client_page = max(1, min(page, self.client_total_pages))
+
+    def previous_client_page(self) -> None:
+        self.set_client_page(self.client_page - 1)
+
+    def next_client_page(self) -> None:
+        self.set_client_page(self.client_page + 1)
 
     @rx.var
     def filtered_records(self) -> list[dict]:
@@ -246,3 +410,12 @@ class ResourceState(rx.State):
             row for row in self.records
             if needle in " ".join(str(v) for v in row.values()).lower()
         ]
+
+    @rx.var
+    def client_total_pages(self) -> int:
+        return max(1, (len(self.filtered_records) + 9) // 10)
+
+    @rx.var
+    def paginated_clients(self) -> list[dict]:
+        start = (self.client_page - 1) * 10
+        return self.filtered_records[start : start + 10]
