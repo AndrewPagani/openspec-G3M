@@ -13,7 +13,9 @@ from app.state.dashboard_state import (
     _report_rows,
     _analysis_rows,
     _chart_rows,
+    _filter_options,
     _vehicle_status_chart_rows,
+    _sales_status_rows,
     _trend_chart_rows,
     _has_chart_values,
     _payment_chart_rows,
@@ -145,6 +147,55 @@ class DashboardStateTests(unittest.TestCase):
             [
                 {"nome": "Ana", "quantidade": 3},
                 {"nome": "Bruno", "quantidade": 1},
+            ],
+        )
+
+    def test_builds_filter_options_from_xano_ids_and_labels(self) -> None:
+        self.assertEqual(
+            _filter_options(
+                [
+                    {"status_id": 2, "descricao": "Concluída", "total_vendas": 3},
+                    {"status_id": 4, "descricao": "Cancelada", "total_vendas": 0},
+                ],
+                "status da venda",
+                id_keys=("status_id", "id"),
+                name_keys=("descricao", "Descricao_venda", "status"),
+            ),
+            [
+                {"id": "2", "nome": "Concluída"},
+                {"id": "4", "nome": "Cancelada"},
+            ],
+        )
+
+    def test_rejects_filter_options_without_real_xano_identifiers(self) -> None:
+        with self.assertRaisesRegex(XanoError, "identificador ou nome"):
+            _filter_options(
+                [{"descricao": "Concluída"}],
+                "status da venda",
+                id_keys=("status_id", "id"),
+                name_keys=("descricao",),
+            )
+
+    def test_status_breakdown_uses_only_values_returned_by_xano(self) -> None:
+        self.assertEqual(
+            _sales_status_rows(
+                [
+                    {"status_id": 1, "descricao": "Pendente", "total_vendas": 2},
+                    {
+                        "status_id": 2,
+                        "descricao": "Concluída",
+                        "total_vendas": 1,
+                        "valor_total": 1500,
+                    },
+                ]
+            ),
+            [
+                {"nome": "Pendente", "quantidade": "2", "valor_total": ""},
+                {
+                    "nome": "Concluída",
+                    "quantidade": "1",
+                    "valor_total": "R$ 1.500,00",
+                },
             ],
         )
 
@@ -313,10 +364,10 @@ class DashboardStateTests(unittest.TestCase):
                 ]
             ),
             [
-                {"nome": "Disponível", "quantidade": 3.0, "cor": "#35c979"},
-                {"nome": "Reservado", "quantidade": 2.0, "cor": "#f4be44"},
-                {"nome": "Vendido", "quantidade": 1.0, "cor": "#f46262"},
-                {"nome": "Em preparação", "quantidade": 0.0, "cor": "#8291a4"},
+                {"nome": "Disponível", "quantidade": 3.0, "cor": "#10b981"},
+                {"nome": "Reservado", "quantidade": 2.0, "cor": "#f59e0b"},
+                {"nome": "Vendido", "quantidade": 1.0, "cor": "#f43f5e"},
+                {"nome": "Em preparação", "quantidade": 0.0, "cor": "#64748b"},
             ],
         )
 
@@ -435,6 +486,19 @@ class DashboardStateTests(unittest.TestCase):
     def test_omits_empty_dashboard_query_filters(self) -> None:
         self.assertEqual(
             _build_params("", "", is_manager=True),
+            {},
+        )
+        self.assertEqual(
+            _build_params(
+                "",
+                "",
+                is_manager=True,
+                status_id="todos",
+                vendedor_id="todos",
+                forma_pagamento_id="todos",
+                tipo_item="todos",
+                status_veiculo_id="todos",
+            ),
             {},
         )
 

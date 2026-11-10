@@ -146,12 +146,208 @@ def _part_card(row: rx.Var, endpoint: str) -> rx.Component:
     )
 
 
+def _client_row(row: rx.Var) -> rx.Component:
+    return rx.table.row(
+        rx.table.cell(
+            rx.hstack(
+                rx.center(
+                    row["_client_initials"],
+                    class_name="client-avatar",
+                ),
+                rx.vstack(
+                    rx.text(row["_client_name"], class_name="client-name"),
+                    rx.text(row["_client_phone"], class_name="client-row-secondary"),
+                    align="start",
+                    spacing="0",
+                ),
+                align="center",
+                spacing="3",
+                class_name="client-identity",
+            )
+        ),
+        rx.table.cell(row["_client_cpf"]),
+        rx.table.cell(row["_client_email"]),
+        rx.table.cell(row["_client_last_activity"]),
+        rx.table.cell(
+            rx.link(
+                rx.button(
+                    rx.icon("eye", size=17, stroke_width=1.7),
+                    variant="outline",
+                    aria_label="Abrir cliente",
+                    class_name="client-action-button",
+                ),
+                href="/clientes/" + row["id"].to_string(),
+            )
+        ),
+    )
+
+
+def _clients_view(new_href: str | None) -> rx.Component:
+    return rx.vstack(
+        rx.grid(
+            rx.card(
+                rx.hstack(
+                    rx.center(
+                        rx.icon("users-round", size=19),
+                        class_name="client-metric-icon client-metric-blue",
+                    ),
+                    rx.vstack(
+                        rx.text("Total de clientes", class_name="client-metric-label"),
+                        rx.text(
+                            ResourceState.records.length(),
+                            class_name="client-metric-value client-value-blue",
+                        ),
+                        align="start",
+                        spacing="1",
+                    ),
+                    align="center",
+                    spacing="3",
+                ),
+                class_name="client-metric-card",
+            ),
+            rx.card(
+                rx.hstack(
+                    rx.center(
+                        rx.icon("user-round-plus", size=19),
+                        class_name="client-metric-icon client-metric-purple",
+                    ),
+                    rx.vstack(
+                        rx.text("Novos neste mês", class_name="client-metric-label"),
+                        rx.text(
+                            ResourceState.clients_new_this_month,
+                            class_name="client-metric-value client-value-purple",
+                        ),
+                        align="start",
+                        spacing="1",
+                    ),
+                    align="center",
+                    spacing="3",
+                ),
+                class_name="client-metric-card",
+            ),
+            rx.card(
+                rx.hstack(
+                    rx.center(
+                        rx.icon("clock-3", size=19),
+                        class_name="client-metric-icon client-metric-amber",
+                    ),
+                    rx.vstack(
+                        rx.text("Compras pendentes", class_name="client-metric-label"),
+                        rx.text(
+                            ResourceState.pending_purchases,
+                            class_name="client-metric-value client-value-amber",
+                        ),
+                        align="start",
+                        spacing="1",
+                    ),
+                    align="center",
+                    spacing="3",
+                ),
+                class_name="client-metric-card",
+            ),
+            class_name="client-metrics-grid",
+        ),
+        rx.hstack(
+            rx.hstack(
+                rx.icon("search", size=18, stroke_width=1.8),
+                rx.input(
+                    placeholder="Buscar por nome, CPF, telefone ou e-mail...",
+                    aria_label="Buscar clientes por nome, CPF, telefone ou e-mail",
+                    value=ResourceState.query,
+                    on_change=ResourceState.set_query,
+                    class_name="client-search-input",
+                ),
+                class_name="client-search",
+            ),
+            rx.spacer(),
+            rx.cond(
+                new_href is not None,
+                rx.link(
+                    rx.button(
+                            rx.hstack(
+                                rx.icon("plus", size=17, stroke_width=2),
+                                rx.text("Novo Cliente"),
+                                align="center",
+                                spacing="2",
+                            ),
+                            class_name="client-new-button",
+                        ),
+                    href=new_href or "#",
+                ),
+                rx.fragment(),
+            ),
+            class_name="client-toolbar",
+        ),
+        feedback(ResourceState.error, ResourceState.loading),
+        rx.cond(
+            ResourceState.paginated_clients.length() > 0,
+            rx.vstack(
+                rx.table.root(
+                    rx.table.header(
+                        rx.table.row(
+                            rx.table.column_header_cell("Cliente"),
+                            rx.table.column_header_cell("CPF"),
+                            rx.table.column_header_cell("E-mail"),
+                            rx.table.column_header_cell("Última atividade"),
+                            rx.table.column_header_cell("Ações"),
+                        )
+                    ),
+                    rx.table.body(
+                        rx.foreach(ResourceState.paginated_clients, _client_row)
+                    ),
+                    class_name="client-table",
+                ),
+                rx.hstack(
+                    rx.text(
+                        "Última atividade baseada na compra mais recente registrada.",
+                        class_name="client-pagination-note",
+                    ),
+                    rx.spacer(),
+                    rx.button(
+                        "Anterior",
+                        on_click=ResourceState.previous_client_page,
+                        variant="outline",
+                        disabled=ResourceState.client_page <= 1,
+                    ),
+                    rx.text(
+                        ResourceState.client_page.to_string()
+                        + " / "
+                        + ResourceState.client_total_pages.to_string(),
+                        class_name="client-page-indicator",
+                    ),
+                    rx.button(
+                        "Próxima",
+                        on_click=ResourceState.next_client_page,
+                        variant="outline",
+                        disabled=ResourceState.client_page
+                        >= ResourceState.client_total_pages,
+                    ),
+                    class_name="client-pagination",
+                ),
+                class_name="client-table-panel",
+            ),
+            empty_state(
+                rx.cond(
+                    ResourceState.query == "",
+                    "A API não retornou clientes.",
+                    "Nenhum cliente corresponde à busca.",
+                )
+            ),
+        ),
+        on_mount=ResourceState.load("/clientes", "Clientes"),
+        class_name="page-stack client-page",
+    )
+
+
 def resource_page(
     title: str, endpoint: str, new_href: str | None = None, allowed: rx.Var = True
 ) -> rx.Component:
     can_create = AuthState.is_manager if endpoint == "/veiculos" else True
     return shell(
-        rx.vstack(
+        rx.cond(
+            endpoint == "/clientes",
+            _clients_view(new_href),
+            rx.vstack(
             rx.hstack(
                 rx.hstack(
                     rx.icon("search", size=18, stroke_width=1.8),
@@ -279,10 +475,11 @@ def resource_page(
                     ),
                 ),
             ),
-            on_mount=ResourceState.load(endpoint, title),
-            class_name="page-stack vehicle-page"
-            if endpoint == "/veiculos"
-            else "page-stack",
+                on_mount=ResourceState.load(endpoint, title),
+                class_name="page-stack vehicle-page"
+                if endpoint == "/veiculos"
+                else "page-stack",
+            ),
         ),
         title,
         allowed,
