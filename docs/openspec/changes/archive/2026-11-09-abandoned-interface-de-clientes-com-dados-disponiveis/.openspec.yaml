@@ -1,3 +1,7 @@
 schema: spec-driven
 created: 2026-11-09
 goal: Atualizar a listagem de clientes com os dados existentes no contrato Xano, sem alterações de banco ou endpoints.
+status: archived
+archived: 2026-11-09
+closure: abandoned
+closure_reason: Encerrada a pedido do usuário; a exportação pendente foi mantida sem alteração.

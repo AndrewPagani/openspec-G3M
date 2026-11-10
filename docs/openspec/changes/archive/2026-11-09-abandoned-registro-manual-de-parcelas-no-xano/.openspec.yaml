@@ -1,0 +1,8 @@
+schema: spec-driven
+created: 2026-10-05
+goal: Controlar venda e parcelas internamente no Xano, sem gateway ou
+  processamento externo.
+status: archived
+archived: 2026-11-09
+closure: abandoned
+closure_reason: Encerrada a pedido do usuário; tarefas pendentes de teste foram mantidas sem alteração.
