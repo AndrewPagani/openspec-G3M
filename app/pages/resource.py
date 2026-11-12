@@ -124,25 +124,139 @@ def _part_card(row: rx.Var, endpoint: str) -> rx.Component:
                 rx.text(" unidades disponíveis"),
                 class_name="part-card-quantity",
             ),
-            rx.link(
                 rx.button(
                     rx.hstack(
-                        rx.icon("shopping-cart", size=16, stroke_width=1.8),
-                        rx.text("Comprar"),
+                        rx.icon("square-pen", size=16, stroke_width=1.8),
+                        rx.text("Editar"),
                         align="center",
                         spacing="2",
                     ),
-                    disabled=row["_part_quantity_number"] == 0,
+                    on_click=ResourceState.open_part_edit(row["id"].to_string()),
                     width="100%",
+                    class_name="part-edit-button",
                 ),
-                href="/vendas/nova",
+                align="start",
                 width="100%",
-            ),
-            align="start",
-            width="100%",
-            class_name="part-card-content",
+                class_name="part-card-content",
         ),
         class_name="part-card",
+    )
+
+
+def _part_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+                rx.hstack(
+                    rx.center(
+                        rx.icon("square-pen", size=19),
+                        class_name="client-dialog-icon part-dialog-icon",
+                    ),
+                    rx.vstack(
+                        rx.dialog.title(
+                            "Editar peça",
+                            class_name="client-dialog-title",
+                        ),
+                        rx.dialog.description(
+                            "Atualize os dados cadastrados da peça.",
+                            class_name="client-dialog-description",
+                        ),
+                        align="start",
+                        spacing="1",
+                    ),
+                    rx.spacer(),
+                    rx.dialog.close(
+                        rx.button(
+                            rx.icon("x", size=18),
+                            variant="ghost",
+                            aria_label="Fechar",
+                            class_name="client-dialog-close",
+                        )
+                    ),
+                    align="center",
+                    width="100%",
+                    class_name="client-dialog-header",
+                ),
+                rx.vstack(
+                    rx.vstack(
+                        rx.text("Nome", class_name="client-dialog-label"),
+                        rx.input(
+                            value=ResourceState.part_form_name,
+                            on_change=ResourceState.set_part_form_name,
+                            aria_label="Nome da peça",
+                        ),
+                        align="stretch",
+                        width="100%",
+                        spacing="1",
+                    ),
+                    rx.vstack(
+                        rx.text("Preço", class_name="client-dialog-label"),
+                        rx.input(
+                            type="number",
+                            min="0",
+                            step="0.01",
+                            value=ResourceState.part_form_price,
+                            on_change=ResourceState.set_part_form_price,
+                            aria_label="Preço da peça",
+                        ),
+                        align="stretch",
+                        width="100%",
+                        spacing="1",
+                    ),
+                    rx.vstack(
+                        rx.text("Área", class_name="client-dialog-label"),
+                        rx.select.root(
+                            rx.select.trigger(placeholder="Selecione uma área"),
+                            rx.select.content(
+                                rx.foreach(
+                                    ResourceState.part_edit_areas,
+                                    lambda area: rx.select.item(
+                                        area["Secao"],
+                                        value=area["id"],
+                                    ),
+                                )
+                            ),
+                            value=ResourceState.part_form_area_id,
+                            on_change=ResourceState.set_part_form_area_id,
+                            class_name="part-dialog-area-select",
+                        ),
+                        align="stretch",
+                        width="100%",
+                        spacing="1",
+                    ),
+                    rx.cond(
+                        ResourceState.part_dialog_error != "",
+                        rx.callout(
+                            ResourceState.part_dialog_error,
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.hstack(
+                        rx.dialog.close(
+                            rx.button("Cancelar", variant="outline")
+                        ),
+                        rx.button(
+                            rx.icon("save", size=16),
+                            rx.text("Salvar alterações"),
+                            on_click=ResourceState.save_part_edits,
+                            disabled=ResourceState.part_dialog_saving
+                            | ResourceState.part_dialog_loading,
+                            class_name="client-dialog-save",
+                        ),
+                        justify="end",
+                        width="100%",
+                        class_name="client-dialog-actions",
+                    ),
+                    width="100%",
+                    align="stretch",
+                    spacing="4",
+                    class_name="client-dialog-body",
+                ),
+                class_name="client-dialog-content",
+        ),
+        open=ResourceState.part_dialog_open,
+        on_open_change=ResourceState.close_part_dialog,
     )
 
 
@@ -169,16 +283,246 @@ def _client_row(row: rx.Var) -> rx.Component:
         rx.table.cell(row["_client_email"]),
         rx.table.cell(row["_client_last_activity"]),
         rx.table.cell(
-            rx.link(
-                rx.button(
-                    rx.icon("eye", size=17, stroke_width=1.7),
-                    variant="outline",
-                    aria_label="Abrir cliente",
-                    class_name="client-action-button",
+            rx.dropdown_menu.root(
+                rx.dropdown_menu.trigger(
+                    rx.button(
+                        rx.icon("eye", size=17, stroke_width=1.7),
+                        variant="outline",
+                        aria_label="Opções do cliente",
+                        class_name="client-action-button",
+                    )
                 ),
-                href="/clientes/" + row["id"].to_string(),
+                rx.dropdown_menu.content(
+                    rx.text(
+                        "Opções do cliente",
+                        class_name="client-action-menu-heading",
+                    ),
+                    rx.dropdown_menu.item(
+                        rx.hstack(
+                            rx.icon("eye", size=16),
+                            rx.text("Visualizar detalhes"),
+                            align="center",
+                            spacing="2",
+                        ),
+                        on_select=ResourceState.open_client_details(
+                            row["id"].to_string()
+                        ),
+                    ),
+                    rx.dropdown_menu.item(
+                        rx.hstack(
+                            rx.icon("square-pen", size=16),
+                            rx.text("Editar cliente"),
+                            align="center",
+                            spacing="2",
+                        ),
+                        on_select=ResourceState.open_client_edit(
+                            row["id"].to_string()
+                        ),
+                    ),
+                    rx.dropdown_menu.item(
+                        rx.hstack(
+                            rx.icon("trash-2", size=16),
+                            rx.text("Excluir perfil"),
+                            align="center",
+                            spacing="2",
+                        ),
+                        on_select=ResourceState.show_client_delete_unavailable(
+                            row["id"].to_string()
+                        ),
+                        class_name="client-delete-option",
+                    ),
+                    class_name="client-action-menu",
+                ),
             )
         ),
+    )
+
+
+def _client_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.hstack(
+                rx.center(
+                    rx.icon(
+                        rx.cond(
+                            ResourceState.client_dialog_mode == "edit",
+                            "square-pen",
+                            "user-round",
+                        ),
+                        size=19,
+                    ),
+                    class_name="client-dialog-icon",
+                ),
+                rx.vstack(
+                    rx.dialog.title(
+                        rx.cond(
+                            ResourceState.client_dialog_mode == "edit",
+                            "Editar cliente",
+                            ResourceState.selected_client.get("name", "Cliente"),
+                        ),
+                        class_name="client-dialog-title",
+                    ),
+                    rx.dialog.description(
+                        rx.cond(
+                            ResourceState.client_dialog_mode == "edit",
+                            "Atualize os dados e contatos cadastrados.",
+                            "Dados do cadastro e atividade comercial.",
+                        ),
+                        class_name="client-dialog-description",
+                    ),
+                    align="start",
+                    spacing="1",
+                ),
+                rx.spacer(),
+                rx.dialog.close(
+                    rx.button(
+                        rx.icon("x", size=18),
+                        variant="ghost",
+                        aria_label="Fechar",
+                        class_name="client-dialog-close",
+                    )
+                ),
+                align="center",
+                width="100%",
+                class_name="client-dialog-header",
+            ),
+            rx.cond(
+                ResourceState.client_dialog_mode == "edit",
+                rx.vstack(
+                    rx.vstack(
+                        rx.text("Nome completo", class_name="client-dialog-label"),
+                        rx.input(
+                            value=ResourceState.client_form_name,
+                            on_change=ResourceState.set_client_form_name,
+                            aria_label="Nome completo",
+                        ),
+                        align="stretch",
+                        width="100%",
+                        spacing="1",
+                    ),
+                    rx.grid(
+                        rx.vstack(
+                            rx.text("CPF", class_name="client-dialog-label"),
+                            rx.input(
+                                value=ResourceState.client_form_cpf,
+                                on_change=ResourceState.set_client_form_cpf,
+                                aria_label="CPF",
+                            ),
+                            align="stretch",
+                            spacing="1",
+                        ),
+                        rx.vstack(
+                            rx.text(
+                                "Telefone / WhatsApp",
+                                class_name="client-dialog-label",
+                            ),
+                            rx.input(
+                                value=ResourceState.client_form_phone,
+                                on_change=ResourceState.set_client_form_phone,
+                                aria_label="Telefone / WhatsApp",
+                            ),
+                            align="stretch",
+                            spacing="1",
+                        ),
+                        columns="repeat(2, minmax(0, 1fr))",
+                        class_name="client-dialog-fields",
+                    ),
+                    rx.vstack(
+                        rx.text("E-mail", class_name="client-dialog-label"),
+                        rx.input(
+                            type="email",
+                            value=ResourceState.client_form_email,
+                            on_change=ResourceState.set_client_form_email,
+                            aria_label="E-mail",
+                        ),
+                        align="stretch",
+                        width="100%",
+                        spacing="1",
+                    ),
+                    rx.cond(
+                        ResourceState.client_action_message != "",
+                        rx.callout(
+                            ResourceState.client_action_message,
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.hstack(
+                        rx.dialog.close(
+                            rx.button("Cancelar", variant="outline")
+                        ),
+                        rx.button(
+                            rx.icon("save", size=16),
+                            rx.text("Salvar alterações"),
+                            on_click=ResourceState.save_client_edits,
+                            class_name="client-dialog-save",
+                        ),
+                        justify="end",
+                        width="100%",
+                        class_name="client-dialog-actions",
+                    ),
+                    width="100%",
+                    align="stretch",
+                    spacing="4",
+                    class_name="client-dialog-body",
+                ),
+                rx.vstack(
+                    rx.vstack(
+                        rx.text("CPF", class_name="client-dialog-label"),
+                        rx.text(
+                            ResourceState.selected_client.get("cpf", ""),
+                            class_name="client-dialog-value",
+                        ),
+                        align="start",
+                        spacing="1",
+                        class_name="client-dialog-detail",
+                    ),
+                    rx.vstack(
+                        rx.text("E-mail", class_name="client-dialog-label"),
+                        rx.text(
+                            ResourceState.selected_client.get("email", ""),
+                            class_name="client-dialog-value",
+                        ),
+                        align="start",
+                        spacing="1",
+                        class_name="client-dialog-detail",
+                    ),
+                    rx.vstack(
+                        rx.text("Telefone", class_name="client-dialog-label"),
+                        rx.text(
+                            ResourceState.selected_client.get("phone", ""),
+                            class_name="client-dialog-value",
+                        ),
+                        align="start",
+                        spacing="1",
+                        class_name="client-dialog-detail",
+                    ),
+                    rx.vstack(
+                        rx.text(
+                            "Última atividade",
+                            class_name="client-dialog-label",
+                        ),
+                        rx.text(
+                            ResourceState.selected_client.get(
+                                "last_activity", ""
+                            ),
+                            class_name="client-dialog-value",
+                        ),
+                        align="start",
+                        spacing="1",
+                        class_name="client-dialog-detail",
+                    ),
+                    width="100%",
+                    align="stretch",
+                    spacing="3",
+                    class_name="client-dialog-body",
+                ),
+            ),
+            class_name="client-dialog-content",
+        ),
+        open=ResourceState.client_dialog_open,
+        on_open_change=ResourceState.close_client_dialog,
     )
 
 
@@ -259,6 +603,22 @@ def _clients_view(new_href: str | None) -> rx.Component:
                 ),
                 class_name="client-search",
             ),
+            rx.select.root(
+                rx.select.trigger(placeholder="Ordenar por"),
+                rx.select.content(
+                    rx.select.item(
+                        "Mais antigo para o mais novo",
+                        value="oldest_first",
+                    ),
+                    rx.select.item(
+                        "Mais novo para o mais antigo",
+                        value="newest_first",
+                    ),
+                ),
+                value=ResourceState.client_sort_order,
+                on_change=ResourceState.set_client_sort_order,
+                class_name="client-sort-select",
+            ),
             rx.spacer(),
             rx.cond(
                 new_href is not None,
@@ -277,8 +637,18 @@ def _clients_view(new_href: str | None) -> rx.Component:
                 rx.fragment(),
             ),
             class_name="client-toolbar",
+            align="center",
         ),
         feedback(ResourceState.error, ResourceState.loading),
+        rx.cond(
+            ResourceState.client_action_message != "",
+            rx.callout(
+                ResourceState.client_action_message,
+                role="status",
+                class_name="client-action-feedback",
+            ),
+            rx.fragment(),
+        ),
         rx.cond(
             ResourceState.paginated_clients.length() > 0,
             rx.vstack(
@@ -334,6 +704,7 @@ def _clients_view(new_href: str | None) -> rx.Component:
                 )
             ),
         ),
+        _client_dialog(),
         on_mount=ResourceState.load("/clientes", "Clientes"),
         class_name="page-stack client-page",
     )
@@ -475,6 +846,11 @@ def resource_page(
                     ),
                 ),
             ),
+                rx.cond(
+                    endpoint == "/pecas",
+                    _part_dialog(),
+                    rx.fragment(),
+                ),
                 on_mount=ResourceState.load(endpoint, title),
                 class_name="page-stack vehicle-page"
                 if endpoint == "/veiculos"

@@ -2190,6 +2190,200 @@ html, body {
   opacity: 1;
 }
 
+.client-sort-select {
+  width: 238px;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.client-sort-select [data-radix-select-trigger],
+.client-sort-select .rt-SelectTrigger {
+  display: flex;
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  box-sizing: border-box;
+  align-items: center;
+  border-color: #334155 !important;
+  border-radius: 8px !important;
+  background: #0f172a !important;
+  color: #cbd5e1 !important;
+}
+
+.client-sort-select [data-radix-select-content],
+.client-action-menu {
+  z-index: 1000;
+  border: 1px solid #263449 !important;
+  border-radius: 10px !important;
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4) !important;
+}
+
+.client-action-menu {
+  min-width: 210px;
+  padding: 5px;
+}
+
+.client-action-menu [role="menuitem"] {
+  min-height: 38px;
+  border-radius: 6px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.client-action-menu [role="menuitem"]:hover,
+.client-action-menu [role="menuitem"]:focus {
+  outline: 0;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.client-action-menu-heading {
+  display: block;
+  padding: 8px 10px;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.client-action-menu .client-delete-option {
+  color: #fb7185;
+}
+
+.client-action-menu .client-delete-option:hover,
+.client-action-menu .client-delete-option:focus {
+  background: rgba(244, 63, 94, 0.12);
+  color: #fda4af;
+}
+
+.client-dialog-content {
+  width: min(100%, 520px);
+  padding: 22px;
+  border: 1px solid #263449;
+  border-radius: 14px;
+  background: #111827;
+  color: #f8fafc;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+.client-dialog-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.client-dialog-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 11px;
+  background: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+}
+
+.client-dialog-title {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.client-dialog-description {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.client-dialog-close {
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  color: #94a3b8 !important;
+}
+
+.client-dialog-body {
+  padding-top: 18px;
+}
+
+.client-dialog-fields {
+  width: 100%;
+  gap: 12px;
+}
+
+.client-dialog-label {
+  color: #94a3b8;
+  font-size: 0.74rem;
+  font-weight: 550;
+}
+
+.client-dialog-detail {
+  width: 100%;
+  min-height: 58px;
+  padding: 11px 12px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #090d16;
+}
+
+.client-dialog-value {
+  color: #e2e8f0;
+  font-size: 0.86rem;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.client-dialog-actions {
+  padding-top: 14px;
+  border-top: 1px solid #1e293b;
+}
+
+.client-dialog-save {
+  min-height: 38px;
+  border-radius: 8px !important;
+  background: #3b82f6 !important;
+  color: #fff !important;
+}
+
+.part-dialog-icon {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+}
+
+.part-dialog-area-select,
+.part-dialog-area-select [data-radix-select-trigger],
+.part-dialog-area-select .rt-SelectTrigger {
+  width: 100%;
+}
+
+.part-dialog-area-select [data-radix-select-trigger],
+.part-dialog-area-select .rt-SelectTrigger {
+  min-height: 40px;
+  border-color: #334155 !important;
+  border-radius: 8px !important;
+  background: #090d16 !important;
+  color: #e2e8f0 !important;
+}
+
+.part-edit-button {
+  min-height: 38px;
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  background: #111c30 !important;
+  color: #93c5fd !important;
+}
+
+.part-edit-button:hover {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #dbeafe !important;
+}
+
+.client-action-feedback {
+  border-color: rgba(244, 63, 94, 0.3) !important;
+  background: rgba(244, 63, 94, 0.08) !important;
+  color: #fda4af !important;
+}
+
 .client-new-button {
   min-height: 40px;
   border: 1px solid #3b82f6 !important;
@@ -2327,6 +2521,10 @@ html, body {
   .client-search {
     width: 100%;
     flex: 1 1 100%;
+  }
+
+  .client-sort-select {
+    width: 100%;
   }
 
   .client-new-button,
