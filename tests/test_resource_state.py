@@ -17,8 +17,11 @@ from app.state.form_state import (
 from app.state.resource_state import (
     ResourceState,
     _client_activity_and_metrics,
+    _format_cpf,
+    _format_phone,
     _normalize_record,
     _pagination_total_pages,
+    _sort_client_records,
 )
 from app.state.vehicle_detail_state import _normalize_detail
 from app.state.form_state import FormState
@@ -45,6 +48,22 @@ class ResourceStateTests(unittest.TestCase):
         self.assertEqual(client["_client_phone"], "(11) 99999-1111")
         self.assertEqual(client["_client_email"], "ana@example.test")
         self.assertEqual(client["_client_last_activity"], "08/11/2026, 14:30")
+
+    def test_formats_client_cpf_and_phone_for_display_only(self) -> None:
+        client = _normalize_record(
+            {
+                "CPF": "10000791989",
+                "Telefone": "5511900000001",
+            },
+            "/clientes",
+        )
+
+        self.assertEqual(client["CPF"], "10000791989")
+        self.assertEqual(client["Telefone"], "5511900000001")
+        self.assertEqual(client["_client_cpf"], "100.007.919-89")
+        self.assertEqual(client["_client_phone"], "+55 (11) 90000-0001")
+        self.assertEqual(_format_cpf("123"), "123")
+        self.assertEqual(_format_phone("123"), "123")
 
     def test_client_metrics_use_creation_date_and_latest_sale(self) -> None:
         activity, new_this_month, pending_purchases = _client_activity_and_metrics(
@@ -76,6 +95,22 @@ class ResourceStateTests(unittest.TestCase):
         self.assertEqual(activity["2"], "04/11/2026, 07:00")
         self.assertEqual(new_this_month, 1)
         self.assertEqual(pending_purchases, 2)
+
+    def test_sorts_clients_from_oldest_or_newest(self) -> None:
+        rows = [
+            {"id": 2, "created_at": "2026-11-02T10:00:00Z"},
+            {"id": 1, "created_at": "2026-10-02T10:00:00Z"},
+            {"id": 3, "created_at": "2026-11-09T10:00:00Z"},
+        ]
+
+        self.assertEqual(
+            [row["id"] for row in _sort_client_records(rows, "oldest_first")],
+            [1, 2, 3],
+        )
+        self.assertEqual(
+            [row["id"] for row in _sort_client_records(rows, "newest_first")],
+            [3, 2, 1],
+        )
 
     def test_formats_xano_millisecond_timestamp(self) -> None:
         self.assertEqual(
@@ -300,6 +335,83 @@ class ResourceStateTests(unittest.TestCase):
 
 
 class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_edits_part_without_changing_stock(self) -> None:
+        async def get_state(_state_type):
+            return SimpleNamespace(token="test-token")
+
+        async def reload_parts(endpoint: str, title: str) -> None:
+            state.reloaded = (endpoint, title)
+
+        state = SimpleNamespace(
+            records=[
+                {
+                    "id": 9,
+                    "PCNome": "Filtro antigo",
+                    "PCvalor": 29.9,
+                    "qtd_disp": 7,
+                    "area_id": 2,
+                }
+            ],
+            part_dialog_loading=False,
+            part_dialog_error="",
+            part_edit_areas=[],
+            selected_part_id="",
+            part_form_name="",
+            part_form_price="",
+            part_form_area_id="",
+            part_dialog_open=False,
+            part_dialog_saving=False,
+            get_state=get_state,
+            endpoint="/pecas",
+            title="Peças e estoque",
+            loading=False,
+            error="",
+            clients_new_this_month=0,
+            pending_purchases=0,
+            client_page=1,
+            client_sort_order="newest_first",
+            load=reload_parts,
+            reloaded=None,
+        )
+        refreshed_parts = {
+            "items": [
+                {
+                    "id": 9,
+                    "PCNome": "Filtro novo",
+                    "PCvalor": 34.5,
+                    "qtd_disp": 7,
+                    "area_id": 3,
+                    "area_secao": "Motor",
+                }
+            ],
+            "pagination": {"total_pages": 1},
+        }
+
+        with patch(
+            "app.state.resource_state.client.request",
+            side_effect=[
+                [{"id": 2, "Secao": "Freios"}, {"id": 3, "Secao": "Motor"}],
+                {"ok": True},
+                refreshed_parts,
+            ],
+        ) as request:
+            await ResourceState.open_part_edit.fn(state, "9")
+            state.part_form_name = "Filtro novo"
+            state.part_form_price = "34,50"
+            state.part_form_area_id = "3"
+            await ResourceState.save_part_edits.fn(state)
+
+        self.assertEqual(request.call_args_list[1].args[:2], ("PATCH", "/pecas/9"))
+        self.assertEqual(
+            request.call_args_list[1].kwargs["json"],
+            {"PCNome": "Filtro novo", "PCvalor": 34.5, "area_id": 3},
+        )
+        self.assertNotIn("qtd_disp", request.call_args_list[1].kwargs["json"])
+        self.assertEqual(state.records[0]["qtd_disp"], 7)
+        self.assertEqual(state.reloaded, ("/pecas", "Peças e estoque"))
+        self.assertFalse(state.part_dialog_open)
+        self.assertFalse(state.part_dialog_saving)
+
     async def test_loads_client_contacts_and_sales_derived_activity(self) -> None:
         async def get_state(_state_type):
             return SimpleNamespace(token="test-token")
