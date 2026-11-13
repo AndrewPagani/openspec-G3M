@@ -304,8 +304,8 @@ def _client_row(row: rx.Var) -> rx.Component:
                             align="center",
                             spacing="2",
                         ),
-                        on_select=ResourceState.open_client_details(
-                            row["id"].to_string()
+                        on_select=rx.redirect(
+                            rx.Var.create("/clientes/") + row["id"].to_string()
                         ),
                     ),
                     rx.dropdown_menu.item(
@@ -326,7 +326,7 @@ def _client_row(row: rx.Var) -> rx.Component:
                             align="center",
                             spacing="2",
                         ),
-                        on_select=ResourceState.show_client_delete_unavailable(
+                        on_select=ResourceState.open_client_delete(
                             row["id"].to_string()
                         ),
                         class_name="client-delete-option",
@@ -467,7 +467,58 @@ def _client_dialog() -> rx.Component:
                     spacing="4",
                     class_name="client-dialog-body",
                 ),
-                rx.vstack(
+                rx.cond(
+                    ResourceState.client_dialog_mode == "delete",
+                    rx.vstack(
+                        rx.text(
+                            "Excluir perfil",
+                            class_name="client-dialog-label",
+                        ),
+                        rx.text(
+                            "O cliente e seu cadastro serão removidos. O histórico de vendas será preservado sem vínculo com este cliente.",
+                            class_name="client-dialog-description",
+                        ),
+                        rx.text(
+                            ResourceState.selected_client.get("name", ""),
+                            class_name="client-dialog-value",
+                        ),
+                        rx.cond(
+                            ResourceState.client_action_message != "",
+                            rx.callout(
+                                ResourceState.client_action_message,
+                                color_scheme="red",
+                                role="alert",
+                            ),
+                            rx.fragment(),
+                        ),
+                        rx.hstack(
+                            rx.dialog.close(
+                                rx.button("Cancelar", variant="outline")
+                            ),
+                            rx.button(
+                                rx.icon("trash-2", size=16),
+                                rx.text("Confirmar exclusão"),
+                                on_click=ResourceState.delete_client,
+                                loading=ResourceState.client_delete_loading,
+                                color_scheme="red",
+                            ),
+                            justify="end",
+                            width="100%",
+                        ),
+                        width="100%",
+                        align="stretch",
+                        spacing="4",
+                        class_name="client-dialog-body",
+                    ),
+                    rx.vstack(
+                        rx.cond(
+                        ResourceState.client_detail_loading,
+                        rx.text(
+                            "Carregando dados atualizados...",
+                            class_name="client-dialog-description",
+                        ),
+                        rx.fragment(),
+                    ),
                     rx.vstack(
                         rx.text("CPF", class_name="client-dialog-label"),
                         rx.text(
@@ -513,10 +564,20 @@ def _client_dialog() -> rx.Component:
                         spacing="1",
                         class_name="client-dialog-detail",
                     ),
+                    rx.cond(
+                        ResourceState.client_action_message != "",
+                        rx.callout(
+                            ResourceState.client_action_message,
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                        rx.fragment(),
+                    ),
                     width="100%",
                     align="stretch",
                     spacing="3",
-                    class_name="client-dialog-body",
+                        class_name="client-dialog-body",
+                    ),
                 ),
             ),
             class_name="client-dialog-content",

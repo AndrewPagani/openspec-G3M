@@ -339,6 +339,8 @@ class ResourceState(rx.State):
     client_sort_order: str = "newest_first"
     client_dialog_open: bool = False
     client_dialog_mode: str = ""
+    client_detail_loading: bool = False
+    client_delete_loading: bool = False
     selected_client: dict[str, str] = {}
     client_form_name: str = ""
     client_form_cpf: str = ""
@@ -454,7 +456,7 @@ class ResourceState(rx.State):
             None,
         )
 
-    def open_client_details(self, client_id: str) -> None:
+    async def open_client_details(self, client_id: str) -> None:
         row = self._find_client(client_id)
         if row is None:
             self.client_action_message = "Não foi possível localizar este cliente."
@@ -470,6 +472,32 @@ class ResourceState(rx.State):
         self.client_dialog_mode = "details"
         self.client_action_message = ""
         self.client_dialog_open = True
+        self.client_detail_loading = True
+        try:
+            auth_state = await self.get_state(AuthState)
+            result = client.request(
+                "GET",
+                f"/clientes/{client_id}",
+                token=auth_state.token,
+            )
+            if not isinstance(result, dict) or result.get("id") is None:
+                raise XanoError("A API retornou os dados do cliente em formato inválido.")
+            normalized = _normalize_record(result, "/clientes")
+            self.selected_client.update(
+                {
+                    "id": str(result["id"]),
+                    "name": normalized.get("_client_name", "Cliente sem nome"),
+                    "cpf": normalized.get("_client_cpf", "Não informado"),
+                    "phone": normalized.get(
+                        "_client_phone", "Telefone não informado"
+                    ),
+                    "email": normalized.get("_client_email", "Não informado"),
+                }
+            )
+        except XanoError as exc:
+            self.client_action_message = str(exc)
+        finally:
+            self.client_detail_loading = False
 
     def open_client_edit(self, client_id: str) -> None:
         row = self._find_client(client_id)
@@ -507,10 +535,49 @@ class ResourceState(rx.State):
     def set_client_form_email(self, value: str) -> None:
         self.client_form_email = value
 
-    def show_client_delete_unavailable(self, _client_id: str) -> None:
-        self.client_action_message = (
-            "A API atual não oferece exclusão de clientes; nenhum dado foi removido."
-        )
+    def open_client_delete(self, client_id: str) -> None:
+        row = self._find_client(client_id)
+        if row is None:
+            self.client_action_message = "Não foi possível localizar este cliente."
+            return
+        self.selected_client = {
+            "id": client_id,
+            "name": row.get("_client_name", "Cliente sem nome"),
+            "cpf": row.get("_client_cpf", "Não informado"),
+            "phone": row.get("_client_phone", "Telefone não informado"),
+            "email": row.get("_client_email", "Não informado"),
+            "last_activity": row.get("_client_last_activity", "Sem compras"),
+        }
+        self.client_dialog_mode = "delete"
+        self.client_action_message = ""
+        self.client_delete_loading = False
+        self.client_dialog_open = True
+
+    async def delete_client(self) -> None:
+        client_id = self.selected_client.get("id", "").strip()
+        if not client_id.isdigit() or int(client_id) < 1:
+            self.client_action_message = "Identificador de cliente inválido."
+            return
+        self.client_delete_loading = True
+        self.client_action_message = ""
+        try:
+            auth_state = await self.get_state(AuthState)
+            response = client.request(
+                "DELETE",
+                f"/clientes/{client_id}",
+                token=auth_state.token,
+            )
+            if not isinstance(response, dict) or response.get("deleted") is not True:
+                raise XanoError("A API não confirmou a exclusão do cliente.")
+            self.client_dialog_open = False
+            await self.load("/clientes", "Clientes")
+            self.client_action_message = (
+                response.get("message") or "Cliente excluído com sucesso."
+            )
+        except XanoError as exc:
+            self.client_action_message = str(exc)
+        finally:
+            self.client_delete_loading = False
 
     async def save_client_edits(self) -> None:
         client_id = self.selected_client.get("id", "")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from datetime import datetime
 from types import SimpleNamespace
@@ -95,6 +96,157 @@ class ResourceStateTests(unittest.TestCase):
         self.assertEqual(activity["2"], "04/11/2026, 07:00")
         self.assertEqual(new_this_month, 1)
         self.assertEqual(pending_purchases, 2)
+
+    def test_opens_client_details_from_individual_api(self) -> None:
+        async def exercise() -> None:
+            async def get_state(_state_type):
+                return SimpleNamespace(token="test-token")
+
+            state = SimpleNamespace(
+                records=[
+                    {
+                        "id": 12,
+                        "_client_name": "Nome da listagem",
+                        "_client_cpf": "100.007.919-89",
+                        "_client_phone": "Telefone não informado",
+                        "_client_email": "lista@example.test",
+                        "_client_last_activity": "Sem compras",
+                    }
+                ],
+                selected_client={},
+                client_dialog_mode="",
+                client_action_message="",
+                client_dialog_open=False,
+                client_detail_loading=False,
+                get_state=get_state,
+            )
+            state._find_client = lambda client_id: next(
+                (
+                    row
+                    for row in state.records
+                    if str(row.get("id", "")) == client_id
+                ),
+                None,
+            )
+            with patch(
+                "app.state.resource_state.client.request",
+                return_value={
+                    "id": 12,
+                    "CNome": "Ana Almeida",
+                    "CPF": "10000791989",
+                    "Telefone": "5511900000001",
+                    "Email": "ana@example.test",
+                },
+            ) as request:
+                await ResourceState.open_client_details.fn(state, "12")
+
+            request.assert_called_once_with("GET", "/clientes/12", token="test-token")
+            self.assertEqual(state.selected_client["name"], "Ana Almeida")
+            self.assertEqual(state.selected_client["email"], "ana@example.test")
+            self.assertTrue(state.client_dialog_open)
+            self.assertFalse(state.client_detail_loading)
+
+        asyncio.run(exercise())
+
+    def test_shows_client_detail_api_error(self) -> None:
+        async def exercise() -> None:
+            async def get_state(_state_type):
+                return SimpleNamespace(token="test-token")
+
+            state = SimpleNamespace(
+                records=[{"id": 12, "_client_name": "Ana"}],
+                selected_client={},
+                client_dialog_mode="",
+                client_action_message="",
+                client_dialog_open=False,
+                client_detail_loading=False,
+                get_state=get_state,
+            )
+            state._find_client = lambda client_id: next(
+                (
+                    row
+                    for row in state.records
+                    if str(row.get("id", "")) == client_id
+                ),
+                None,
+            )
+            with patch(
+                "app.state.resource_state.client.request",
+                side_effect=XanoError("Cliente não encontrado."),
+            ):
+                await ResourceState.open_client_details.fn(state, "12")
+
+            self.assertEqual(state.client_action_message, "Cliente não encontrado.")
+            self.assertFalse(state.client_detail_loading)
+
+        asyncio.run(exercise())
+
+    def test_deletes_client_using_xano_path_id(self) -> None:
+        async def exercise() -> None:
+            async def get_state(_state_type):
+                return SimpleNamespace(token="test-token")
+
+            async def reload_clients(endpoint: str, title: str) -> None:
+                self.assertEqual((endpoint, title), ("/clientes", "Clientes"))
+
+            state = SimpleNamespace(
+                selected_client={"id": "12", "name": "Ana Almeida"},
+                client_delete_loading=False,
+                client_action_message="",
+                client_dialog_open=True,
+                get_state=get_state,
+                load=reload_clients,
+            )
+            with patch(
+                "app.state.resource_state.client.request",
+                return_value={
+                    "id": 12,
+                    "deleted": True,
+                    "message": "Cliente excluido com sucesso",
+                },
+            ) as request:
+                await ResourceState.delete_client.fn(state)
+
+            request.assert_called_once_with(
+                "DELETE",
+                "/clientes/12",
+                token="test-token",
+            )
+            self.assertFalse(state.client_dialog_open)
+            self.assertEqual(
+                state.client_action_message,
+                "Cliente excluido com sucesso",
+            )
+            self.assertFalse(state.client_delete_loading)
+
+        asyncio.run(exercise())
+
+    def test_reports_delete_contract_error(self) -> None:
+        async def exercise() -> None:
+            async def get_state(_state_type):
+                return SimpleNamespace(token="test-token")
+
+            state = SimpleNamespace(
+                selected_client={"id": "12"},
+                client_delete_loading=False,
+                client_action_message="",
+                client_dialog_open=True,
+                get_state=get_state,
+            )
+            with patch(
+                "app.state.resource_state.client.request",
+                return_value={"id": 12, "deleted": False},
+            ):
+                await ResourceState.delete_client.fn(state)
+
+            self.assertEqual(
+                state.client_action_message,
+                "A API não confirmou a exclusão do cliente.",
+            )
+            self.assertTrue(state.client_dialog_open)
+            self.assertFalse(state.client_delete_loading)
+
+        asyncio.run(exercise())
 
     def test_sorts_clients_from_oldest_or_newest(self) -> None:
         rows = [
