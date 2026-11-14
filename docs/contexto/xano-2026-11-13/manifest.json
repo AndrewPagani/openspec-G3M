@@ -1,0 +1,368 @@
+{
+  "consulted_date": "2026-11-13",
+  "workspace_id": 147643,
+  "branch": "perfil do CLI; nome não confirmado",
+  "source": "xano workspace pull -w 147643, sem draft/env/records",
+  "files": [
+    {
+      "path": "api/asaas_webhooks/asaas_webhooks.xs",
+      "sha256": "f28195c6e0da78d89cfa28612c9e6c12e8d240d423662024ea220c80d7615bab",
+      "guid": "5SikwdOFZJBDWEBRZ111FiE3JZw",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/asaas_webhooks/webhooks/asaas/pagamentos_POST.xs",
+      "sha256": "dcb5f5ab16882c3eb2f0c1d8ebe7e7a1d91872423e106e7a499b189def45a683",
+      "guid": "Kjx_lWW-gc7VSfhS1ocjRG1Cmc8",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/autenticacao/autenticacao.xs",
+      "sha256": "f00b15037b99d4e8818d0091f72b619f6639d605b14d3b9a3fe78616b269c96c",
+      "guid": "w5R6Zi-SYREo02GvteJ8EWjQLmg",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/autenticacao/auth/login_POST.xs",
+      "sha256": "ef48cecfd441e046548ee7d2cbe993d46aab6857853dca0c48bdba94f04e0244",
+      "guid": "OJmMByiHBiSq6RuuQJ_tZpv1m0Q",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/autenticacao/auth/me_GET.xs",
+      "sha256": "a92746f00ced33da2aa8a27cbc1dd0958d77652cd326d638237595b7d402ffbc",
+      "guid": "Zx4kkzhJejrZJqn_IAicOSKNsgE",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/cadastros.xs",
+      "sha256": "27195b566a77200a5657387461955c69da212330ea6730a920a161b174a4de23",
+      "guid": "OvdrABsXEpsEiX9kvALjgac-p-Q",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/clientes/id_DELETE.xs",
+      "sha256": "dde70f29108eb1e635e49c63cf1266bbefd3bab5500487c043b4426ff70b8acc",
+      "guid": "eupuTjMkIPKHHzzqWkJj-8qPPao",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/clientes/id_GET.xs",
+      "sha256": "657da463e001adfafa6e18e3ba8f792de75abf28464f4afc4e42f547be4b269e",
+      "guid": "td6FQ28vboMlbUg0-lotVP8ydq4",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/clientes/id_PATCH.xs",
+      "sha256": "09b65abe530541d75e127d273051021ef60c15507294b3aacf3100bd05221ca4",
+      "guid": "6rAuj7Tam-X3HOlF-du8a_sW3LU",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/clientes_GET.xs",
+      "sha256": "02797037a08e051873dc72648532d7e2283553686d90dd91cec8556f6003acc9",
+      "guid": "k_5ISualOUfQUKsvUx-98nlM3RM",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/clientes_POST.xs",
+      "sha256": "741f202e08d369c5839e89f9def3b694a8a50638440c55a6ec274451139a03b2",
+      "guid": "5ar3o6onB4Q7FGjX3G6rNh_anZo",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/formas_pagamento_GET.xs",
+      "sha256": "8b82e7c3b7aee221d65ee03d484d4fab7a25b77ce3a98a44e2e09723da203501",
+      "guid": "-I8fNuXM69yosE_hRF3hZjAoNOQ",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/pecas/id/ajuste_estoque_POST.xs",
+      "sha256": "df71f37ba1eacf159e5ffccbb40c160e0b9a90bb32b1896011838913953309c6",
+      "guid": "w7B3O-a4kkWtZceTE38K-It5iCw",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/pecas/id_GET.xs",
+      "sha256": "0208f9a74faf1cb663d10a346d186c53e2274c0cc414c302b85b3f54bf7cbb50",
+      "guid": "CzDoHy16z9IGAk95r173dZhqVLo",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/pecas/id_PATCH.xs",
+      "sha256": "81fe95c888bbebc0722e1ce24e75d72de8bd66e49b392c32e767b8c046632da3",
+      "guid": "OkGnAOoG1p5-c6LtpssI8i0iXLk",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/pecas_GET.xs",
+      "sha256": "bed7c4b67570dceca28f075e997563e60d3b4d5f6cf9aa81904b124a55b501c6",
+      "guid": "4we4HpmQDmi_xL7w83t8q1Vnpdk",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/pecas_POST.xs",
+      "sha256": "69fe66758ce12e7b3b6fc86fe4ce42b6e8bf22767a3b8e8e4b6f37f9dced2dd5",
+      "guid": "lFYjHUzfPsLqT79cAWoGUGS-B40",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/perfis_GET.xs",
+      "sha256": "3e2ccd6e6c299722c9084d0e2b344a99297beb4227a51130bc827ac30cdb122b",
+      "guid": "aoacYug1d-7DZUqf54VaC6TprcQ",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/status_veiculos_GET.xs",
+      "sha256": "5da9e409c19339cfdf77668fd6faad6627560789d26f3ed9df416e337c0f220b",
+      "guid": "kBrXZSt26k_Pd5Cpk7TjGmyR1Zk",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/status_vendas_GET.xs",
+      "sha256": "32593d0f16925cc1b9472874c87f9d36a4622ffac427e2c7cec0be8cac1bcb41",
+      "guid": "Czwd81CYlLpOtLtMFXN533IxlFM",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/veiculo_areas_GET.xs",
+      "sha256": "09604f68e8fe639f1edbb8fc20c76e19c2750bd56c625abb21ebad8c9ad482ce",
+      "guid": "LcviYv6Vpu3uK2fdzw3Y6lOVCY4",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/cadastros/veiculos/id/detalhes_PATCH.xs",
+      "sha256": "61edcf90ad3f14d9e4c3d6776e14484a1de54929553daa46ad441c4f5a25a6ce",
+      "guid": "SbzsB31TG8V0Myx4wG2WrvtZbNU",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/veiculos/id/detalhes_POST.xs",
+      "sha256": "a5b402cdc2b8df681ba9cefc2ed33a64a1f2016fb5416c2d805066aef7431422",
+      "guid": "7pdzawC47DcpPHeE8hgtx_mvK3I",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/veiculos/id/status_POST.xs",
+      "sha256": "7b15541cdf7fe9a42efc1b069832ac0653dbfa5878428c633a5c147a05a45a4b",
+      "guid": "WLrIrajDXt_JNUfLVxX4P3q363k",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/veiculos/id_GET.xs",
+      "sha256": "c6df97d2a30819be337baaa2d5d2298bb671c6622a068b0c603dd9d50c3bdc19",
+      "guid": "c2cdn4hOtT2I4yvVfGEQ84oVa_I",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/veiculos/id_PATCH.xs",
+      "sha256": "0d5c0e7cb7b129ffd78e54e88c6abe9b9b7c43ce68c6d7b8305507d820df84c9",
+      "guid": "Kt5-0xB-Jalp_6FmeyB_XM_k_QM",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/veiculos_GET.xs",
+      "sha256": "c0e4c19e30aeb09ad24171c870b222d87d39c937b1f973bb492d41a8ad137cf6",
+      "guid": "0nRNiFt61PHtpypl-tP3dj1pN1s",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/cadastros/veiculos_POST.xs",
+      "sha256": "00f4b72f90431ba77fb609b6866e10368e257ab95665b9f6762844024d68f6b2",
+      "guid": "zBsu_R6R3FhUoEKzNOWE2eVvfjU",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/gerenciamento/auditoria_parcelas_GET.xs",
+      "sha256": "c7e176fe8d06b6b0f8db887315157eafe9fe606c8bdfda515ac1e62600395e2a",
+      "guid": "KH3MD7nulh5yx2XZtC31G0Y9B9I",
+      "local_comparison": "ausente_local"
+    },
+    {
+      "path": "api/gerenciamento/gerenciamento.xs",
+      "sha256": "ba1b2e14e48c6063c43c12866da1c3d7c6c8ab33c18dde9444351af77299904a",
+      "guid": "oa4gQvf13XWk3qQmdLP9Owf256w",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/gerenciamento/indicadores_GET.xs",
+      "sha256": "51f80bdeec73ab13a74920ab87acb3c75234b4f7a4a67bca50e9d19794cd1e63",
+      "guid": "zilVzjhxE40-X8XJFz5HtV9lwdE",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/gerenciamento/usuarios/id_GET.xs",
+      "sha256": "5c0d6d5bff262d73ee52a52100396a03871de8567fe268ed91d21d66ef080288",
+      "guid": "Ru9aA8-XjLwe47IkaC9cFQ0Uuzs",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/gerenciamento/usuarios_GET.xs",
+      "sha256": "6aba0faa3a5977ea8ecc8fe8fc54ba75c353d9fbc489aef51588181c30b2216e",
+      "guid": "0wDD9iDE_fTxg3B8Z2pTu7le6Fo",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/vendas/vendas/id/cancelar_POST.xs",
+      "sha256": "7d4abf312b7ac03f76661aa3ce2061afbf3b5aab7d6ac36e867e32d9315bd7cf",
+      "guid": "q7BLpojytalgAEozirGnnSZwVwI",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/vendas/vendas/id/entregar_POST.xs",
+      "sha256": "cf544a8f91782616a1bc797dcd9d67285003709acdcc5c3eb754f8c693caace9",
+      "guid": "uaZMBgybh5Cy1OAMy1CLbN4dQ1g",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/vendas/vendas/id/link_pagamento_POST.xs",
+      "sha256": "8eba81b6ef2436242bd37a2949d5d96fde0a35d5038eed2eb577cda744bf02c8",
+      "guid": "DQL8iqkM9CRlIOHbmZPUgqCXJdI",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/vendas/vendas/id/pagamento/atualizar_POST.xs",
+      "sha256": "2eb95a7df65b57d54cff3cff4930c45eb04956cfd03809aed039d7e0dd47e4d3",
+      "guid": "dc7mNnThcMTatvcaUq0whonhpqk",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/vendas/vendas/id/pagamento/notificar_POST.xs",
+      "sha256": "d7cf06a5c9da45437c12fc04b8a6435a3f4b41fbf79efc00ea3f6f7f5ce4ef31",
+      "guid": "fe-VjkQ-kM6BesoEgPgiQU6Y-iI",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/vendas/vendas/id/pagamento_GET.xs",
+      "sha256": "1df5210eaa359a8ec7f450e37da940eb698fcabf1f00d92535b9575a5366abae",
+      "guid": "qBBU4QSyG1Dna4ujKi8Cl8f7nog",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/vendas/vendas/id/parcelas/parcela_id/receber_POST.xs",
+      "sha256": "cc2eaa9708936cc2ebb6b87f925ca07eec2f733b3413ab16dc57950f95320141",
+      "guid": "7I6SdNjYCv-HXWOsgkmDr2E6G5c",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/vendas/vendas/id_GET.xs",
+      "sha256": "0659c3cb97de8420648fa6169f254642b1900fbf623650b86d62be8944599a4b",
+      "guid": "PNIu0yQ-bkmpLexRBXrZHAF6EcA",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/vendas/vendas.xs",
+      "sha256": "596b2c1e2e97793bc9c87163674eb80fc8712a750a1ee1a3a027ab7678ae3d2d",
+      "guid": "yBfAnd-z-tS7c73rY2OM6I4V1bc",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "api/vendas/vendas_GET.xs",
+      "sha256": "71b60d1cec769142b64d9afc65ce563358ad8636f1ee03551948faf6735000de",
+      "guid": "mlx3IuCAqht3sXtC-476KgiYDnI",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "api/vendas/vendas_POST.xs",
+      "sha256": "401d7f33550f9e70ef9108f09ac9e9d54e44e56641ad8de3fcfd4c3ebeab4b09",
+      "guid": "JsmBWI3-tQftZNHc7FitstctKYs",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "table/asaas_cliente.xs",
+      "sha256": "c0ba4e1fdf8d9eb812960f7131340bc849edeaa0649d2508628acbd0a631225c",
+      "guid": "ZlUGWoKeZ31OzHzO3mwbf8hEtkU",
+      "local_comparison": "ausente_local"
+    },
+    {
+      "path": "table/asaas_cobranca.xs",
+      "sha256": "9afc55609d2c4296cbc2feec5c195343ed2f9e9d8e39ab5def8de37d89e35f9f",
+      "guid": "jAobo1s0O80poH3GcHsbFTOtiic",
+      "local_comparison": "ausente_local"
+    },
+    {
+      "path": "table/cliente.xs",
+      "sha256": "0af42369adc2b2ef74de444605d0cc0d9577de0a27ea238d15250c0d11ed8143",
+      "guid": "0NP1T4qC0DYOFdsRZuVyEJt3BpE",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "table/forma_pagamento.xs",
+      "sha256": "6d43361eac1044959493678cbfe61753eba1e3de7626e375e11cfeb2c94013a1",
+      "guid": "qpFKrOFczIlbHc4OD4nGNAeR_kM",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/pagamento.xs",
+      "sha256": "535989086a415d76cc26ca7278e2376fb98b83521bf66510a4a7916d63143657",
+      "guid": "BUOGUNZjCVeYKnhpOSrxXJUHsl0",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/peca.xs",
+      "sha256": "96f37cd32674d10c8a143996dfb411b64e77d267279f59f15bb551a69d514d34",
+      "guid": "8FpCnm1UPOvY5VsL25D5oVKRE_E",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "table/perfil.xs",
+      "sha256": "ab436406e65f266a27ca3135ca539cc74dc72090124efde52529ef620873cf54",
+      "guid": "IWJ5QkbTSukDjdD31A2hsMiYsd0",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/status_veiculo.xs",
+      "sha256": "59c1883c9761f39465bad24f0c9c7c4584ebad50f97d93b56a090d5ea6ff9e38",
+      "guid": "xY-ZfIGHc0JlsICQvl30B4xmERg",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/status_venda.xs",
+      "sha256": "65e0af3016e2b53707fb6d8f8ebdc2dfc2ced772daa9e2eccb1a10dfb65ca4b4",
+      "guid": "VnnICFel_-1YZQaa55Ki44NWQbg",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/user.xs",
+      "sha256": "d9b911659ec4cbcbd0f08433c29d58bf77dec7fe61d5157b62829569d53f519e",
+      "guid": "lR9oO1yrGehnhwGK0knVv7wFCzE",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/veiculo.xs",
+      "sha256": "3fe62932776530f24b28a8a5b568b534b099bb2dc95b51f2b21390b2eeeeb8c8",
+      "guid": "IrvCzPzPd1dfxxrkHxmKAeYH7Hw",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "table/veiculo_area.xs",
+      "sha256": "4f9e7d012f4ac48796e7cc7fc0e64c96bc4071456d606b1dd4d257f930cfebbf",
+      "guid": "SkDBFHkTClWSAOWB-tQEdgNCxwY",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/veiculo_detalhe.xs",
+      "sha256": "498459407893bfca7fca5283725682621ddc393c434731086560fb4f93df01bb",
+      "guid": "qKBxcjSlEt5E6CYFrFP2IndPEzI",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "table/venda.xs",
+      "sha256": "c7ddea1ac5ace8088958c2f68d167541268b8883b50f8b74fda4c6da3c395d63",
+      "guid": "k9m1bxhQIWw6r3vqaOJc89be__M",
+      "local_comparison": "divergente"
+    },
+    {
+      "path": "table/venda_item.xs",
+      "sha256": "59397df57673cacf8bdff10b572d29761e23064807bc8c8c9878ef46870d6a87",
+      "guid": "lPD0Nc9lDGTCgM6P3u2yy0-s6ac",
+      "local_comparison": "igual"
+    },
+    {
+      "path": "table/venda_parcela.xs",
+      "sha256": "533af517776ff029c0339cfdfe7fc7dd01f669ae37a43093a39886d68dbd50cc",
+      "guid": "BfbjLgk7XQvy8aoiXcfBgWM2pXM",
+      "local_comparison": "divergente"
+    }
+  ]
+}

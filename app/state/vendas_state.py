@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import reflex as rx
 
 from app.services.xano_client import XanoError, client
+from app.services.sales_query import sales_query_params
 from app.state.auth_state import AuthState
 
 
@@ -105,21 +106,12 @@ class VendasState(rx.State):
         self.processando, self.erro = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            params = {
-                "page": "1",
-                "per_page": "100",
-                "busca": self.busca.strip(),
-                "cliente_id": "{}",
-                "vendedor_id": "{}",
-                "status_id": "{}",
-                "forma_pagamento_id": (
-                    self.filtro_forma_pagamento
-                    if self.filtro_forma_pagamento
-                    else "{}"
-                ),
-                "data_inicio": self.filtro_data_inicio if self.filtro_data_inicio else "{}",
-                "data_fim": self.filtro_data_fim if self.filtro_data_fim else "{}",
-            }
+            params = sales_query_params(
+                busca=self.busca,
+                forma_pagamento_id=self.filtro_forma_pagamento,
+                data_inicio=self.filtro_data_inicio,
+                data_fim=self.filtro_data_fim,
+            )
             result = client.request("GET", "/vendas", token=auth_state.token, params=params)
             self.vendas = [
                 {

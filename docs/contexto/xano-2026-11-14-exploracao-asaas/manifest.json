@@ -1,0 +1,52 @@
+{
+  "workspace": 147643,
+  "branch": "v1",
+  "date": "2026-11-14",
+  "purpose": "Exploração de criação de venda e integração ASAAS; sem execução de cobrança ou leitura de registros",
+  "files": [
+    {
+      "path": "api/cadastros/clientes_POST.xs",
+      "sha256": "741f202e08d369c5839e89f9def3b694a8a50638440c55a6ec274451139a03b2"
+    },
+    {
+      "path": "api/vendas/vendas_POST.xs",
+      "sha256": "401d7f33550f9e70ef9108f09ac9e9d54e44e56641ad8de3fcfd4c3ebeab4b09"
+    },
+    {
+      "path": "api/vendas/vendas/id/link_pagamento_POST.xs",
+      "sha256": "8eba81b6ef2436242bd37a2949d5d96fde0a35d5038eed2eb577cda744bf02c8"
+    },
+    {
+      "path": "api/vendas/vendas/id/cancelar_POST.xs",
+      "sha256": "7d4abf312b7ac03f76661aa3ce2061afbf3b5aab7d6ac36e867e32d9315bd7cf"
+    },
+    {
+      "path": "api/asaas_webhooks/webhooks/asaas/pagamentos_POST.xs",
+      "sha256": "dcb5f5ab16882c3eb2f0c1d8ebe7e7a1d91872423e106e7a499b189def45a683"
+    },
+    {
+      "path": "table/cliente.xs",
+      "sha256": "0af42369adc2b2ef74de444605d0cc0d9577de0a27ea238d15250c0d11ed8143"
+    },
+    {
+      "path": "table/venda.xs",
+      "sha256": "c7ddea1ac5ace8088958c2f68d167541268b8883b50f8b74fda4c6da3c395d63"
+    },
+    {
+      "path": "table/venda_parcela.xs",
+      "sha256": "533af517776ff029c0339cfdfe7fc7dd01f669ae37a43093a39886d68dbd50cc"
+    },
+    {
+      "path": "table/asaas_cliente.xs",
+      "sha256": "c0ba4e1fdf8d9eb812960f7131340bc849edeaa0649d2508628acbd0a631225c"
+    },
+    {
+      "path": "table/asaas_cobranca.xs",
+      "sha256": "9afc55609d2c4296cbc2feec5c195343ed2f9e9d8e39ab5def8de37d89e35f9f"
+    },
+    {
+      "path": "table/forma_pagamento.xs",
+      "sha256": "6d43361eac1044959493678cbfe61753eba1e3de7626e375e11cfeb2c94013a1"
+    }
+  ]
+}

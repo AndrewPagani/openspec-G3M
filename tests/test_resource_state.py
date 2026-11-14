@@ -599,23 +599,94 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
                     "status_venda": "Reservado",
                 }
             ],
-            "pagination": {"total_pages": 1},
+            "pagination": {"total_pages": 2},
         }
 
         with patch(
             "app.state.resource_state.client.request",
-            side_effect=[client_response, sales_response],
+            side_effect=[
+                client_response,
+                sales_response,
+                {"items": [], "pagination": {"total_pages": 2}},
+            ],
         ) as request:
             await ResourceState.load.fn(state, "/clientes", "Clientes")
 
-        self.assertEqual(request.call_count, 2)
+        self.assertEqual(request.call_count, 3)
         self.assertEqual(request.call_args_list[0].args[:2], ("GET", "/clientes"))
         self.assertEqual(request.call_args_list[1].args[:2], ("GET", "/vendas"))
+        for page, sales_call in enumerate(request.call_args_list[1:], start=1):
+            self.assertEqual(sales_call.args[:2], ("GET", "/vendas"))
+            self.assertEqual(sales_call.kwargs["params"], {
+                "page": str(page), "per_page": "100", "busca": "",
+            })
         self.assertEqual(state.records[0]["_client_email"], "ana@example.test")
         self.assertEqual(state.records[0]["_client_last_activity"], "08/11/2026, 07:00")
         self.assertEqual(state.pending_purchases, 1)
         self.assertFalse(state.loading)
         self.assertEqual(state.error, "")
+
+    async def test_sales_failure_preserves_clients_and_recovers(self) -> None:
+        async def get_state(_state_type):
+            return SimpleNamespace(token="test-token")
+
+        clients = {
+            "items": [{
+                "id": 12, "CNome": "Ana", "CPF": "10000791989",
+                "Email": "ana@example.test",
+                "created_at": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat(),
+            }],
+            "pagination": {"total_pages": 1},
+        }
+        partial_sales = {
+            "items": [{"cliente_id": 12, "status_venda": "Reservado"}],
+            "pagination": {"total_pages": 2},
+        }
+        for responses in (
+            [clients, XanoError("Input is not scalar")],
+            [clients, partial_sales, XanoError("Erro na segunda página")],
+            [clients, {"items": "formato inválido"}],
+        ):
+            with self.subTest(responses=responses):
+                state = SimpleNamespace(get_state=get_state, pending_purchases=9)
+                with patch(
+                    "app.state.resource_state.client.request", side_effect=responses,
+                ):
+                    await ResourceState.load.fn(state, "/clientes", "Clientes")
+
+                self.assertEqual(state.records[0]["_client_name"], "Ana")
+                self.assertEqual(state.records[0]["_client_email"], "ana@example.test")
+                self.assertEqual(state.records[0]["_client_last_activity"], "Indisponível")
+                self.assertEqual(state.clients_new_this_month, 1)
+                self.assertEqual(state.error, "")
+                self.assertFalse(state.loading)
+                self.assertFalse(state.client_sales_available)
+                self.assertIn("vendas", state.client_sales_warning)
+
+                with patch(
+                    "app.state.resource_state.client.request",
+                    side_effect=[clients, {"items": [], "pagination": {"total_pages": 1}}],
+                ):
+                    await ResourceState.load.fn(state, "/clientes", "Clientes")
+                self.assertTrue(state.client_sales_available)
+                self.assertEqual(state.client_sales_warning, "")
+                self.assertEqual(state.pending_purchases, 0)
+                self.assertEqual(state.records[0]["_client_last_activity"], "Sem compras")
+
+    async def test_client_failure_still_reports_primary_error(self) -> None:
+        async def get_state(_state_type):
+            return SimpleNamespace(token="test-token")
+
+        state = SimpleNamespace(get_state=get_state, records=[{"id": 12}])
+        with patch(
+            "app.state.resource_state.client.request", side_effect=XanoError("Clientes indisponíveis"),
+        ) as request:
+            await ResourceState.load.fn(state, "/clientes", "Clientes")
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(state.records, [])
+        self.assertEqual(state.error, "Clientes indisponíveis")
+        self.assertEqual(state.client_sales_warning, "")
+        self.assertFalse(state.client_sales_available)
 
     async def test_load_fetches_every_vehicle_page(self) -> None:
         async def get_state(_state_type):

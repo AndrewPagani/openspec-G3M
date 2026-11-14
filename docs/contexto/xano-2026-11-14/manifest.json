@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-14",
+  "workspace": 147643,
+  "branch": "v1",
+  "scope": "GET /vendas",
+  "local_file": "xanoscript/workspace_current/api/vendas/vendas_GET.xs",
+  "sha256": "7cb0a4b087a6b196165f927f6e9d7aa98289745ec32e9a3dff92006dfc80f063",
+  "checks": {
+    "clientes_in": true,
+    "vendedores_in": true,
+    "clientes_empty_guard": true,
+    "vendedores_empty_guard": true,
+    "no_reversed_contains": true,
+    "four_date_queries": true,
+    "vendedor_before_paging": true,
+    "no_nullable_date_or": true
+  },
+  "runtime_authenticated": false,
+  "remote_mutations": false
+}

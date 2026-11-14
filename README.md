@@ -1,5 +1,9 @@
 # AutoGestão — Python + Reflex
 
+Consulte o [contexto verificado do projeto](docs/contexto-projeto.md) para o
+mapa de arquitetura, banco/API consultados pelo Xano CLI em 13/11/2026 e
+divergências entre documentação, código local e definições remotas.
+
 Aplicação do MVP de gerenciamento de concessionária. A interface usa Reflex e
 o Xano é a fonte de autenticação, autorização e dados; não há dados de negócio
 embutidos no frontend.

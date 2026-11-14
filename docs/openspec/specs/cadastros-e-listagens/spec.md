@@ -5,6 +5,21 @@ Registra as telas de consulta e criação de clientes, veículos e peças atualm
 
 ## Requirements
 
+### Requirement: Falhas auxiliares de vendas não devem impedir a listagem de clientes
+Quando a consulta de clientes for bem-sucedida, a tela MUST preservar os clientes mesmo que a consulta auxiliar de vendas falhe em qualquer página ou retorne formato inválido. A tela MUST manter os indicadores derivados exclusivamente de clientes e apresentar última atividade e compras pendentes como indisponíveis, com aviso específico. MUST NOT apresentar zero pendências ou ausência de compras como se fossem dados confirmados quando vendas não puder ser consultada. Uma nova consulta bem-sucedida MUST remover o aviso e restaurar os dados derivados de vendas. Falhas na consulta principal de clientes MUST continuar sendo apresentadas como erro da listagem.
+
+#### Scenario: Clientes disponíveis e vendas indisponíveis
+- **WHEN** clientes retorna dados válidos e vendas falha
+- **THEN** a lista de clientes MUST permanecer visível, com aviso restrito aos dados derivados de vendas
+
+#### Scenario: Página subsequente de vendas falha
+- **WHEN** a primeira página de vendas é carregada e uma página seguinte falha
+- **THEN** a tela MUST preservar clientes e MUST NOT apresentar indicadores de vendas parciais como completos
+
+#### Scenario: Vendas volta a responder
+- **WHEN** uma nova carga de clientes e vendas é bem-sucedida
+- **THEN** o aviso MUST ser removido e os indicadores de vendas MUST voltar a ser apresentados
+
 ### Requirement: Listagem de clientes deve identificar nome e CPF
 A listagem de clientes MUST apresentar o nome seguido do CPF no formato `Nome - CPF`, usando os campos devolvidos pela API do Xano. A consulta MUST oferecer paginação e busca por nome, CPF, telefone ou e-mail; os detalhes não devem expor identificadores internos ASAAS.
 

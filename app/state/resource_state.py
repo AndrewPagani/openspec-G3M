@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import reflex as rx
 
 from app.services.xano_client import XanoError, client
+from app.services.sales_query import sales_query_params
 from app.services.vehicle_status import vehicle_status_class
 from app.state.auth_state import AuthState
 
@@ -324,6 +325,39 @@ def _pagination_total_pages(pagination: Any, title: str) -> int:
     return total_pages
 
 
+def _load_client_sales_activity(
+    records: list[dict], token: str
+) -> tuple[dict[str, str], int, int]:
+    sales_result = client.request(
+        "GET",
+        "/vendas",
+        token=token,
+        params=sales_query_params(),
+    )
+    sales = _records_from_response(sales_result)
+    sales_pagination = (
+        sales_result.get("pagination", {})
+        if isinstance(sales_result, dict)
+        else {}
+    )
+    sales_total_pages = (
+        1
+        if not sales
+        and isinstance(sales_pagination, dict)
+        and sales_pagination.get("total_pages") in (0, "0")
+        else _pagination_total_pages(sales_pagination, "Vendas")
+    )
+    for page in range(2, sales_total_pages + 1):
+        page_result = client.request(
+            "GET",
+            "/vendas",
+            token=token,
+            params=sales_query_params(page=page),
+        )
+        sales.extend(_records_from_response(page_result))
+    return _client_activity_and_metrics(records, sales)
+
+
 class ResourceState(rx.State):
     """Shared list state used by the operational screens."""
 
@@ -335,6 +369,8 @@ class ResourceState(rx.State):
     title: str = ""
     clients_new_this_month: int = 0
     pending_purchases: int = 0
+    client_sales_available: bool = False
+    client_sales_warning: str = ""
     client_page: int = 1
     client_sort_order: str = "newest_first"
     client_dialog_open: bool = False
@@ -360,6 +396,8 @@ class ResourceState(rx.State):
     async def load(self, endpoint: str, title: str) -> None:
         self.endpoint, self.title = endpoint, title
         self.loading, self.error = True, ""
+        self.client_sales_available = False
+        self.client_sales_warning = ""
         try:
             auth_state = await self.get_state(AuthState)
             if endpoint in ("/veiculos", "/pecas", "/clientes"):
@@ -390,53 +428,38 @@ class ResourceState(rx.State):
                 result = client.request("GET", endpoint, token=auth_state.token)
                 records = _records_from_response(result)
             if endpoint == "/clientes":
-                sales_result = client.request(
-                    "GET",
-                    "/vendas",
-                    token=auth_state.token,
-                    params={"page": 1, "per_page": 100},
-                )
-                sales = _records_from_response(sales_result)
-                sales_pagination = (
-                    sales_result.get("pagination", {})
-                    if isinstance(sales_result, dict)
-                    else {}
-                )
-                sales_total_pages = (
-                    1
-                    if not sales
-                    and isinstance(sales_pagination, dict)
-                    and sales_pagination.get("total_pages") in (0, "0")
-                    else _pagination_total_pages(sales_pagination, "Vendas")
-                )
-                for page in range(2, sales_total_pages + 1):
-                    page_result = client.request(
-                        "GET",
-                        "/vendas",
-                        token=auth_state.token,
-                        params={"page": page, "per_page": 100},
+                # Client metrics remain valid even when the auxiliary sales API fails.
+                _, self.clients_new_this_month, _ = _client_activity_and_metrics(records, [])
+                self.pending_purchases = 0
+                self.client_page = 1
+                activity = {}
+                try:
+                    activity, _, self.pending_purchases = _load_client_sales_activity(
+                        records, auth_state.token
                     )
-                    sales.extend(_records_from_response(page_result))
-                activity, new_this_month, pending_count = _client_activity_and_metrics(
-                    records, sales
-                )
-                self.clients_new_this_month = new_this_month
-                self.pending_purchases = pending_count
+                    self.client_sales_available = True
+                except XanoError:
+                    self.client_sales_warning = (
+                        "Clientes carregados. Última atividade e compras pendentes "
+                        "estão indisponíveis porque não foi possível consultar as vendas."
+                    )
                 records = [
                     {
                         **record,
-                        "_client_last_activity": activity.get(
-                            str(record.get("id", "")), ""
+                        "_client_last_activity": (
+                            activity.get(str(record.get("id", "")), "")
+                            if self.client_sales_available else "Indisponível"
                         ),
                     }
                     for record in records
                 ]
-                self.client_page = 1
             self.records = [_normalize_record(row, endpoint) for row in records]
         except XanoError as exc:
             self.records, self.error = [], str(exc)
             self.clients_new_this_month = 0
             self.pending_purchases = 0
+            self.client_sales_available = False
+            self.client_sales_warning = ""
         finally:
             self.loading = False
 

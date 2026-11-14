@@ -43,12 +43,12 @@ query vendas verb=GET {
   
     // Se o usuario for Vendedor, forcar filtro para seu proprio id
     var $vendedor_filtro {
-      value = null
+      value = 0
     }
   
     // Parsing seguro de vendedor_id
     var $parsed_vendedor_id {
-      value = null
+      value = 0
     }
   
     conditional {
@@ -83,7 +83,7 @@ query vendas verb=GET {
   
     // Parsing seguro de cliente_id
     var $parsed_cliente_id {
-      value = null
+      value = 0
     }
   
     conditional {
@@ -104,7 +104,7 @@ query vendas verb=GET {
   
     // Parsing seguro de status_id
     var $parsed_status_id {
-      value = null
+      value = 0
     }
   
     conditional {
@@ -125,7 +125,7 @@ query vendas verb=GET {
   
     // Parsing seguro de forma_pagamento_id
     var $parsed_forma_pagamento_id {
-      value = null
+      value = 0
     }
   
     conditional {
@@ -155,18 +155,33 @@ query vendas verb=GET {
           value = $input.data_inicio|to_text
         }
       
-        conditional {
-          if (($di_str|strlen) == 10 && ($di_str|contains:"-")) {
-            var.update $parsed_data_inicio {
-              value = ($di_str ~ "T00:00:00Z")|to_timestamp
+        try_catch {
+          try {
+            conditional {
+              if (($di_str|strlen) == 10 && ($di_str|contains:"-")) {
+                var.update $parsed_data_inicio {
+                  value = ($di_str ~ "T00:00:00Z")|to_timestamp
+                }
+              }
+            
+              else {
+                var.update $parsed_data_inicio {
+                  value = $di_str|to_timestamp
+                }
+              }
             }
           }
         
-          else {
+          catch {
             var.update $parsed_data_inicio {
-              value = $di_str|to_timestamp
+              value = null
             }
           }
+        }
+      
+        precondition ($parsed_data_inicio != null) {
+          error_type = "inputerror"
+          error = "Parametro data_inicio invalido. Formato esperado: YYYY-MM-DD"
         }
       }
     }
@@ -181,88 +196,225 @@ query vendas verb=GET {
           value = $input.data_fim|to_text
         }
       
-        conditional {
-          if (($df_str|strlen) == 10 && ($df_str|contains:"-")) {
-            var.update $parsed_data_fim {
-              value = ($df_str ~ "T23:59:59Z")|to_timestamp
+        try_catch {
+          try {
+            conditional {
+              if (($df_str|strlen) == 10 && ($df_str|contains:"-")) {
+                var.update $parsed_data_fim {
+                  value = ($df_str ~ "T23:59:59Z")|to_timestamp
+                }
+              }
+            
+              else {
+                var.update $parsed_data_fim {
+                  value = $df_str|to_timestamp
+                }
+              }
             }
           }
         
-          else {
+          catch {
             var.update $parsed_data_fim {
-              value = $df_str|to_timestamp
+              value = null
             }
           }
         }
+      
+        precondition ($parsed_data_fim != null) {
+          error_type = "inputerror"
+          error = "Parametro data_fim invalido. Formato esperado: YYYY-MM-DD"
+        }
       }
     }
   
-    // Consultar vendas aplicando filtros e paginacao no banco
-    db.query venda {
-      join = {
-        cliente: {
-          table: "cliente"
-          where: $db.venda.cliente_id == $db.cliente.id
+    // Validar se data de inicio e posterior a data fim
+    conditional {
+      if ($parsed_data_inicio != null && $parsed_data_fim != null) {
+        precondition ($parsed_data_inicio <= $parsed_data_fim) {
+          error_type = "inputerror"
+          error = "Parametro data_inicio nao pode ser posterior a data_fim"
         }
-        vendedor: {
-          table: "user"
-          where: $db.venda.vendedor_id == $db.user.id
+      }
+    }
+  
+    // Variavel para armazenar resultado paginado da consulta
+    var $result {
+      value = null
+    }
+  
+    conditional {
+      if ($parsed_data_inicio == null && $parsed_data_fim == null) {
+        // Consultar vendas sem filtro de data
+        db.query venda {
+          join = {
+            cliente: {
+              table: "cliente"
+              where: $db.venda.cliente_id == $db.cliente.id
+            }
+          }
+        
+          where = ($vendedor_filtro == 0 || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_cliente_id == 0 || $db.venda.cliente_id == $parsed_cliente_id) && ($parsed_status_id == 0 || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == 0 || $db.venda.forma_pagamento_id == $parsed_forma_pagamento_id) && (($input.busca == null || $input.busca == "") || ($busca_id != null && $db.venda.id == $busca_id) || ($db.cliente.CNome includes $input.busca) || ($db.cliente.CPF includes $input.busca))
+          sort = {id: "desc"}
+          return = {
+            type  : "list"
+            paging: {
+              page    : $input.page
+              per_page: $input.per_page
+              totals  : true
+            }
+          }
+        } as $q_res
+      
+        var.update $result {
+          value = $q_res
         }
       }
     
-      where = ($vendedor_filtro == null || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_cliente_id == null || $db.venda.cliente_id == $parsed_cliente_id) && ($parsed_status_id == null || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == null || $db.venda.forma_pagamento_id == $parsed_forma_pagamento_id) && ($parsed_data_inicio == null || $db.venda.data_venda >= $parsed_data_inicio) && ($parsed_data_fim == null || $db.venda.data_venda <= $parsed_data_fim) && (($input.busca == null || $input.busca == "") || ($busca_id != null && $db.venda.id == $busca_id) || ($db.cliente.CNome includes $input.busca) || ($db.cliente.CPF includes $input.busca) || ($db.user.UNome includes $input.busca) || ($db.user.Email includes $input.busca))
-      sort = {id: "desc"}
-      return = {
-        type  : "list"
-        paging: {
-          page    : $input.page
-          per_page: $input.per_page
-          totals  : true
+      elseif ($parsed_data_inicio != null && $parsed_data_fim == null) {
+        // Consultar vendas filtrando apenas data_inicio
+        db.query venda {
+          join = {
+            cliente: {
+              table: "cliente"
+              where: $db.venda.cliente_id == $db.cliente.id
+            }
+          }
+        
+          where = ($vendedor_filtro == 0 || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_cliente_id == 0 || $db.venda.cliente_id == $parsed_cliente_id) && ($parsed_status_id == 0 || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == 0 || $db.venda.forma_pagamento_id == $parsed_forma_pagamento_id) && $db.venda.data_venda >= $parsed_data_inicio && (($input.busca == null || $input.busca == "") || ($busca_id != null && $db.venda.id == $busca_id) || ($db.cliente.CNome includes $input.busca) || ($db.cliente.CPF includes $input.busca))
+          sort = {id: "desc"}
+          return = {
+            type  : "list"
+            paging: {
+              page    : $input.page
+              per_page: $input.per_page
+              totals  : true
+            }
+          }
+        } as $q_res
+      
+        var.update $result {
+          value = $q_res
         }
       }
-    } as $result
+    
+      elseif ($parsed_data_inicio == null && $parsed_data_fim != null) {
+        // Consultar vendas filtrando apenas data_fim
+        db.query venda {
+          join = {
+            cliente: {
+              table: "cliente"
+              where: $db.venda.cliente_id == $db.cliente.id
+            }
+          }
+        
+          where = ($vendedor_filtro == 0 || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_cliente_id == 0 || $db.venda.cliente_id == $parsed_cliente_id) && ($parsed_status_id == 0 || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == 0 || $db.venda.forma_pagamento_id == $parsed_forma_pagamento_id) && $db.venda.data_venda <= $parsed_data_fim && (($input.busca == null || $input.busca == "") || ($busca_id != null && $db.venda.id == $busca_id) || ($db.cliente.CNome includes $input.busca) || ($db.cliente.CPF includes $input.busca))
+          sort = {id: "desc"}
+          return = {
+            type  : "list"
+            paging: {
+              page    : $input.page
+              per_page: $input.per_page
+              totals  : true
+            }
+          }
+        } as $q_res
+      
+        var.update $result {
+          value = $q_res
+        }
+      }
+    
+      else {
+        // Consultar vendas filtrando ambas as datas
+        db.query venda {
+          join = {
+            cliente: {
+              table: "cliente"
+              where: $db.venda.cliente_id == $db.cliente.id
+            }
+          }
+        
+          where = ($vendedor_filtro == 0 || $db.venda.vendedor_id == $vendedor_filtro) && ($parsed_cliente_id == 0 || $db.venda.cliente_id == $parsed_cliente_id) && ($parsed_status_id == 0 || $db.venda.status_id == $parsed_status_id) && ($parsed_forma_pagamento_id == 0 || $db.venda.forma_pagamento_id == $parsed_forma_pagamento_id) && $db.venda.data_venda >= $parsed_data_inicio && $db.venda.data_venda <= $parsed_data_fim && (($input.busca == null || $input.busca == "") || ($busca_id != null && $db.venda.id == $busca_id) || ($db.cliente.CNome includes $input.busca) || ($db.cliente.CPF includes $input.busca))
+          sort = {id: "desc"}
+          return = {
+            type  : "list"
+            paging: {
+              page    : $input.page
+              per_page: $input.per_page
+              totals  : true
+            }
+          }
+        } as $q_res
+      
+        var.update $result {
+          value = $q_res
+        }
+      }
+    }
+  
+    var $visible_items {
+      value = $result.items
+    }
   
     // Carregar apenas registros de referencia necessarios para a pagina atual
     var $page_client_ids {
-      value = ($result.items|map:$$.cliente_id)|unique
+      value = ($visible_items|map:$$.cliente_id)|unique
     }
   
     var $page_vendedor_ids {
-      value = ($result.items|map:$$.vendedor_id)|unique
+      value = ($visible_items|map:$$.vendedor_id)|unique
     }
   
-    var $page_status_ids {
-      value = ($result.items|map:$$.status_id)|unique
+    var $page_clientes {
+      value = []
     }
   
-    var $page_forma_ids {
-      value = ($result.items|map:$$.forma_pagamento_id)|unique
+    conditional {
+      if (($page_client_ids|count) > 0) {
+        db.query cliente {
+          where = $db.cliente.id in $page_client_ids
+          return = {type: "list"}
+        } as $q_clientes
+      
+        var.update $page_clientes {
+          value = $q_clientes
+        }
+      }
     }
   
-    db.query cliente {
-      where = $page_client_ids contains $db.cliente.id
-      return = {type: "list"}
-    } as $page_clientes
+    var $page_vendedores {
+      value = []
+    }
   
-    db.query user {
-      where = $page_vendedor_ids contains $db.user.id
-      return = {type: "list"}
-    } as $page_vendedores
+    conditional {
+      if (($page_vendedor_ids|count) > 0) {
+        db.query user {
+          where = $db.user.id in $page_vendedor_ids
+          return = {type: "list"}
+        } as $q_vendedores
+      
+        var.update $page_vendedores {
+          value = $q_vendedores
+        }
+      }
+    }
   
     db.query status_venda {
-      where = $page_status_ids contains $db.status_venda.id
       return = {type: "list"}
     } as $todos_status
   
     db.query forma_pagamento {
-      where = $page_forma_ids contains $db.forma_pagamento.id
       return = {type: "list"}
     } as $todas_formas
+  
+    db.query asaas_cobranca {
+      return = {type: "list"}
+    } as $cobrancas_asaas
   
     // Mapear cada venda com dados resumidos de cliente, vendedor, forma e status
     var $sanitized_items {
       value = ```
-        $result.items|map:{
+        $visible_items|map:{
                 id: $$.id,
                 cliente: {
                   id: $$.cliente_id,
@@ -283,7 +435,12 @@ query vendas verb=GET {
                 Valor_bruto: $$.Valor_bruto,
                 Desconto: ($$.Desconto ?? 0),
                 Valor_final: $$.Valor_final,
-                data_venda: $$.data_venda
+                data_venda: $$.data_venda,
+                asaas_cobranca: {
+                  invoice_url: (($cobrancas_asaas|find:$item.venda_id == $$.id).invoice_url ?? ""),
+                  status: (($cobrancas_asaas|find:$item.venda_id == $$.id).status ?? ""),
+                  due_date: (($cobrancas_asaas|find:$item.venda_id == $$.id).due_date ?? "")
+                }
               }
         ```
     }
@@ -319,6 +476,41 @@ query vendas verb=GET {
 
   test "ambos filtros formato YYYY-MM-DD" {
     input = {data_inicio: "2025-01-01", data_fim: "2025-01-31"}
+  
+    expect.to_be_defined ($response.pagination)
+  }
+
+  test "data_inicio invalida" {
+    input = {data_inicio: "invalido"}
+  
+    expect.to_throw {
+      exception = ""
+    }
+  }
+
+  test "data_fim invalida" {
+    input = {data_fim: "invalido"}
+  
+    expect.to_throw {
+      exception = ""
+    }
+  }
+
+  test "data_inicio posterior a data_fim" {
+    input = {data_inicio: "2025-02-01", data_fim: "2025-01-01"}
+  
+    expect.to_throw {
+      exception = ""
+    }
+  }
+
+  test "busca e forma de pagamento combinadas com datas" {
+    input = {
+      busca             : "teste"
+      data_fim          : "2025-01-31"
+      data_inicio       : "2025-01-01"
+      forma_pagamento_id: 1
+    }
   
     expect.to_be_defined ($response.pagination)
   }

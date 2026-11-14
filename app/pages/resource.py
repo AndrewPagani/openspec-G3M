@@ -639,7 +639,11 @@ def _clients_view(new_href: str | None) -> rx.Component:
                     rx.vstack(
                         rx.text("Compras pendentes", class_name="client-metric-label"),
                         rx.text(
-                            ResourceState.pending_purchases,
+                            rx.cond(
+                                ResourceState.client_sales_available,
+                                ResourceState.pending_purchases.to_string(),
+                                "Indisponível",
+                            ),
                             class_name="client-metric-value client-value-amber",
                         ),
                         align="start",
@@ -701,6 +705,15 @@ def _clients_view(new_href: str | None) -> rx.Component:
             align="center",
         ),
         feedback(ResourceState.error, ResourceState.loading),
+        rx.cond(
+            ResourceState.client_sales_warning != "",
+            rx.callout(
+                ResourceState.client_sales_warning,
+                color_scheme="amber",
+                role="status",
+            ),
+            rx.fragment(),
+        ),
         rx.cond(
             ResourceState.client_action_message != "",
             rx.callout(
