@@ -1,0 +1,79 @@
+{
+  "run_id": "asaas-check-29875dab-6c75-4e1d-b5a8-bccb142f24c5",
+  "checks": [
+    {
+      "name": "indicators_no_dates",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "indicators_start_only",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "indicators_end_only",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "indicators_both_dates",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "indicators_empty_period",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "legacy_history_reads",
+      "passed": true
+    },
+    {
+      "name": "seller_cannot_manual_receive",
+      "passed": true
+    },
+    {
+      "name": "legacy_manual_receive_0",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "legacy_manual_receive_1",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "asaas_manual_receive_blocked",
+      "passed": true
+    },
+    {
+      "name": "isolated_seller_indicators",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "financial_receipts_without_double_count",
+      "passed": true
+    },
+    {
+      "name": "failed_concurrent_sale_rolled_back",
+      "passed": true
+    },
+    {
+      "name": "seller_cannot_expand_dashboard_scope",
+      "passed": true
+    },
+    {
+      "name": "empty_scope_zero_receipts",
+      "passed": true
+    }
+  ],
+  "completed": true,
+  "legacy": {
+    "sale_id": 105,
+    "installment_id": 1,
+    "method_id": 2
+  }
+}

@@ -1,0 +1,114 @@
+﻿{
+  "status": "ok",
+  "timing": 1.61,
+  "result": {
+    "sandbox": true,
+    "api_key_configured": true,
+    "webhook_token_valid_length": true,
+    "asaas_http_status": 200,
+    "authenticated_probe_http_status": 400,
+    "webhooks": [
+      {
+        "matches_url": true,
+        "enabled": true,
+        "interrupted": false,
+        "send_type": "SEQUENTIALLY",
+        "events": [
+          "PAYMENT_REFUNDED",
+          "PAYMENT_OVERDUE",
+          "PAYMENT_CONFIRMED",
+          "PAYMENT_CHARGEBACK_REQUESTED",
+          "PAYMENT_AWAITING_CHARGEBACK_REVERSAL",
+          "PAYMENT_REFUND_DENIED",
+          "PAYMENT_REFUND_IN_PROGRESS",
+          "PAYMENT_RECEIVED_IN_CASH_UNDONE",
+          "PAYMENT_RESTORED",
+          "PAYMENT_PARTIALLY_REFUNDED",
+          "PAYMENT_CHARGEBACK_DISPUTE",
+          "PAYMENT_CREATED",
+          "PAYMENT_DELETED",
+          "PAYMENT_RECEIVED",
+          "PAYMENT_UPDATED"
+        ]
+      }
+    ],
+    "request_wrapper_checked": true,
+    "authenticated_probe_reached_reconcile": true,
+    "profiles": [
+      {
+        "id": 1,
+        "name": "Gerente"
+      },
+      {
+        "id": 2,
+        "name": "Vendedor"
+      },
+      {
+        "id": 3,
+        "name": "Cliente"
+      }
+    ],
+    "sale_statuses": [
+      {
+        "id": 1,
+        "name": "Pendente"
+      },
+      {
+        "id": 2,
+        "name": "Concluída"
+      },
+      {
+        "id": 3,
+        "name": "Cancelada"
+      },
+      {
+        "id": 4,
+        "name": "Reservado"
+      },
+      {
+        "id": 5,
+        "name": "Paga"
+      },
+      {
+        "id": 6,
+        "name": "Expirada"
+      }
+    ],
+    "vehicle_statuses": [
+      {
+        "id": 1,
+        "name": "Disponível"
+      },
+      {
+        "id": 2,
+        "name": "Vendido"
+      },
+      {
+        "id": 3,
+        "name": "Reservado"
+      }
+    ],
+    "payment_methods": [
+      {
+        "id": 1,
+        "name": "Financiamento Bancário"
+      },
+      {
+        "id": 2,
+        "name": "PIX"
+      },
+      {
+        "id": 3,
+        "name": "Cartão de Crédito"
+      },
+      {
+        "id": 4,
+        "name": "Boleto Bancário"
+      },
+      {
+        "id": 5,
+        "name": "Consórcio"
+      }
+    ]
+  }
+}

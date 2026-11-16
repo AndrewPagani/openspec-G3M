@@ -1,5 +1,81 @@
 # Contexto verificado do projeto
 
+## Limpeza de arquivos locais em 16/11/2026
+
+A pedido do usuário, temporários, capturas locais, caches e ferramentas pontuais
+da homologação encerrada foram selecionados para exclusão. As referências desses
+arquivos nos relatórios arquivados são históricas; não indicam ferramentas ainda
+disponíveis. Testes unitários, geradores, pacotes da aplicação e evidências
+documentais em docs foram preservados.
+
+Antes da remoção de .codex-tmp, foram comparados os 14 arquivos necessários a
+scripts/prepare_asaas_sales.py: todos coincidem com os arquivos preservados em
+docs/contexto/xano-2026-11-13/. Esse snapshot serve como baseline histórica para
+reproduzir esta migração, não como definição atual para publicar sem comparação.
+A confirmação se limita a esses 14 arquivos; não reclassifica todo o snapshot
+de 13/11 como consulta da branch v1. Exemplo de reprodução local:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/prepare_asaas_sales.py --source docs/contexto/xano-2026-11-13 --output <diretorio-de-revisao>
+```
+
+Ambiente .venv, execução .web, estado .states e configuração .env foram preservados.
+
+## Change arquivada em 16/11/2026
+
+`revisar-venda-e-integracao-asaas` foi encerrada a pedido do usuário. Os quatro
+requisitos foram sincronizados na [spec vigente de venda com fatura ASAAS](openspec/specs/venda-com-fatura-asaas/spec.md).
+As 16 tarefas e evidências foram preservadas no
+[arquivo da change](openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/closure.md).
+Para novas vendas ASAAS, essa spec define o fluxo vigente em lugar das exigências
+manuais anteriores; histórico LEGADO permanece preservado.
+
+## Limpeza da homologação concluída em 16/11/2026
+
+Após aprovação do usuário, o estorno Sandbox de 40,00 foi confirmado como
+REFUNDED/DONE. Cliente externo encerrado e transação local removeu a rodada
+TESTE ASAAS e vínculos. Os 11 registros principais retornaram 404 na conferência
+independente. As seis funções temporárias asaas/test_* foram removidas pelos
+próprios GUIDs; funções da aplicação foram preservadas. Marcadores de eventos
+processados foram mantidos para deduplicação.
+Evidência: [cleanup-final.json](openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/cleanup-final.json).
+
+## Homologação real da change em 15/11/2026
+
+Executado no ASAAS Sandbox o ciclo de cliente, venda mista, fatura persistida,
+pagamento simulado e webhook automático. Verificados escopo entre vendedores,
+repetição de eventos, disputa de estoque, cancelamento idempotente, legado e
+indicadores por recebimento. Falhas de execução encontradas foram corrigidas
+e publicadas em 147643/v1: opcionais de item, filtro de vencimento, datas nulas
+nos indicadores e limites da tabela venda_parcela. Evidências e limites:
+[runtime-validation.md](openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/runtime-validation.md).
+
+**Limpeza concluída em 16/11:** aprovação confirmada, estorno concluído e dados
+de teste removidos, conforme evidência acima. A change foi arquivada em 16/11/2026
+com a spec sincronizada; Sandbox não equivale a go-live em produção.
+
+## Change de venda e ASAAS — implementação local em 14/11/2026
+
+A change `revisar-venda-e-integracao-asaas` foi aplicada localmente e verificada
+com 99 testes, lint, build e navegador com fixtures. O pacote isolado
+`xanoscript/asaas-sales/` foi preparado a partir de nova consulta de `147643/v1`
+e passou no dry-run (1 tabela nova, 3 alteradas, 3 funções novas, 8 endpoints
+alterados). **Publicado em 147643/v1 após autorização explícita**, com confirmação
+de 15 documentos e ajuste posterior das descrições de 2 endpoints. A leitura
+posterior retornou 68 documentos e o dry-run final `No changes to push`.
+`Allow Push: false` não impedia publicação neste plano Free: a própria API
+explicou que nele o push já fica habilitado. Sandbox/webhook já conferidos por
+HTTP 200 e sondas autenticadas; o ciclo completo de venda/pagamento segue pendente.
+Catálogos reais foram lidos: Reservado, Paga e Expirada estavam ausentes e foram
+adicionados sem mudar IDs/status existentes. Conciliação agora reconhece Boleto
+Bancário. Evidências em
+[setup-validation.md](openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/setup-validation.md).
+Estado, decisões e pendências autenticadas estão no
+[handoff da change](openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/handoff.md)
+e no [roteiro de publicação](openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/deployment.md).
+Essa implementação não sincroniza automaticamente os demais arquivos de
+`workspace_current` nem substitui as evidências históricas abaixo.
+
 Consulta realizada em **13/11/2026**, no fuso `America/Sao_Paulo`.
 
 ## Atualização de GET /vendas em 14/11/2026

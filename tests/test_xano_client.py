@@ -1,7 +1,6 @@
 import os
 import unittest
-from unittest.mock import AsyncMock, MagicMock
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 
@@ -63,12 +62,17 @@ class XanoClientTests(unittest.TestCase):
 
     def test_rejects_legacy_external_payment_routes(self) -> None:
         for route in (
-            "/vendas/12/link-pagamento",
             "/vendas/12/pagamento/atualizar",
             "/vendas/12/pagamento/notificar",
         ):
             with self.subTest(route=route), self.assertRaises(XanoError):
                 self.client._url(route)
+
+    def test_routes_hosted_payment_link_to_sales_group(self) -> None:
+        self.assertEqual(
+            self.client._url("/vendas/12/link-pagamento"),
+            "https://example.xano.io/api:Q9GErvvS/vendas/12/link-pagamento",
+        )
 
 
 class AsyncXanoClientTests(unittest.IsolatedAsyncioTestCase):

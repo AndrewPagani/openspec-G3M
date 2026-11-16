@@ -1,0 +1,112 @@
+{
+  "date": "2026-11-16",
+  "workspace": 147643,
+  "branch": "v1",
+  "run_id": "asaas-check-29875dab-6c75-4e1d-b5a8-bccb142f24c5",
+  "external_refund": "REFUNDED",
+  "external_customer_closed": true,
+  "rows": [
+    {
+      "table": "user",
+      "id": 52,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "user",
+      "id": 53,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "user",
+      "id": 54,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "user",
+      "id": 55,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "cliente",
+      "id": 102,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "veiculo",
+      "id": 27,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "peca",
+      "id": 11,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "venda",
+      "id": 101,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "venda",
+      "id": 102,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "venda",
+      "id": 105,
+      "http_status": 404,
+      "absent": true
+    },
+    {
+      "table": "venda",
+      "id": 106,
+      "http_status": 404,
+      "absent": true
+    }
+  ],
+  "functions_removed": [
+    {
+      "name": "asaas/test_fixture",
+      "already_absent": true
+    },
+    {
+      "name": "asaas/test_resume",
+      "already_absent": true
+    },
+    {
+      "name": "asaas/test_inspect",
+      "already_absent": true
+    },
+    {
+      "id": 360330,
+      "name": "asaas/test_gateway",
+      "guid": "i6_0BctRyeBHdnJNusRqdOSETNQ",
+      "http_status": 200,
+      "verified_absent": true
+    },
+    {
+      "id": 360334,
+      "name": "asaas/test_legacy",
+      "guid": "2ZdhcG8_ki9dSN9YNxtQE6XMeGg",
+      "http_status": 200,
+      "verified_absent": true
+    },
+    {
+      "id": 360333,
+      "name": "asaas/test_cleanup",
+      "guid": "0n_GMwleIFj6mjbii4iLcFa3L98",
+      "http_status": 200,
+      "verified_absent": true
+    }
+  ],
+  "completed": true
+}

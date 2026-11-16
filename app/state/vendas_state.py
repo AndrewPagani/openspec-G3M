@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import reflex as rx
 
-from app.services.xano_client import XanoError, client
 from app.services.sales_query import sales_query_params
+from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
 
 
@@ -46,6 +47,18 @@ def _format_currency(value: Decimal) -> str:
     return f"{value:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
 
 
+def _positive_integer(value: object, label: str) -> int:
+    if isinstance(value, bool):
+        raise XanoError(f"{label} precisa ser um número inteiro positivo.")
+    try:
+        parsed = Decimal(str(value))
+        if not parsed.is_finite() or parsed < 1 or parsed != parsed.to_integral_value():
+            raise ValueError
+        return int(parsed)
+    except (ValueError, InvalidOperation) as exc:
+        raise XanoError(f"{label} precisa ser um número inteiro positivo.") from exc
+
+
 class VendasState(rx.State):
     clientes: list[dict[str, str]] = []
     veiculos_disponiveis: list[dict[str, str]] = []
@@ -62,6 +75,12 @@ class VendasState(rx.State):
     numero_parcelas: str = "1"
     payment_methods: list[dict[str, str]] = []
     venda_id: str = ""
+    payment_url: str = ""
+    payment_status: str = ""
+    payment_flow: str = ""
+    payment_due_date: str = ""
+    total_confirmado: str = ""
+    creation_uncertain: bool = False
     parcelas: list[dict[str, str]] = []
     forma_recebida_id: str = ""
     mensagem: str = ""
@@ -103,7 +122,7 @@ class VendasState(rx.State):
         return rows
 
     async def load_sales(self) -> None:
-        self.processando, self.erro = True, ""
+        self.processando, self.erro, self.mensagem = True, "", ""
         try:
             auth_state = await self.get_state(AuthState)
             params = sales_query_params(
@@ -138,7 +157,6 @@ class VendasState(rx.State):
         self.processando, self.erro = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            await self.load_payment_methods()
             clients = client.request("GET", "/clientes", token=auth_state.token, params={"page": 1, "per_page": 100})
             vehicles = client.request("GET", "/veiculos", token=auth_state.token, params={"page": 1, "per_page": 100})
             parts = client.request("GET", "/pecas", token=auth_state.token, params={"page": 1, "per_page": 100})
@@ -205,15 +223,15 @@ class VendasState(rx.State):
             self.erro = "A quantidade não pode superar o estoque disponível."
             return
         self.erro = ""
-        self.selected_items = [item for item in self.selected_items if item.get("id") != part["id"]]
+        self.selected_items = [item for item in self.selected_items if not (item.get("tipo") == "peca" and item.get("id") == part["id"])]
         self.selected_items.append({"tipo": "peca", "id": part["id"], "nome": part["nome"], "preco": part["preco"], "qtd": str(quantity)})
 
     def add_part_for_id(self, part_id: str) -> None:
         self.selected_part_id = part_id
         self.add_part()
 
-    def remove_item(self, item_id: str) -> None:
-        self.selected_items = [item for item in self.selected_items if item.get("id") != item_id]
+    def remove_item(self, item_type: str, item_id: str) -> None:
+        self.selected_items = [item for item in self.selected_items if not (item.get("tipo") == item_type and item.get("id") == item_id)]
 
     @rx.var
     def valor_bruto_display(self) -> str:
@@ -286,27 +304,16 @@ class VendasState(rx.State):
             self.erro = str(exc)
 
     def _sale_payload(self) -> dict[str, object]:
-        if not self.cliente_id.strip() or not self.forma_pagamento_id.strip():
-            raise XanoError("Informe o ID do cliente e a forma de pagamento.")
+        if not self.cliente_id.strip():
+            raise XanoError("Selecione o cliente da venda.")
 
-        try:
-            discount = Decimal(self.desconto.replace(",", "."))
-            cliente_id = int(self.cliente_id)
-            forma_pagamento_id = int(self.forma_pagamento_id)
-        except (ValueError, InvalidOperation) as exc:
-            raise XanoError(
-                "IDs e desconto devem conter valores numéricos válidos."
-            ) from exc
-        if cliente_id < 1 or forma_pagamento_id < 1:
-            raise XanoError("Os IDs do cliente e da forma de pagamento devem ser positivos.")
-
-        numero_parcelas = _parse_installment_count(self.numero_parcelas)
+        cliente_id = _positive_integer(self.cliente_id, "Cliente")
 
         if self.selected_items:
             items = [
                 {
-                    ("veiculo_id" if item["tipo"] == "veiculo" else "peca_id"): int(item["id"]),
-                    "qtd": int(item["qtd"]),
+                    ("veiculo_id" if item["tipo"] == "veiculo" else "peca_id"): item["id"],
+                    "qtd": item["qtd"],
                 }
                 for item in self.selected_items
             ]
@@ -327,39 +334,27 @@ class VendasState(rx.State):
                 raise XanoError("Cada item precisa conter exatamente veiculo_id ou peca_id.")
             if item.keys() - {"veiculo_id", "peca_id", "qtd"}:
                 raise XanoError("Um item contém campos não aceitos pela API.")
-            try:
-                normalized = {"qtd": int(item.get("qtd", 1))}
-                if has_vehicle:
-                    normalized["veiculo_id"] = int(item["veiculo_id"])
-                else:
-                    normalized["peca_id"] = int(item["peca_id"])
-            except (TypeError, ValueError) as exc:
-                raise XanoError("IDs de item e quantidades precisam ser números inteiros.") from exc
-            if normalized["qtd"] < 1:
-                raise XanoError("A quantidade de cada item deve ser positiva.")
-            if any(
-                identifier < 1
-                for key, identifier in normalized.items()
-                if key != "qtd"
-            ):
-                raise XanoError("Os IDs dos itens devem ser positivos.")
+            normalized = {"qtd": _positive_integer(item.get("qtd", 1), "Quantidade")}
+            identifier_key = "veiculo_id" if has_vehicle else "peca_id"
+            normalized[identifier_key] = _positive_integer(item[identifier_key], "ID do item")
+            if has_vehicle and normalized["qtd"] != 1:
+                raise XanoError("Cada veículo deve ter quantidade igual a 1.")
             normalized_items.append(normalized)
-        if not discount.is_finite() or discount < 0:
-            raise XanoError("O desconto precisa ser finito e não negativo.")
 
         return {
             "cliente_id": cliente_id,
-            "forma_pagamento_id": forma_pagamento_id,
-            "numero_parcelas": numero_parcelas,
-            "Desconto": float(discount),
             "itens": normalized_items,
         }
 
     async def create_sale(self) -> None:
+        if self.processando or self.venda_id or self.creation_uncertain:
+            return
         self.processando, self.erro, self.mensagem = True, "", ""
+        attempted = False
         try:
             payload = self._sale_payload()
             auth_state = await self.get_state(AuthState)
+            attempted = True
             response = client.request(
                 "POST",
                 "/vendas",
@@ -379,13 +374,82 @@ class VendasState(rx.State):
                     "A venda foi enviada, mas a API não retornou o ID. "
                     "Verifique a venda no Xano antes de tentar criá-la novamente."
                 )
-            self.venda_id = str(sale_id)
+            try:
+                self.venda_id = str(_positive_integer(sale_id, "ID da venda retornado"))
+            except XanoError as exc:
+                raise XanoError("A API não retornou o ID válido da venda. Confira a listagem antes de repetir.") from exc
             self.parcelas = []
+            self.payment_flow = "ASAAS"
+            amount = Decimal(str(response.get("Valor_final")))
+            if not amount.is_finite() or amount <= 0:
+                raise XanoError("A API não retornou o valor final válido. A reserva foi preservada.")
+            self.total_confirmado = "R$ " + _format_currency(amount)
             self.mensagem = f"Venda #{sale_id} criada e reservada."
-        except (XanoError, ValueError) as exc:
+            await self.generate_payment_link()
+        except (XanoError, ValueError, InvalidOperation) as exc:
             self.erro = str(exc)
+            rejected = any(f"({status})" in self.erro for status in (400, 401, 403, 404, 409, 422))
+            rejected = rejected or "sessão expirou" in self.erro or "não tem permissão" in self.erro
+            if attempted and not self.venda_id and not rejected:
+                self.creation_uncertain = True
+                self.erro += " Confira a listagem de vendas antes de iniciar outra tentativa."
         finally:
             self.processando = False
+
+    async def generate_payment_link(self) -> None:
+        if not self.venda_id.isdigit() or int(self.venda_id) < 1:
+            self.erro = "Selecione uma venda válida para gerar o link."
+            return
+        self.processando, self.erro, self.mensagem = True, "", ""
+        try:
+            auth_state = await self.get_state(AuthState)
+            response = client.request(
+                "POST", f"/vendas/{self.venda_id}/link-pagamento", token=auth_state.token,
+            )
+            self._set_payment(response)
+            if not self.payment_url:
+                raise XanoError("A cobrança não retornou um link válido. A venda foi preservada.")
+            self.mensagem = "Link salvo. O pagamento será confirmado automaticamente pelo ASAAS."
+        except XanoError as exc:
+            self.erro = f"Venda #{self.venda_id} preservada. {exc}"
+        finally:
+            self.processando = False
+
+    def _set_payment(self, response: object) -> None:
+        if not isinstance(response, dict):
+            raise XanoError("A API retornou dados de pagamento inválidos.")
+        payment = response.get("asaas_cobranca", response)
+        if payment is None:
+            payment = {}
+        if not isinstance(payment, dict):
+            raise XanoError("A API retornou uma cobrança inválida.")
+        url = str(payment.get("invoice_url") or "").strip()
+        parsed = urlparse(url)
+        allowed_hosts = {"www.asaas.com", "asaas.com", "sandbox.asaas.com", "www.sandbox.asaas.com"}
+        if url and (parsed.scheme != "https" or parsed.hostname not in allowed_hosts or parsed.username or parsed.password):
+            raise XanoError("A API retornou um endereço de pagamento inválido.")
+        self.payment_url = url
+        self.payment_status = str(payment.get("status") or "")
+        due = str(payment.get("due_date") or "")
+        self.payment_due_date = _format_local_datetime(due) if due else ""
+
+    @rx.var
+    def payment_status_label(self) -> str:
+        return {
+            "": "Aguardando geração do link", "PENDING": "Aguardando pagamento",
+            "OVERDUE": "Vencida", "CONFIRMED": "Pagamento confirmado",
+            "RECEIVED": "Pagamento recebido", "RECEIVED_IN_CASH": "Pagamento recebido",
+            "DELETED": "Cobrança cancelada", "REFUNDED": "Pagamento estornado",
+            "CHARGEBACK_REQUESTED": "Pagamento em análise",
+        }.get(self.payment_status, "Consulte a situação na fatura")
+
+    def start_new_sale(self) -> None:
+        self.venda_id = self.payment_url = self.payment_status = self.payment_flow = ""
+        self.total_confirmado = self.payment_due_date = self.erro = self.mensagem = ""
+        self.cliente_id = ""
+        self.selected_items = []
+        self.parcelas = []
+        self.creation_uncertain = False
 
     @staticmethod
     def _extract_installments(response: object) -> list[dict[str, str]]:
@@ -417,14 +481,14 @@ class VendasState(rx.State):
             ):
                 continue
             try:
-                due_date = _format_local_datetime(str(row.get("vencimento") or ""))
+                due_date = _format_local_datetime(row.get("vencimento") or "")
             except XanoError:
                 continue
             if not due_date:
                 continue
             try:
                 received_at = _format_local_datetime(
-                    str(row.get("recebido_em") or ""),
+                    row.get("recebido_em") or "",
                     include_time=True,
                 )
             except XanoError:
@@ -449,8 +513,12 @@ class VendasState(rx.State):
         return installments
 
     async def load_sale(self) -> None:
+        self.payment_url = self.payment_status = self.payment_flow = ""
+        self.total_confirmado = self.payment_due_date = ""
+        self.parcelas = []
         sale_id = str(self.router.page.params.get("id", "")).strip()
         if not sale_id.isdigit() or int(sale_id) < 1:
+            self.venda_id = ""
             self.erro = "Identificador de venda inválido."
             return
         self.venda_id = sale_id
@@ -464,9 +532,16 @@ class VendasState(rx.State):
             )
             if not isinstance(response, dict):
                 raise XanoError("A API retornou dados inválidos para as parcelas.")
-            self.parcelas = []
-            await self.load_payment_methods()
-        except XanoError as exc:
+            self.payment_flow = str(response.get("payment_flow") or "LEGADO")
+            amount = Decimal(str(response.get("total_venda", 0)))
+            if not amount.is_finite() or amount <= 0:
+                raise XanoError("A API não retornou o valor válido da venda.")
+            self._set_payment(response)
+            self.total_confirmado = "R$ " + _format_currency(amount)
+            self.parcelas = self._extract_installments(response)
+            if self.payment_flow != "ASAAS":
+                await self.load_payment_methods()
+        except (XanoError, InvalidOperation, ValueError) as exc:
             self.erro = str(exc)
         finally:
             self.processando = False
@@ -474,6 +549,8 @@ class VendasState(rx.State):
     async def receive_installment(self, parcela_id: str) -> None:
         self.processando, self.erro, self.mensagem = True, "", ""
         try:
+            if self.payment_flow == "ASAAS":
+                raise XanoError("Recebimentos desta venda são confirmados pelo ASAAS.")
             if (
                 not self.venda_id
                 or not parcela_id.isdigit()

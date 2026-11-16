@@ -1,0 +1,14 @@
+{
+  "run_id": "asaas-check-29875dab-6c75-4e1d-b5a8-bccb142f24c5",
+  "submitted_payment": false,
+  "sale_id": 106,
+  "payment_choices": {
+    "pix": false,
+    "boleto": true,
+    "credit_card": false,
+    "submitted_payment": false
+  },
+  "cancelled": true,
+  "cancel_http_status": 200,
+  "completed": false
+}

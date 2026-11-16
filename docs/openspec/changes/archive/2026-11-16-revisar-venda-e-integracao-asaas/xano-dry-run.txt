@@ -1,0 +1,30 @@
+=== Push Preview: workspace 147643 ===
+  instance: x8ki-letl-twmt.n7.xano.io  |  workspace: Andrew's Workspace  |  cli: v1.3.4
+
+  Tables               +1 created  ~3 updated
+  Functions            +3 created
+  API Endpoints        ~8 updated
+
+--- Changes ---
+
+  UPDATE           table              asaas_cobranca
+  ADD_FIELD        table              asaas_cobranca
+  ADD_FIELD        table              asaas_cobranca
+  ADD_FIELD        table              asaas_cobranca
+  CREATE           table              asaas_evento
+  UPDATE           table              cliente
+  ADD_FIELD        table              cliente
+  UPDATE           table              venda
+  ADD_FIELD        table              venda
+  ADD_FIELD        table              venda
+  CREATE           function           asaas/customer
+  CREATE           function           asaas/reconcile
+  CREATE           function           asaas/request
+  UPDATE           query              webhooks/asaas/pagamentos POST
+  UPDATE           query              clientes POST
+  UPDATE           query              indicadores GET
+  UPDATE           query              vendas/{id}/cancelar POST
+  UPDATE           query              vendas/{id}/link-pagamento POST
+  UPDATE           query              vendas/{id}/pagamento GET
+  UPDATE           query              vendas/{id}/parcelas/{parcela_id}/receber POST
+  UPDATE           query              vendas POST

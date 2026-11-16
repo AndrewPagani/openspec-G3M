@@ -1,0 +1,31 @@
+﻿{
+  "status": "ok",
+  "timing": 1.49,
+  "result": {
+    "external_states": [
+      {
+        "sale_id": 102,
+        "status": "PENDING",
+        "deleted": true,
+        "refunds": []
+      },
+      {
+        "sale_id": 101,
+        "status": "REFUNDED",
+        "deleted": false,
+        "refunds": [
+          {
+            "status": "DONE",
+            "value": 40
+          }
+        ]
+      },
+      {
+        "sale_id": 106,
+        "status": "PENDING",
+        "deleted": true,
+        "refunds": []
+      }
+    ]
+  }
+}

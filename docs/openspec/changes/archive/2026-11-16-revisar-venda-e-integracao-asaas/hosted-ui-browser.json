@@ -1,0 +1,6 @@
+{
+  "pix": false,
+  "boleto": true,
+  "credit_card": false,
+  "submitted_payment": false
+}

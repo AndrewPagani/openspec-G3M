@@ -1,0 +1,100 @@
+{
+  "workspace": 147643,
+  "branch": "v1",
+  "kind": "public-authentication-only",
+  "groups": [
+    {
+      "name": "vendas",
+      "id": 435069,
+      "canonical": "Q9GErvvS",
+      "base_url": "https://x8ki-letl-twmt.n7.xano.io/api:Q9GErvvS"
+    },
+    {
+      "name": "cadastros",
+      "id": 435067,
+      "canonical": "cadastros",
+      "base_url": "https://x8ki-letl-twmt.n7.xano.io/api:cadastros"
+    },
+    {
+      "name": "asaas_webhooks",
+      "id": 435065,
+      "canonical": "asaas_webhooks",
+      "base_url": "https://x8ki-letl-twmt.n7.xano.io/api:asaas_webhooks"
+    }
+  ],
+  "checks": [
+    {
+      "group": "vendas",
+      "path": "/vendas",
+      "method": "POST",
+      "scenario": "no-authentication",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Unauthorized - Authentication Required",
+      "passed": true
+    },
+    {
+      "group": "vendas",
+      "path": "/vendas/0/link-pagamento",
+      "method": "POST",
+      "scenario": "no-authentication",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Unauthorized - Authentication Required",
+      "passed": true
+    },
+    {
+      "group": "vendas",
+      "path": "/vendas/0/pagamento",
+      "method": "GET",
+      "scenario": "no-authentication",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Unauthorized - Authentication Required",
+      "passed": true
+    },
+    {
+      "group": "cadastros",
+      "path": "/clientes",
+      "method": "POST",
+      "scenario": "no-authentication",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Unauthorized - Authentication Required",
+      "passed": true
+    },
+    {
+      "group": "asaas_webhooks",
+      "path": "/webhooks/asaas/pagamentos",
+      "method": "POST",
+      "scenario": "no-authentication",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Webhook nao autorizado",
+      "passed": true
+    },
+    {
+      "group": "asaas_webhooks",
+      "path": "/webhooks/asaas/pagamentos",
+      "method": "POST",
+      "scenario": "wrong-header",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Webhook nao autorizado",
+      "passed": true
+    },
+    {
+      "group": "asaas_webhooks",
+      "path": "/webhooks/asaas/pagamentos",
+      "method": "POST",
+      "scenario": "token-in-body",
+      "http_status": 401,
+      "code": "ERROR_CODE_UNAUTHORIZED",
+      "message": "Webhook nao autorizado",
+      "passed": true
+    }
+  ],
+  "data_sources": [
+    "live"
+  ]
+}

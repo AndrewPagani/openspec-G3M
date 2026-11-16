@@ -14,5 +14,5 @@ Distinga requisitos, código local, definição remota e comportamento comprovad
 
 Ao trabalhar na interface da change `revisar-venda-e-integracao-asaas`, usar
 a skill `impeccable` por solicitação do usuário. Consultar as orientações
-em `docs/openspec/changes/revisar-venda-e-integracao-asaas/AGENTS.md` e as
+em `docs/openspec/changes/archive/2026-11-16-revisar-venda-e-integracao-asaas/AGENTS.md` e as
 decisões registradas na exploração antes de alterar a tela de venda.

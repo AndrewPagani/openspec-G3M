@@ -2890,3 +2890,26 @@ html, body {
     flex: 0 0 auto;
   }
 }
+
+/* Nova venda: seleção visual existente e resumo de cobrança. */
+.sale-intro, .sale-help { color: var(--internal-muted, #aab4c3); line-height: 1.5; }
+.sale-workspace { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 28px; align-items: start; }
+.sale-workspace .sale-picker-card { display: flex; flex-direction: column; background: #101827 !important; color: #edf3f8; border: 1px solid #334155; box-shadow: none; }
+.sale-workspace .sale-picker-card::before { background: none; }
+.sale-workspace .sale-picker-empty { background: #1d293b; color: #aabbd0; }
+.sale-workspace .sale-selected-item { border: 0; border-bottom: 1px solid #334155; border-radius: 0; background: transparent; padding: 12px 0; }
+.sale-workspace button { min-height: 36px; }
+.sale-selection { border: 0; margin: 0; padding: 0; min-width: 0; }
+.sale-selection:disabled { opacity: 1; }
+.sale-selection:disabled button[role="combobox"] { opacity: 1 !important; color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1; background: #172235 !important; }
+.sale-error { background: #301c26 !important; color: #fda4af !important; }
+.sale-error * { color: inherit; }
+.sale-summary { padding: 24px; border: 1px solid var(--internal-border, #334155); border-radius: 12px; background: var(--internal-surface, #141e2b); position: sticky; top: 24px; min-width: 0; }
+.sale-total-amount { font-size: 1.75rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sale-selected-item { border-bottom: 1px solid var(--internal-border, #334155); padding: 12px 0; gap: 12px; }
+.sale-selected-item > div { min-width: 0; overflow-wrap: anywhere; }
+.sale-payment-panel { overflow-wrap: anywhere; }
+.sale-price { font-variant-numeric: tabular-nums; }
+.sale-workspace a:focus-visible, .sale-workspace button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 3px; }
+@media (max-width: 1100px) { .sale-workspace { grid-template-columns: minmax(0, 1fr); } .sale-summary { position: static; } }
+@media (max-width: 680px) { .sale-summary { padding: 18px; } .sale-workspace { gap: 20px; } }

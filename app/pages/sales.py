@@ -13,7 +13,7 @@ def _sale_log_row(row: rx.Var) -> rx.Component:
         rx.table.cell(row["forma"]),
         rx.table.cell("R$ " + row["valor_final"]),
         rx.table.cell(row["data"]),
-        rx.table.cell(rx.link("Parcelas", href="/vendas/" + row["id"])),
+        rx.table.cell(rx.link("Ver pagamento", href="/vendas/" + row["id"])),
     )
 
 
@@ -52,7 +52,7 @@ def sales_list_page() -> rx.Component:
                     width="210px",
                 ),
                 rx.button("Filtrar", on_click=VendasState.load_sales),
-                rx.link(rx.button("Criar venda"), href="/vendas/nova"),
+                rx.link(rx.button("Criar venda"), href="/vendas/nova", on_click=VendasState.start_new_sale),
                 wrap="wrap",
                 spacing="3",
                 width="100%",
@@ -94,8 +94,8 @@ def _vehicle_picker(row: rx.Var) -> rx.Component:
             rx.box(rx.icon("car-front", size=34), class_name="sale-picker-image sale-picker-empty"),
         ),
         rx.heading(row["nome"], size="3"),
-        rx.text("R$ " + row["preco"]),
-        rx.button("Selecionar", on_click=VendasState.add_vehicle(row["id"])),
+        rx.text("R$ " + row["preco"], class_name="sale-price"),
+        rx.button("Selecionar veículo", on_click=VendasState.add_vehicle(row["id"]), variant="outline"),
         class_name="sale-picker-card",
     )
 
@@ -117,7 +117,7 @@ def _part_picker(row: rx.Var) -> rx.Component:
                 value=VendasState.selected_part_quantity,
                 on_change=VendasState.set_selected_part_quantity,
                 width="78px",
-                aria_label="Quantidade da peça",
+                aria_label="Quantidade de " + row["nome"],
             ),
             rx.button(
                 "Adicionar",
@@ -129,124 +129,120 @@ def _part_picker(row: rx.Var) -> rx.Component:
     )
 
 
+def _payment_panel() -> rx.Component:
+    return rx.vstack(
+        rx.heading("Pagamento da venda #" + VendasState.venda_id, size="4"),
+        rx.text(VendasState.total_confirmado, class_name="sale-total-amount"),
+        rx.text(VendasState.payment_status_label, role="status"),
+        rx.cond(VendasState.payment_due_date != "", rx.text("Vencimento: " + VendasState.payment_due_date)),
+        rx.cond(
+            VendasState.payment_url != "",
+            rx.vstack(
+                rx.text("O cliente escolhe como pagar na fatura do ASAAS."),
+                rx.hstack(
+                    rx.link(rx.button("Abrir link de pagamento"), href=VendasState.payment_url,
+                            is_external=True, rel="noopener noreferrer"),
+                    rx.button("Copiar link", variant="outline",
+                              on_click=rx.set_clipboard(VendasState.payment_url)),
+                    wrap="wrap", spacing="3",
+                ),
+                rx.text("O link fica salvo nesta venda. Não enviamos e-mails.", class_name="sale-help"),
+                align="start", spacing="3", width="100%",
+            ),
+            rx.vstack(
+                rx.text("A venda está reservada. Você pode gerar ou recuperar o link sem criar outra venda."),
+                rx.button("Gerar ou recuperar link", on_click=VendasState.generate_payment_link,
+                          loading=VendasState.processando),
+                align="start", spacing="3",
+            ),
+        ),
+        align="start", spacing="4", width="100%", class_name="sale-payment-panel",
+    )
+
+
+def _selected_item(item: rx.Var) -> rx.Component:
+    return rx.hstack(
+        rx.vstack(
+            rx.text(item["nome"], weight="medium"),
+            rx.text(item["qtd"] + " × R$ " + item["preco"], class_name="sale-help"),
+            align="start", spacing="1",
+        ),
+        rx.button("Remover", on_click=VendasState.remove_item(item["tipo"], item["id"]),
+                  variant="ghost", size="1", disabled=VendasState.processando | (VendasState.venda_id != "")),
+        justify="between", align="center", width="100%", class_name="sale-selected-item",
+    )
+
+
 def sales_create_page() -> rx.Component:
     return shell(
         rx.vstack(
-            rx.text("Selecione o cliente, os itens disponíveis e confirme os valores da venda."),
-            rx.select.root(
-                rx.select.trigger(placeholder="Selecione o cliente"),
-                rx.select.content(
-                    rx.foreach(
-                        VendasState.clientes,
-                        lambda client: rx.select.item(client["nome"], value=client["id"]),
-                    )
-                ),
-                value=VendasState.cliente_id,
-                on_change=VendasState.set_cliente_id,
-                width="100%",
-            ),
-            rx.heading("Veículos disponíveis", size="4"),
-            rx.scroll_area(
-                rx.hstack(
-                    rx.foreach(VendasState.veiculos_disponiveis, _vehicle_picker),
-                    spacing="4",
-                ),
-                type="scroll",
-                scrollbars="horizontal",
-                class_name="sale-picker-carousel",
-            ),
-            rx.heading("Peças com estoque", size="4"),
-            rx.scroll_area(
-                rx.hstack(
-                    rx.foreach(VendasState.pecas_disponiveis, _part_picker),
-                    spacing="4",
-                ),
-                type="scroll",
-                scrollbars="horizontal",
-                class_name="sale-picker-carousel",
-            ),
-            rx.heading("Itens selecionados", size="4"),
-            rx.foreach(
-                VendasState.selected_items,
-                lambda item: rx.hstack(
-                    rx.text(item["nome"] + " x" + item["qtd"]),
-                    rx.text("R$ " + item["preco"]),
-                    rx.button("Remover", on_click=VendasState.remove_item(item["id"]), size="1"),
-                    justify="between",
-                    width="100%",
-                    class_name="sale-selected-item",
-                ),
-            ),
-            rx.select.root(
-                rx.select.trigger(placeholder="Selecione a forma de pagamento"),
-                rx.select.content(
-                    rx.foreach(
-                        VendasState.payment_methods,
-                        lambda method: rx.select.item(
-                            method["name"],
-                            value=method["id"],
+            rx.text("Escolha o cliente e os itens. Depois, compartilhe o link de pagamento.", class_name="sale-intro"),
+            rx.cond(VendasState.erro != "", rx.callout(VendasState.erro, color_scheme="red", role="alert", class_name="sale-error")),
+            rx.cond(VendasState.mensagem != "", rx.callout(VendasState.mensagem, role="status")),
+            rx.box(
+                rx.el.fieldset(
+                    rx.vstack(
+                        rx.hstack(
+                            rx.heading("Cliente", size="4"), rx.spacer(),
+                            rx.link("Cadastrar cliente", href="/clientes/novo"),
+                            width="100%", align="center",
                         ),
-                    )
-                ),
-                value=VendasState.forma_pagamento_id,
-                on_change=VendasState.set_forma_pagamento_id,
-                width="100%",
-            ),
-            rx.input(
-                placeholder="Desconto (0 se não houver)",
-                aria_label="Desconto",
-                value=VendasState.desconto,
-                on_change=VendasState.set_desconto,
-            ),
-            rx.input(
-                type="number",
-                min="1",
-                max="24",
-                placeholder="Quantidade de parcelas (1 a 24)",
-                aria_label="Quantidade de parcelas",
-                value=VendasState.numero_parcelas,
-                on_change=VendasState.set_numero_parcelas,
-            ),
-            rx.hstack(
-                rx.text("Valor bruto: " + VendasState.valor_bruto_display),
-                rx.text("Valor final: " + VendasState.valor_final_display),
-                justify="between",
-                width="100%",
-                class_name="sale-totals",
-            ),
-            rx.cond(
-                VendasState.venda_id == "",
-                rx.button(
-                    "Criar e reservar venda",
-                    on_click=VendasState.create_sale,
-                    loading=VendasState.processando,
-                ),
-                rx.fragment(),
-            ),
-            rx.cond(
-                VendasState.venda_id != "",
-                rx.vstack(
-                    rx.heading(f"Venda #{VendasState.venda_id} reservada", size="4"),
-                    rx.link(
-                        "Ver parcelas e registrar recebimentos",
-                        href=f"/vendas/{VendasState.venda_id}",
+                        rx.select.root(
+                            rx.select.trigger(placeholder="Selecione o cliente", aria_label="Cliente da venda"),
+                            rx.select.content(rx.foreach(VendasState.clientes,
+                                lambda customer: rx.select.item(customer["nome"], value=customer["id"]))),
+                            value=VendasState.cliente_id, on_change=VendasState.set_cliente_id, width="100%",
+                        ),
+                        rx.heading("Veículos disponíveis", size="4"),
+                        rx.cond(VendasState.veiculos_disponiveis.length() > 0,
+                            rx.scroll_area(rx.hstack(rx.foreach(VendasState.veiculos_disponiveis, _vehicle_picker), spacing="4"),
+                                           type="scroll", scrollbars="horizontal", class_name="sale-picker-carousel"),
+                            rx.text("Nenhum veículo disponível. Você ainda pode incluir peças.", class_name="sale-help")),
+                        rx.heading("Peças com estoque", size="4"),
+                        rx.cond(VendasState.pecas_disponiveis.length() > 0,
+                            rx.scroll_area(rx.hstack(rx.foreach(VendasState.pecas_disponiveis, _part_picker), spacing="4"),
+                                           type="scroll", scrollbars="horizontal", class_name="sale-picker-carousel"),
+                            rx.text("Nenhuma peça com estoque disponível.", class_name="sale-help")),
+                        spacing="5", align="stretch", width="100%",
                     ),
-                    spacing="3",
-                    align="start",
-                    width="100%",
+                    disabled=VendasState.processando | (VendasState.venda_id != "") | VendasState.creation_uncertain,
+                    class_name="sale-selection",
                 ),
-                rx.fragment(),
+                rx.vstack(
+                    rx.cond(
+                        VendasState.venda_id != "",
+                        rx.vstack(
+                            _payment_panel(),
+                            rx.link("Ver detalhes da venda", href="/vendas/" + VendasState.venda_id),
+                            rx.button("Iniciar outra venda", on_click=VendasState.start_new_sale, variant="outline",
+                                      disabled=VendasState.processando),
+                            align="start", spacing="4", width="100%",
+                        ),
+                        rx.vstack(
+                            rx.heading("Resumo da venda", size="4"),
+                            rx.cond(VendasState.selected_items.length() > 0,
+                                rx.foreach(VendasState.selected_items, _selected_item),
+                                rx.text("Selecione um veículo ou adicione peças para montar a venda.", class_name="sale-help")),
+                            rx.separator(),
+                            rx.text("Total previsto", class_name="sale-help"),
+                            rx.text(VendasState.valor_bruto_display, class_name="sale-total-amount"),
+                            rx.text("O valor será conferido ao reservar os itens.", class_name="sale-help"),
+                            rx.separator(),
+                            rx.text("O cliente escolhe como pagar no link do ASAAS."),
+                            rx.text("Sem envio de e-mail. O link ficará salvo na venda.", class_name="sale-help"),
+                            rx.button("Criar venda e gerar link", on_click=VendasState.create_sale,
+                                      loading=VendasState.processando, width="100%",
+                                      disabled=(VendasState.cliente_id == "") | (VendasState.selected_items.length() == 0) | VendasState.creation_uncertain),
+                            rx.cond(VendasState.creation_uncertain,
+                                rx.link("Conferir vendas registradas", href="/vendas")),
+                            align="stretch", spacing="4", width="100%",
+                        ),
+                    ),
+                    class_name="sale-summary", align="stretch", spacing="4",
+                ),
+                class_name="sale-workspace",
             ),
-            rx.cond(VendasState.mensagem != "", rx.callout(VendasState.mensagem)),
-            rx.cond(
-                VendasState.erro != "",
-                rx.callout(VendasState.erro, color_scheme="red"),
-            ),
-            spacing="4",
-            align="start",
-            width="100%",
-            max_width="760px",
-            on_mount=VendasState.load_sale_references,
+            width="100%", spacing="5", on_mount=VendasState.load_sale_references,
         ),
         "Nova venda",
     )
@@ -255,12 +251,10 @@ def sales_create_page() -> rx.Component:
 def sales_detail_page() -> rx.Component:
     return shell(
         rx.vstack(
-            rx.text(
-                "Parcelas registradas no Xano. A baixa manual apenas registra "
-                "a informação confirmada pela equipe; não processa pagamentos."
-            ),
+            rx.cond(VendasState.payment_flow == "ASAAS", _payment_panel(),
+                rx.text("Histórico de parcelas da venda anterior à integração ASAAS.")),
             rx.cond(
-                AuthState.is_manager & (VendasState.payment_methods.length() > 0),
+                AuthState.is_manager & (VendasState.payment_flow != "ASAAS") & (VendasState.payment_methods.length() > 0),
                 rx.select.root(
                     rx.select.trigger(placeholder="Forma realmente recebida"),
                     rx.select.content(
@@ -301,7 +295,7 @@ def sales_detail_page() -> rx.Component:
                         align="start",
                     ),
                     rx.cond(
-                        (parcela["status"] == "PENDENTE") & AuthState.is_manager,
+                        (parcela["status"] == "PENDENTE") & AuthState.is_manager & (VendasState.payment_flow != "ASAAS"),
                         rx.button(
                             "Confirmar recebimento integral",
                             on_click=VendasState.receive_installment(parcela["id"]),
@@ -321,6 +315,7 @@ def sales_detail_page() -> rx.Component:
                 VendasState.erro != "",
                 rx.callout(VendasState.erro, color_scheme="red"),
             ),
+            rx.button("Atualizar pagamento", on_click=VendasState.load_sale, variant="outline", loading=VendasState.processando),
             rx.link("Voltar para vendas", href="/vendas"),
             spacing="4",
             align="start",
@@ -328,5 +323,5 @@ def sales_detail_page() -> rx.Component:
             max_width="760px",
             on_mount=VendasState.load_sale,
         ),
-        "Parcelas da venda",
+        "Pagamento da venda",
     )

@@ -25,11 +25,11 @@ class AuthState(rx.State):
 
     @rx.var
     def is_admin(self) -> bool:
-        return False
+        return self.profile.strip().casefold() == "administrador"
 
     @rx.var
     def is_manager(self) -> bool:
-        return _role_is_manager(self.profile)
+        return _role_is_manager(self.profile) or self.is_admin
 
     def set_email(self, value: str) -> None:
         self.email = value

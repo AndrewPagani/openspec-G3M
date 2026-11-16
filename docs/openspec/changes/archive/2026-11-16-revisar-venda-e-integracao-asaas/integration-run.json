@@ -1,0 +1,368 @@
+{
+  "run_id": "asaas-check-29875dab-6c75-4e1d-b5a8-bccb142f24c5",
+  "workspace": 147643,
+  "branch": "v1",
+  "sandbox": true,
+  "checks": [
+    {
+      "name": "sandbox_configuration",
+      "passed": true
+    },
+    {
+      "name": "customer_registration",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "customer_retry_same_id",
+      "passed": true
+    },
+    {
+      "name": "mixed_sale_creation",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "other_seller_denied",
+      "passed": true,
+      "http_status": 403
+    },
+    {
+      "name": "client_role_denied",
+      "passed": true,
+      "http_status": 403
+    },
+    {
+      "name": "seller_generates_invoice",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "manager_recovers_same_invoice",
+      "passed": true
+    },
+    {
+      "name": "notifications_disabled",
+      "passed": true
+    },
+    {
+      "name": "reopen_persisted_invoice",
+      "passed": true
+    },
+    {
+      "name": "stock_reserved_once",
+      "passed": true
+    },
+    {
+      "name": "sandbox_payment_simulated",
+      "passed": true,
+      "status": "RECEIVED"
+    },
+    {
+      "name": "automatic_asaas_webhook_marks_paid",
+      "passed": true,
+      "status": "Paga"
+    },
+    {
+      "name": "stale_duplicate_webhook_1",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "stale_duplicate_webhook_2",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "one_receipt_no_stock_regression",
+      "passed": true
+    },
+    {
+      "name": "paid_sale_cancellation_denied",
+      "passed": true,
+      "http_status": 400
+    },
+    {
+      "name": "concurrent_stock_reservation_one_winner",
+      "passed": true,
+      "http_statuses": [
+        400,
+        200
+      ]
+    },
+    {
+      "name": "pending_sale_invoice",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "pending_charge_cancelled_before_release",
+      "passed": true,
+      "http_status": 200
+    },
+    {
+      "name": "repeated_cancellation_idempotent",
+      "passed": true
+    },
+    {
+      "name": "cancellation_restores_stock_once",
+      "passed": true
+    },
+    {
+      "name": "manager_indicators_runtime",
+      "passed": false,
+      "http_status": 400,
+      "response": {
+        "code": "ERROR_CODE_INPUT_ERROR",
+        "message": "ParseError: Invalid value for param:\"venda.data_venda\""
+      }
+    }
+  ],
+  "fixture": {
+    "vehicle_id": 27,
+    "part_id": 11,
+    "actors": [
+      {
+        "name": "seller",
+        "id": 52
+      },
+      {
+        "name": "other",
+        "id": 53
+      },
+      {
+        "name": "manager",
+        "id": 54
+      },
+      {
+        "name": "client",
+        "id": 55
+      }
+    ],
+    "customer_id": 102,
+    "sale_id": 101,
+    "cancel_sale_id": 102
+  },
+  "completed": false,
+  "previous_attempts": [
+    {
+      "checks": [
+        {
+          "name": "sandbox_configuration",
+          "passed": true
+        },
+        {
+          "name": "customer_registration",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "customer_retry_same_id",
+          "passed": true
+        },
+        {
+          "name": "mixed_sale_creation",
+          "passed": false,
+          "http_status": 400,
+          "response": {
+            "code": "ERROR_CODE_INPUT_ERROR",
+            "message": "Missing param: peca_id",
+            "payload": {
+              "param": "itens.0.peca_id"
+            }
+          }
+        }
+      ],
+      "error": "Check failed: mixed_sale_creation"
+    },
+    {
+      "checks": [
+        {
+          "name": "sandbox_configuration",
+          "passed": true
+        },
+        {
+          "name": "customer_registration",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "customer_retry_same_id",
+          "passed": true
+        },
+        {
+          "name": "mixed_sale_creation",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "other_seller_denied",
+          "passed": true,
+          "http_status": 403
+        },
+        {
+          "name": "client_role_denied",
+          "passed": true,
+          "http_status": 403
+        },
+        {
+          "name": "seller_generates_invoice",
+          "passed": false,
+          "http_status": 500,
+          "response": {
+            "code": "ERROR_FATAL",
+            "message": "Unable to locate func entry: epoch_ms_add_days"
+          }
+        }
+      ],
+      "error": "Check failed: seller_generates_invoice"
+    },
+    {
+      "checks": [
+        {
+          "name": "sandbox_configuration",
+          "passed": true
+        },
+        {
+          "name": "customer_registration",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "customer_retry_same_id",
+          "passed": true
+        },
+        {
+          "name": "mixed_sale_creation",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "other_seller_denied",
+          "passed": true,
+          "http_status": 403
+        },
+        {
+          "name": "client_role_denied",
+          "passed": true,
+          "http_status": 403
+        },
+        {
+          "name": "seller_generates_invoice",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "manager_recovers_same_invoice",
+          "passed": true
+        },
+        {
+          "name": "notifications_disabled",
+          "passed": true
+        },
+        {
+          "name": "reopen_persisted_invoice",
+          "passed": true
+        },
+        {
+          "name": "stock_reserved_once",
+          "passed": true
+        },
+        {
+          "name": "sandbox_payment_simulated",
+          "passed": true,
+          "status": "RECEIVED"
+        },
+        {
+          "name": "automatic_asaas_webhook_marks_paid",
+          "passed": true,
+          "status": "Paga"
+        },
+        {
+          "name": "stale_duplicate_webhook_1",
+          "passed": false
+        }
+      ],
+      "error": "Check failed: stale_duplicate_webhook_1"
+    },
+    {
+      "checks": [
+        {
+          "name": "sandbox_configuration",
+          "passed": true
+        },
+        {
+          "name": "customer_registration",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "customer_retry_same_id",
+          "passed": true
+        },
+        {
+          "name": "mixed_sale_creation",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "other_seller_denied",
+          "passed": true,
+          "http_status": 403
+        },
+        {
+          "name": "client_role_denied",
+          "passed": true,
+          "http_status": 403
+        },
+        {
+          "name": "seller_generates_invoice",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "manager_recovers_same_invoice",
+          "passed": true
+        },
+        {
+          "name": "notifications_disabled",
+          "passed": true
+        },
+        {
+          "name": "reopen_persisted_invoice",
+          "passed": true
+        },
+        {
+          "name": "stock_reserved_once",
+          "passed": true
+        },
+        {
+          "name": "sandbox_payment_simulated",
+          "passed": true,
+          "status": "RECEIVED"
+        },
+        {
+          "name": "automatic_asaas_webhook_marks_paid",
+          "passed": true,
+          "status": "Paga"
+        },
+        {
+          "name": "stale_duplicate_webhook_1",
+          "passed": true,
+          "http_status": 200
+        },
+        {
+          "name": "stale_duplicate_webhook_2",
+          "passed": false,
+          "http_status": 429,
+          "response": {
+            "code": "ERROR_CODE_TOO_MANY_REQUESTS",
+            "message": "Whoa there! Your plan only supports 10 requests per 20 seconds. Upgrade options and additional information is available at: https://docs.xano.com/api-rate-limit"
+          }
+        }
+      ],
+      "error": "Check failed: stale_duplicate_webhook_2"
+    }
+  ],
+  "error": "Check failed: manager_indicators_runtime"
+}

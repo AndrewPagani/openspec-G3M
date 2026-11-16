@@ -1,8 +1,61 @@
-assets/external/
-.states
-.web
+# Ambiente Python, bytecode e caches locais
+/.venv/
+/venv/
 __pycache__/
-*.db
 *.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.tox/
+.nox/
 
-.env
+# Arquivos gerados pelo Reflex e dependencias do frontend
+/.states/
+/.web/
+node_modules/
+assets/external/
+
+# Saidas de build, cobertura e execucao de testes
+/build/
+/dist/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Temporarios e capturas de verificacao local
+/.codex-tmp/
+/.impeccable/review/
+/tmp/
+/temp/
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# Ferramentas pontuais da homologacao ASAAS encerrada
+/scripts/verify_asaas_e2e.mjs
+/scripts/verify_asaas_followup.mjs
+/scripts/verify_asaas_hosted_ui.mjs
+/scripts/verify_xano_asaas_public.mjs
+/scripts/prepare_xano_asaas_test_source.mjs
+/scripts/inspect_asaas_invoice.py
+/scripts/finalize_asaas_test_cleanup.mjs
+/xanoscript/asaas-tests/
+
+# Dados locais e configuracao ja excluidos pelo projeto
+*.db
+/.env
+
+# Metadados do sistema operacional
+.DS_Store
+Thumbs.db
+Desktop.ini

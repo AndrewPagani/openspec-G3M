@@ -10,7 +10,6 @@ from typing import Any
 
 import httpx
 
-
 DEFAULT_XANO_BASE_URL = "https://x8ki-letl-twmt.n7.xano.io"
 
 
@@ -41,7 +40,6 @@ class XanoClient:
         route = path.strip("/")
         if (
             route.startswith("webhooks/")
-            or route.endswith("/link-pagamento")
             or route.endswith("/pagamento/atualizar")
             or route.endswith("/pagamento/notificar")
         ):
