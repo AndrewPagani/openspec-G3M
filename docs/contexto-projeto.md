@@ -1,5 +1,28 @@
 # Contexto verificado do projeto
 
+## Rotas locais recuperadas em 16/11/2026
+
+Após o refinamento do dashboard, foi reproduzido `404: Page not found` nas
+demais telas, apesar de os arquivos de rotas e registros Python existirem.
+O manifesto do servidor de desenvolvimento continha somente `/`,
+`/gerenciamento` e o fallback, enquanto `.web/routes.json` continha a lista
+completa. Reiniciar o frontend reconstruiu o manifesto. O backend também estava
+parado na conferência seguinte e foi restabelecido como execução normal do app,
+sem fixtures. Nenhuma rota Python, endpoint Xano ou regra de autorização foi alterada.
+As instruções de recuperação estão no README; HTTP 200 isoladamente não serve
+como verificação da renderização.
+
+## Dashboard refinado e change arquivada em 16/11/2026
+
+`refinar-design-dashboard` foi aplicada com Impeccable e arquivada com 12/12
+tarefas concluídas. Os três requisitos visuais foram sincronizados na
+[spec de dashboard](openspec/specs/dashboard-gerencial/spec.md), preservando
+os oito requisitos anteriores. Ver [encerramento e evidências](openspec/changes/archive/2026-11-16-refinar-design-dashboard/closure.md).
+Foram verificados 101 testes, build, lint crítico e interface com fixtures;
+isso não revalida autorização ou API Xano. O cartão local passou a se chamar
+“Valor médio por venda”, com base bruta explícita. O ticket médio financeiro
+baseado em recebimentos continua como pendência funcional, sem mudança de fórmula.
+
 ## Limpeza de arquivos locais em 16/11/2026
 
 A pedido do usuário, temporários, capturas locais, caches e ferramentas pontuais

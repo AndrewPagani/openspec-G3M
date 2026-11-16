@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
+from collections.abc import AsyncIterator
 from datetime import date, datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 import reflex as rx
@@ -424,15 +426,25 @@ def _chart_rows(
         if secondary_value_key is not None:
             secondary_value = row.get(secondary_value_key)
             if secondary_value is None:
-                secondary_value = row.get("valor") or row.get("valor_total") or 0
-            chart_row["valor_total"] = _rounded_number(secondary_value, label)
+                secondary_value = next(
+                    (
+                        row[key]
+                        for key in ("valor", "valor_total")
+                        if row.get(key) is not None
+                    ),
+                    None,
+                )
+            if secondary_value is not None:
+                chart_row["valor_total"] = _rounded_number(secondary_value, label)
         rows.append(chart_row)
     rows.sort(key=lambda row: row["quantidade"], reverse=True)
     if max_categories is not None and len(rows) > max_categories:
         rows = rows[: max_categories - 1] + [
             {
                 "nome": "Outros",
-                "quantidade": sum(row["quantidade"] for row in rows[max_categories - 1 :]),
+                "quantidade": sum(
+                    row["quantidade"] for row in rows[max_categories - 1 :]
+                ),
                 **(
                     {
                         "valor_total": sum(
@@ -449,21 +461,32 @@ def _chart_rows(
 
 
 _CHART_COLORS = (
-    "#0f766e",
-    "#2563eb",
-    "#7c3aed",
-    "#ea580c",
-    "#db2777",
-    "#ca8a04",
-    "#0891b2",
-    "#65a30d",
+    "#60a5fa",
+    "#2dd4bf",
+    "#c4b5fd",
+    "#fbbf24",
+    "#93c5fd",
+    "#67e8f9",
 )
 
 
-def _color_chart_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _color_chart_rows(
+    rows: list[dict[str, Any]], category_ids: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
     return [
-        {**row, "cor": _CHART_COLORS[index % len(_CHART_COLORS)]}
-        for index, row in enumerate(rows)
+        {
+            **row,
+            "cor": _CHART_COLORS[
+                int.from_bytes(
+                    hashlib.sha256(
+                        str(row.get("id", (category_ids or {}).get(row["nome"], row["nome"]))).encode("utf-8")
+                    ).digest()[:4],
+                    "big",
+                )
+                % len(_CHART_COLORS)
+            ],
+        }
+        for row in rows
     ]
 
 
@@ -719,9 +742,12 @@ class DashboardState(rx.State):
         self.mix_itens = []
         self.veiculos_por_status = []
 
-    async def load(self) -> None:
+    async def load(self) -> AsyncIterator[None]:
         self.loading, self.error = True, ""
         self._clear_metrics()
+        # Flush the loading state before awaiting I/O, so old results are not
+        # presented as a completed refresh and the action is disabled in time.
+        yield
         try:
             start = date.fromisoformat(self.data_inicio)
             end = date.fromisoformat(self.data_fim)
@@ -774,44 +800,62 @@ class DashboardState(rx.State):
                     + "."
                 )
 
-            self.valor_liquido = _currency(kpis["valor_liquido_recebido_periodo"], "valor líquido")
+            self.valor_liquido = _currency(
+                kpis["valor_liquido_recebido_periodo"], "valor líquido"
+            )
             total_vendas = kpis["total_vendas_periodo"]
             self.total_vendas = _count(total_vendas, "vendas no período")
             self.vendas_pagas = _count(kpis["vendas_pagas"], "vendas pagas")
-            self.valor_bruto = _currency(kpis["valor_bruto_vendido"], "valor bruto vendido")
+            self.valor_bruto = _currency(
+                kpis["valor_bruto_vendido"], "valor bruto vendido"
+            )
             self.ticket_medio = _average_currency(
                 kpis["valor_bruto_vendido"],
                 total_vendas,
                 "vendas no período",
             )
-            self.vendas_canceladas = _count(kpis["vendas_canceladas"], "vendas canceladas")
+            self.vendas_canceladas = _count(
+                kpis["vendas_canceladas"], "vendas canceladas"
+            )
             self.percentual_canceladas = _percentage(
                 kpis["percentual_vendas_canceladas"], "percentual de vendas canceladas"
             )
             low_stock = _extract_series(result, "pecas_baixo_estoque")
             self.pecas_baixo_estoque = _normalize_low_stock_rows(low_stock)
-            self.pecas_baixo_estoque_labels = _low_stock_labels(self.pecas_baixo_estoque)
+            self.pecas_baixo_estoque_labels = _low_stock_labels(
+                self.pecas_baixo_estoque
+            )
             marcas_vendidas = _extract_series(result, "veiculos_vendidos_por_marca")
             self.veiculos_vendidos_por_marca = _analysis_rows(
                 marcas_vendidas,
                 "veículos vendidos por marca",
             )
-            self.chart_veiculos_vendidos_por_marca = _color_chart_rows(
-                _chart_rows(
+            self.chart_veiculos_vendidos_por_marca = [
+                {**row, "cor": "#60a5fa"}
+                for row in _chart_rows(
                     marcas_vendidas,
                     "veículos vendidos por marca",
                     name_key="marca",
                     value_key="quantidade",
                     max_categories=None,
                 )
+            ]
+            categorias_vendidas = _extract_series(
+                result, "pecas_vendidas_por_categoria"
             )
-            categorias_vendidas = _extract_series(result, "pecas_vendidas_por_categoria")
             self.pecas_vendidas_por_categoria = _analysis_rows(
                 categorias_vendidas,
                 "peças vendidas por categoria",
             )
-            self.chart_pecas_vendidas_por_categoria = _color_chart_rows(
-                _chart_rows(
+            self.chart_pecas_vendidas_por_categoria = [
+                {
+                    **row,
+                    "cor": "#60a5fa",
+                    "valor_formatado": _currency(row["valor_total"], "valor de peças")
+                    if "valor_total" in row
+                    else "",
+                }
+                for row in _chart_rows(
                     categorias_vendidas,
                     "peças vendidas por categoria",
                     name_key="categoria",
@@ -819,7 +863,7 @@ class DashboardState(rx.State):
                     secondary_value_key="valor_total",
                     max_categories=None,
                 )
-            )
+            ]
             self.conversao_estoque = _analysis_rows(
                 _extract_series(result, "conversao_estoque"),
                 "conversão de estoque",
@@ -829,15 +873,21 @@ class DashboardState(rx.State):
                 "giro de estoque",
             )
             if auth_state.is_manager:
-                self.veiculos_disponiveis = _count(kpis["veiculos_disponiveis"], "veículos disponíveis")
-                self.pecas_disponiveis = _count(kpis["pecas_qtd_disponivel"], "peças disponíveis")
+                self.veiculos_disponiveis = _count(
+                    kpis["veiculos_disponiveis"], "veículos disponíveis"
+                )
+                self.pecas_disponiveis = _count(
+                    kpis["pecas_qtd_disponivel"], "peças disponíveis"
+                )
                 self.valor_veiculos = (
                     _currency(result["valor_veiculos_disponiveis"], "valor de veículos")
                     if "valor_veiculos_disponiveis" in result
                     else "—"
                 )
                 self.valor_estoque_pecas = (
-                    _currency(result["valor_estoque_pecas"], "valor do estoque de peças")
+                    _currency(
+                        result["valor_estoque_pecas"], "valor do estoque de peças"
+                    )
                     if "valor_estoque_pecas" in result
                     else "—"
                 )
@@ -849,7 +899,9 @@ class DashboardState(rx.State):
             timeline_rows = _extract_series(result, "vendas_timeline")
             if timeline_rows is None:
                 timeline_rows = _extract_series(result, "vendas_por_periodo")
-            self.timeline_rows = timeline_rows if isinstance(timeline_rows, list) else []
+            self.timeline_rows = (
+                timeline_rows if isinstance(timeline_rows, list) else []
+            )
             self.vendas_por_periodo = _report_rows(timeline_rows, "vendas por período")
             self.chart_vendas_por_periodo = _timeline_chart_rows(
                 _trend_chart_rows(timeline_rows, self.periodo_ativo)
@@ -892,6 +944,10 @@ class DashboardState(rx.State):
                 "forma de pagamento",
                 id_keys=("forma_id", "forma_pagamento_id", "id"),
                 name_keys=("metodo", "Metodo", "nome"),
+            )
+            self.chart_formas_pagamento = _color_chart_rows(
+                self.chart_formas_pagamento,
+                {option["nome"]: option["id"] for option in self.forma_pagamento_opcoes},
             )
             self.pagamentos_com_movimento = len(self.chart_formas_pagamento) > 0
             mix_rows = _extract_series(result, "mix_itens", "vendas_por_tipo_item")

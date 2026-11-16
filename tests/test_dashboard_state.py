@@ -19,6 +19,7 @@ from app.state.dashboard_state import (
     _trend_chart_rows,
     _has_chart_values,
     _payment_chart_rows,
+    _color_chart_rows,
     _low_stock_labels,
     _normalize_low_stock_rows,
     _salesperson_rows,
@@ -27,6 +28,21 @@ from app.state.auth_state import _role_is_manager
 
 
 class DashboardStateTests(unittest.TestCase):
+    def test_category_colors_survive_sorting_and_filtering(self) -> None:
+        rows = [{"id": 11, "nome": "Pix", "quantidade": 4}, {"id": 22, "nome": "Cartão", "quantidade": 2}]
+        colors = {row["id"]: row["cor"] for row in _color_chart_rows(rows)}
+        self.assertEqual(colors, {row["id"]: row["cor"] for row in _color_chart_rows(list(reversed(rows)))})
+        self.assertEqual(_color_chart_rows([{**rows[0], "nome": "PIX atualizado"}])[0]["cor"], colors[11])
+        self.assertEqual(_color_chart_rows([rows[0]])[0]["cor"], colors[11])
+
+    def test_optional_chart_amount_distinguishes_absent_from_zero(self) -> None:
+        rows = _chart_rows(
+            [{"categoria": "Sem valor", "quantidade": 3}, {"categoria": "Valor zero", "quantidade": 2, "valor_total": 0}],
+            "peças", name_key="categoria", value_key="quantidade", secondary_value_key="valor_total", max_categories=None,
+        )
+        self.assertNotIn("valor_total", rows[0])
+        self.assertEqual(rows[1]["valor_total"], 0)
+
     def test_manager_role_matches_xano_roles(self) -> None:
         self.assertTrue(_role_is_manager("Gerente"))
         self.assertFalse(_role_is_manager("Vendedor"))

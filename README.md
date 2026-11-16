@@ -66,6 +66,13 @@ reflex run --env dev --frontend-only --frontend-port 3000
 Abra `http://localhost:3000`. O frontend conecta ao backend em
 `http://127.0.0.1:8001`, conforme `rxconfig.py`.
 
+Se, após uma exportação ou recompilação, algumas páginas exibirem
+`404: Page not found` embora estejam registradas em `app/app.py`, reinicie
+o frontend do Terminal 2 depois que o backend concluir a inicialização.
+O servidor de desenvolvimento pode manter uma lista parcial de rotas durante
+a regeneração de `.web`. Confirme também que o backend continua ativo na porta
+8001; uma resposta HTTP 200 do frontend sozinha não confirma que a tela carregou.
+
 ## Dashboard
 
 O dashboard consome `GET /api:gerenciamento/indicadores` usando a sessão

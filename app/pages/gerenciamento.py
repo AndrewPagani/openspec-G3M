@@ -1,9 +1,80 @@
 import reflex as rx
 
 from app.components.app_shell import shell
-from app.components.states import empty_state, feedback
+from app.components.states import feedback
 from app.state.auth_state import AuthState
 from app.state.dashboard_state import DashboardState
+
+_BRL = "new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format"
+_INTEGER = "new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 0}).format"
+_MONEY_TICK = "(value) => 'R$ ' + new Intl.NumberFormat('pt-BR', {notation: 'compact', maximumFractionDigits: 1}).format(value)"
+
+
+def _tooltip(*, money: bool = False, with_total: bool = False) -> rx.Component:
+    value = f"{_BRL if money else _INTEGER}(value)"
+    if with_total:
+        value += f" + (item?.payload?.valor_total != null ? ' · Valor total: ' + {_BRL}(item.payload.valor_total) : '')"
+    return rx.recharts.tooltip(
+        content_style={
+            "background": "#172033",
+            "border": "1px solid #475569",
+            "borderRadius": "10px",
+            "color": "#f1f5f9",
+            "fontSize": "13px",
+            "maxWidth": "min(320px, 80vw)",
+            "whiteSpace": "normal",
+        },
+        item_style={"color": "#e2e8f0", "whiteSpace": "normal"},
+        label_style={"color": "#f1f5f9", "fontWeight": 600},
+        cursor={"fill": "rgba(148, 163, 184, 0.06)", "stroke": "#64748b"},
+        is_animation_active=False,
+        custom_attrs={
+            "formatter": rx.Var(_js_expr=f"(value, name, item) => [{value}, name]")
+        },
+    )
+
+
+def _count_axis() -> rx.Component:
+    return rx.recharts.y_axis(
+        allow_decimals=False,
+        axis_line=False,
+        tick_line=False,
+        width=44,
+        tick_formatter=f"(value) => {_INTEGER}(value)",
+        tick={"fontSize": 12},
+    )
+
+
+def _chart_data(rows: rx.Var, *, parts: bool = False, unit: str = "unidades") -> rx.Component:
+    """Text alternative keeps full category names available to touch and keyboard."""
+    return rx.el.details(
+        rx.el.summary("Ver dados do gráfico"),
+        rx.foreach(
+            rows,
+            lambda row: rx.hstack(
+                rx.text(row["nome"], class_name="dashboard-data-name"),
+                rx.vstack(
+                    rx.text(row["quantidade"], " ", unit),
+                    rx.cond(
+                        row["valor_formatado"] != "",
+                        rx.text(row["valor_formatado"]),
+                        rx.fragment(),
+                    )
+                    if parts
+                    else rx.fragment(),
+                    align="end",
+                    spacing="1",
+                    class_name="dashboard-data-value",
+                ),
+                justify="between",
+                align="start",
+                width="100%",
+                class_name="dashboard-data-row",
+            ),
+        ),
+        class_name="dashboard-chart-data",
+        hidden=rows.length() == 0,
+    )
 
 
 def _metric(
@@ -11,14 +82,16 @@ def _metric(
     value: rx.Var,
     detail: str = "",
     icon: str = "chart-no-axes-column-increasing",
-    accent: str = "#3b82f6",
+    accent: str = "#94a3b8",
 ) -> rx.Component:
     return rx.card(
         rx.hstack(
             rx.vstack(
                 rx.text(title, class_name="dashboard-metric-label"),
-                rx.heading(value, size="6", class_name="dashboard-metric-value"),
-                rx.cond(detail != "", rx.text(detail, class_name="muted"), rx.fragment()),
+                rx.text(value, class_name="dashboard-metric-value"),
+                rx.cond(
+                    detail != "", rx.text(detail, class_name="muted"), rx.fragment()
+                ),
                 align="start",
                 spacing="2",
                 class_name="dashboard-metric-copy",
@@ -39,7 +112,7 @@ def _metric(
 def _sales_status_report() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Vendas por status", size="4"),
+            rx.heading("Vendas por status", size="4", as_="h2"),
             rx.cond(
                 DashboardState.vendas_por_status.length() > 0,
                 rx.vstack(
@@ -47,7 +120,9 @@ def _sales_status_report() -> rx.Component:
                         DashboardState.vendas_por_status,
                         lambda row: rx.hstack(
                             rx.vstack(
-                                rx.text(row["nome"], class_name="dashboard-breakdown-name"),
+                                rx.text(
+                                    row["nome"], class_name="dashboard-breakdown-name"
+                                ),
                                 rx.text(
                                     "Total de vendas: " + row["quantidade"],
                                     class_name="dashboard-breakdown-detail",
@@ -72,7 +147,7 @@ def _sales_status_report() -> rx.Component:
                     align="start",
                     width="100%",
                 ),
-                empty_state("A API não retornou vendas agrupadas por status."),
+                _dashboard_empty("Sem vendas por status no período selecionado."),
             ),
             align="start",
             width="100%",
@@ -85,7 +160,7 @@ def _sales_status_report() -> rx.Component:
 def _salespeople_report() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Vendas por vendedor", size="4"),
+            rx.heading("Vendas por vendedor", size="4", as_="h2"),
             rx.input(
                 placeholder="Pesquisar vendedor pelo nome",
                 aria_label="Pesquisar vendedor pelo nome",
@@ -108,7 +183,7 @@ def _salespeople_report() -> rx.Component:
                     overflow_y="auto",
                     width="100%",
                 ),
-                empty_state("Nenhum vendedor encontrado."),
+                _dashboard_empty("Nenhum vendedor encontrado. Revise o nome pesquisado ou o período."),
             ),
             align="start",
             width="100%",
@@ -129,7 +204,7 @@ def _chart_empty(rows: rx.Var, message: str) -> rx.Component:
         rx.cond(
             rows.length() > 0,
             rx.vstack(
-                rx.text("Valores retornados pela API:", class_name="muted"),
+                rx.text("Quantidades registradas:", class_name="muted"),
                 rx.foreach(
                     rows,
                     lambda row: rx.hstack(
@@ -162,7 +237,7 @@ def _dashboard_empty(message: str) -> rx.Component:
 def _unsupported_analysis(title: str, reason: str) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading(title, size="4"),
+            rx.heading(title, size="4", as_="h2"),
             rx.text(reason, class_name="muted"),
             rx.callout(
                 "Este indicador não é fornecido pelo endpoint de indicadores atual.",
@@ -182,6 +257,7 @@ def _period_button(label: str, value: str) -> rx.Component:
         label,
         on_click=DashboardState.set_periodo(value),
         variant=rx.cond(DashboardState.periodo_ativo == value, "solid", "soft"),
+        aria_pressed=DashboardState.periodo_ativo == value,
     )
 
 
@@ -225,9 +301,9 @@ def _trend_chart() -> rx.Component:
         rx.vstack(
             rx.hstack(
                 rx.vstack(
-                    rx.heading("Evolução das vendas", size="4"),
+                    rx.heading("Evolução das vendas", size="4", as_="h2"),
                     rx.text(
-                        "Valor total registrado por período, conforme retornado pelo Xano.",
+                        "Valor vendido ao longo do período selecionado.",
                         class_name="muted",
                     ),
                     align="start",
@@ -249,14 +325,29 @@ def _trend_chart() -> rx.Component:
                 DashboardState.chart_vendas_por_periodo.length() > 0,
                 rx.recharts.area_chart(
                     rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
-                    rx.recharts.x_axis(data_key="periodo_formatado"),
-                    rx.recharts.y_axis(label={"value": "R$"}),
-                    rx.recharts.tooltip(),
+                    rx.recharts.x_axis(
+                        data_key="periodo_formatado",
+                        axis_line=False,
+                        tick_line=False,
+                        min_tick_gap=32,
+                        tick={"fontSize": 12},
+                    ),
+                    rx.recharts.y_axis(
+                        tick_formatter=_MONEY_TICK,
+                        axis_line=False,
+                        tick_line=False,
+                        width=76,
+                        tick={"fontSize": 12},
+                    ),
+                    _tooltip(money=True),
                     rx.recharts.area(
                         data_key="valor_total",
                         name="Valor (R$)",
                         stroke="#3b82f6",
                         fill="#3b82f6",
+                        custom_attrs={"fillOpacity": 0.12},
+                        stroke_width=2,
+                        is_animation_active=False,
                         type="monotone",
                     ),
                     data=DashboardState.chart_vendas_por_periodo,
@@ -276,7 +367,7 @@ def _trend_chart() -> rx.Component:
 def _vehicles_sold_by_brand_chart() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Veículos vendidos por marca", size="4"),
+            rx.heading("Veículos vendidos por marca", size="4", as_="h2"),
             rx.text(
                 "Quantidade de veículos vendidos por marca no período selecionado.",
                 class_name="muted",
@@ -286,13 +377,23 @@ def _vehicles_sold_by_brand_chart() -> rx.Component:
                 rx.recharts.bar_chart(
                     rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
                     rx.recharts.x_axis(
-                        data_key="nome",
-                        interval=0,
-                        min_tick_gap=0,
-                        text_anchor="middle",
+                        type_="number",
+                        allow_decimals=False,
+                        axis_line=False,
+                        tick_line=False,
+                        tick_formatter=f"(value) => {_INTEGER}(value)",
                     ),
-                    rx.recharts.y_axis(),
-                    rx.recharts.tooltip(),
+                    rx.recharts.y_axis(
+                        data_key="nome",
+                        type_="category",
+                        width=110,
+                        axis_line=False,
+                        tick_line=False,
+                        interval=0,
+                        tick={"fontSize": 12},
+                        tick_formatter="(value) => value.length > 16 ? value.slice(0, 15) + '…' : value",
+                    ),
+                    _tooltip(),
                     rx.recharts.bar(
                         rx.foreach(
                             DashboardState.chart_veiculos_vendidos_por_marca,
@@ -301,16 +402,23 @@ def _vehicles_sold_by_brand_chart() -> rx.Component:
                         data_key="quantidade",
                         name="Veículos vendidos",
                         unit=" unidades",
-                        fill="#10b981",
-                        bar_size=40,
-                        radius=[6, 6, 0, 0],
+                        fill="#60a5fa",
+                        bar_size=20,
+                        radius=[0, 4, 4, 0],
+                        is_animation_active=False,
                     ),
                     data=DashboardState.chart_veiculos_vendidos_por_marca,
                     width="100%",
-                    height=300,
+                    height=DashboardState.chart_veiculos_vendidos_por_marca.length()
+                    * 40
+                    + 60,
+                    layout="vertical",
                 ),
-                _dashboard_empty("Não há veículos vendidos por marca no período selecionado."),
+                _dashboard_empty(
+                    "Não há veículos vendidos por marca no período selecionado."
+                ),
             ),
+            _chart_data(DashboardState.chart_veiculos_vendidos_por_marca),
             align="start",
             width="100%",
         ),
@@ -322,7 +430,7 @@ def _vehicles_sold_by_brand_chart() -> rx.Component:
 def _parts_sold_by_category_chart() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Peças vendidas por categoria", size="4"),
+            rx.heading("Peças vendidas por categoria", size="4", as_="h2"),
             rx.text(
                 "Quantidade de peças vendidas por categoria no período selecionado.",
                 class_name="muted",
@@ -331,9 +439,24 @@ def _parts_sold_by_category_chart() -> rx.Component:
                 DashboardState.chart_pecas_vendidas_por_categoria.length() > 0,
                 rx.recharts.bar_chart(
                     rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
-                    rx.recharts.x_axis(data_key="nome"),
-                    rx.recharts.y_axis(),
-                    rx.recharts.tooltip(),
+                    rx.recharts.x_axis(
+                        type_="number",
+                        allow_decimals=False,
+                        axis_line=False,
+                        tick_line=False,
+                        tick_formatter=f"(value) => {_INTEGER}(value)",
+                    ),
+                    rx.recharts.y_axis(
+                        data_key="nome",
+                        type_="category",
+                        width=110,
+                        axis_line=False,
+                        tick_line=False,
+                        interval=0,
+                        tick={"fontSize": 12},
+                        tick_formatter="(value) => value.length > 16 ? value.slice(0, 15) + '…' : value",
+                    ),
+                    _tooltip(with_total=True),
                     rx.recharts.bar(
                         rx.foreach(
                             DashboardState.chart_pecas_vendidas_por_categoria,
@@ -341,29 +464,23 @@ def _parts_sold_by_category_chart() -> rx.Component:
                         ),
                         data_key="quantidade",
                         name="Peças vendidas",
-                        unit=" unidades",
                         fill="#3b82f6",
-                        bar_size=44,
-                        radius=[6, 6, 0, 0],
-                    ),
-                    rx.recharts.y_axis(data_key="valor_total", y_axis_id="valor", hide=True),
-                    rx.recharts.bar(
-                        data_key="valor_total",
-                        name="Valor total (R$)",
-                        y_axis_id="valor",
-                        fill="transparent",
-                        stroke="transparent",
-                        bar_size=44,
-                        legend_type="none",
+                        bar_size=20,
+                        radius=[0, 4, 4, 0],
+                        is_animation_active=False,
                     ),
                     data=DashboardState.chart_pecas_vendidas_por_categoria,
                     width="100%",
-                    height=300,
-                    bar_category_gap="5%",
-                    bar_gap=0,
+                    height=DashboardState.chart_pecas_vendidas_por_categoria.length()
+                    * 40
+                    + 60,
+                    layout="vertical",
                 ),
-                _dashboard_empty("Não há peças vendidas por categoria no período selecionado."),
+                _dashboard_empty(
+                    "Não há peças vendidas por categoria no período selecionado."
+                ),
             ),
+            _chart_data(DashboardState.chart_pecas_vendidas_por_categoria, parts=True),
             align="start",
             width="100%",
         ),
@@ -375,40 +492,41 @@ def _parts_sold_by_category_chart() -> rx.Component:
 def _payment_chart() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Vendas por forma de pagamento", size="4"),
+            rx.heading("Vendas por forma de pagamento", size="4", as_="h2"),
             rx.text(
-                "Distribuição por quantidade de vendas; valores financeiros por método não são retornados.",
+                "Quantidade de vendas por forma de pagamento.",
                 class_name="muted",
             ),
             rx.cond(
                 DashboardState.chart_formas_pagamento.length() > 0,
                 rx.recharts.pie_chart(
                     rx.recharts.pie(
-                        rx.recharts.cell(fill="#3b82f6"),
-                        rx.recharts.cell(fill="#10b981"),
-                        rx.recharts.cell(fill="#8b5cf6"),
-                        rx.recharts.cell(fill="#f59e0b"),
-                        rx.recharts.cell(fill="#f43f5e"),
+                        rx.foreach(
+                            DashboardState.chart_formas_pagamento,
+                            lambda row: rx.recharts.cell(fill=row["cor"]),
+                        ),
                         data=DashboardState.chart_formas_pagamento,
                         data_key="quantidade",
                         name_key="nome",
                         inner_radius=58,
                         outer_radius=92,
                         padding_angle=2,
+                        stroke="#0f172a",
+                        is_animation_active=False,
                     ),
-                    rx.recharts.tooltip(),
-                    rx.recharts.legend(),
+                    _tooltip(),
+                    rx.recharts.legend(icon_type="circle", icon_size=8),
                     width="100%",
                     height=300,
                 ),
                 rx.callout(
-                    "A API não retornou vendas com quantidade positiva por forma de pagamento "
-                    "para o período selecionado.",
+                    "Sem vendas por forma de pagamento no período selecionado.",
                     icon="info",
                     color_scheme="gray",
                     class_name="dashboard-empty-notice",
                 ),
             ),
+            _chart_data(DashboardState.chart_formas_pagamento, unit="vendas"),
             align="start",
             width="100%",
         ),
@@ -420,9 +538,9 @@ def _payment_chart() -> rx.Component:
 def _mix_chart() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Mix de itens vendidos", size="4"),
+            rx.heading("Mix de itens vendidos", size="4", as_="h2"),
             rx.text(
-                "Quantidade de veículos e peças; não representa faturamento por categoria.",
+                "Comparação entre quantidades de veículos e peças vendidas.",
                 class_name="muted",
             ),
             rx.cond(
@@ -430,12 +548,14 @@ def _mix_chart() -> rx.Component:
                 rx.recharts.bar_chart(
                     rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
                     rx.recharts.x_axis(data_key="nome"),
-                    rx.recharts.y_axis(),
-                    rx.recharts.tooltip(),
+                    _count_axis(),
+                    _tooltip(),
                     rx.recharts.bar(
                         data_key="quantidade",
                         name="Quantidade",
-                        fill="#8b5cf6",
+                        fill="#60a5fa",
+                        max_bar_size=64,
+                        is_animation_active=False,
                         radius=[6, 6, 0, 0],
                     ),
                     data=DashboardState.chart_mix_itens,
@@ -444,10 +564,10 @@ def _mix_chart() -> rx.Component:
                 ),
                 _chart_empty(
                     DashboardState.chart_mix_itens,
-                    "Não há quantidade de itens vendidos para desenhar no período "
-                    "selecionado. Verifique as vendas e o intervalo de datas no Xano.",
+                    "Sem itens vendidos no período selecionado. Experimente outro intervalo de datas.",
                 ),
             ),
+            _chart_data(DashboardState.chart_mix_itens),
             align="start",
             width="100%",
         ),
@@ -459,15 +579,17 @@ def _mix_chart() -> rx.Component:
 def _vehicle_status_chart() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Estoque de veículos por status", size="4"),
-            rx.text("Quantidade atual de veículos agrupada pelo status.", class_name="muted"),
+            rx.heading("Estoque de veículos por status", size="4", as_="h2"),
+            rx.text(
+                "Quantidade atual de veículos agrupada pelo status.", class_name="muted"
+            ),
             rx.cond(
                 DashboardState.estoque_com_movimento,
                 rx.recharts.bar_chart(
                     rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
                     rx.recharts.x_axis(data_key="nome"),
-                    rx.recharts.y_axis(),
-                    rx.recharts.tooltip(),
+                    _count_axis(),
+                    _tooltip(),
                     rx.recharts.bar(
                         rx.foreach(
                             DashboardState.chart_veiculos_por_status,
@@ -475,6 +597,8 @@ def _vehicle_status_chart() -> rx.Component:
                         ),
                         data_key="quantidade",
                         name="Veículos",
+                        max_bar_size=64,
+                        is_animation_active=False,
                         radius=[6, 6, 0, 0],
                     ),
                     data=DashboardState.chart_veiculos_por_status,
@@ -483,10 +607,10 @@ def _vehicle_status_chart() -> rx.Component:
                 ),
                 _chart_empty(
                     DashboardState.chart_veiculos_por_status,
-                    "Não há quantidade de veículos por status para desenhar. Verifique "
-                    "o cadastro de veículos no Xano.",
+                    "Nenhum veículo registrado nesta distribuição de estoque.",
                 ),
             ),
+            _chart_data(DashboardState.chart_veiculos_por_status),
             align="start",
             width="100%",
         ),
@@ -498,7 +622,7 @@ def _vehicle_status_chart() -> rx.Component:
 def _low_stock_parts() -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.heading("Peças sem estoque ou com estoque baixo", size="4"),
+            rx.heading("Peças sem estoque ou com estoque baixo", size="4", as_="h2"),
             rx.text(
                 "Itens com quantidade disponível igual ou inferior a 5.",
                 class_name="muted",
@@ -531,7 +655,7 @@ def _filters() -> rx.Component:
         AuthState.is_manager,
         rx.card(
             rx.vstack(
-                rx.heading("Filtros de análise", size="4"),
+                rx.heading("Filtros de análise", size="4", as_="h2"),
                 rx.grid(
                     _filter_select(
                         "Status da venda",
@@ -551,20 +675,26 @@ def _filters() -> rx.Component:
                         DashboardState.forma_pagamento_opcoes,
                         DashboardState.set_filtro_forma_pagamento_id,
                     ),
-                    rx.select.root(
-                        rx.select.trigger(
-                            placeholder="Tipo de item",
-                            aria_label="Tipo de item",
-                            class_name="dashboard-filter-trigger",
+                    rx.vstack(
+                        rx.text("Tipo de item", class_name="dashboard-filter-label"),
+                        rx.select.root(
+                            rx.select.trigger(
+                                placeholder="Tipo de item",
+                                aria_label="Tipo de item",
+                                class_name="dashboard-filter-trigger",
+                            ),
+                            rx.select.content(
+                                rx.select.item("Todos os tipos", value="todos"),
+                                rx.select.item("Veículo", value="veiculo"),
+                                rx.select.item("Peça", value="peca"),
+                            ),
+                            value=DashboardState.filtro_tipo_item,
+                            on_change=DashboardState.set_filtro_tipo_item,
+                            class_name="dashboard-filter-select",
                         ),
-                        rx.select.content(
-                            rx.select.item("Todos os tipos", value="todos"),
-                            rx.select.item("Veículo", value="veiculo"),
-                            rx.select.item("Peça", value="peca"),
-                        ),
-                        value=DashboardState.filtro_tipo_item,
-                        on_change=DashboardState.set_filtro_tipo_item,
-                        class_name="dashboard-filter-select",
+                        align="start",
+                        spacing="2",
+                        class_name="dashboard-filter-field",
                     ),
                     _filter_select(
                         "Status do veículo",
@@ -580,8 +710,7 @@ def _filters() -> rx.Component:
                 rx.hstack(
                     rx.icon("info", size=14, stroke_width=1.8),
                     rx.text(
-                        "O Xano aplica o escopo de autorização por perfil; filtros "
-                        "adicionais refinam os indicadores conforme o contrato atual.",
+                        "Selecione os filtros e clique em Atualizar dados para consultar.",
                         class_name="dashboard-filter-note",
                     ),
                     align="center",
@@ -603,19 +732,17 @@ def gerenciamento() -> rx.Component:
         rx.vstack(
             rx.hstack(
                 rx.vstack(
-                    rx.heading("Vendas", size="6"),
+                    rx.heading("Dashboard", size="6"),
+                    rx.text(
+                        "Acompanhe as vendas e os indicadores do negócio.",
+                        class_name="muted",
+                    ),
                     align="start",
                     spacing="1",
                     class_name="dashboard-heading",
                 ),
                 rx.spacer(),
                 rx.hstack(
-                    rx.button(
-                        "Exportar CSV",
-                        on_click=DashboardState.export_csv,
-                        variant="outline",
-                        class_name="dashboard-export-button",
-                    ),
                     rx.vstack(
                         rx.text("Data inicial", class_name="dashboard-filter-label"),
                         rx.input(
@@ -641,10 +768,18 @@ def gerenciamento() -> rx.Component:
                         class_name="dashboard-date-field",
                     ),
                     rx.button(
-                        rx.cond(DashboardState.loading, "Carregando…", "Atualizar dados"),
+                        rx.cond(
+                            DashboardState.loading, "Carregando…", "Atualizar dados"
+                        ),
                         on_click=DashboardState.load,
                         disabled=DashboardState.loading,
                         class_name="dashboard-refresh-button",
+                    ),
+                    rx.button(
+                        "Exportar CSV",
+                        on_click=DashboardState.export_csv,
+                        variant="outline",
+                        class_name="dashboard-export-button",
                     ),
                     align="end",
                     wrap="wrap",
@@ -657,105 +792,145 @@ def gerenciamento() -> rx.Component:
             ),
             _filters(),
             feedback(DashboardState.error, DashboardState.loading),
-            rx.grid(
-                _metric(
-                    "Vendas no período",
-                    DashboardState.total_vendas,
-                    "Total de vendas filtradas",
-                    "shopping-cart",
-                    "#60a5fa",
-                ),
-                _metric(
-                    "Faturamento recebido",
-                    DashboardState.valor_liquido,
-                    "Baixas registradas no período",
-                    "banknote",
-                    "#10b981",
-                ),
-                _metric(
-                    "Vendas pagas",
-                    DashboardState.vendas_pagas,
-                    "Transações com baixa registrada",
-                    "badge-check",
-                    "#818cf8",
-                ),
-                _metric(
-                    "Ticket médio",
-                    DashboardState.ticket_medio,
-                    "Valor bruto dividido pela quantidade",
-                    "receipt",
-                    "#22d3ee",
-                ),
-                _metric(
-                    "Valor bruto vendido",
-                    DashboardState.valor_bruto,
-                    "Total bruto no período",
-                    "chart-no-axes-column-increasing",
-                    "#a78bfa",
-                ),
-                _metric(
-                    "Cancelamentos",
-                    DashboardState.percentual_canceladas,
-                    DashboardState.vendas_canceladas + " vendas canceladas",
-                    "circle-alert",
-                    "#f59e0b",
-                ),
-                columns=rx.breakpoints(
-                    initial="1fr",
-                    sm="repeat(2, minmax(0, 1fr))",
-                    lg="repeat(3, minmax(0, 1fr))",
-                ),
-                spacing="4",
-                width="100%",
-                class_name="dashboard-kpi-grid",
-            ),
-            _trend_chart(),
-            rx.grid(
-                _payment_chart(),
-                _mix_chart(),
-                columns=rx.breakpoints(initial="1fr", lg="repeat(2, minmax(0, 1fr))"),
-                spacing="4",
-                width="100%",
-                class_name="dashboard-analytics-grid",
-            ),
             rx.cond(
-                AuthState.is_manager,
+                DashboardState.loading,
                 rx.vstack(
-                    rx.heading("Estoque e análises adicionais", size="5"),
-                    rx.grid(
-                        _metric(
-                            "Veículos disponíveis",
-                            DashboardState.veiculos_disponiveis,
-                            DashboardState.valor_veiculos + " em valor de estoque",
-                            "car-front",
-                            "#10b981",
-                        ),
-                        _metric(
-                            "Peças disponíveis",
-                            DashboardState.pecas_disponiveis,
-                            DashboardState.valor_estoque_pecas + " em valor de estoque",
-                            "boxes",
-                            "#60a5fa",
-                        ),
-                        _metric(
-                            "Peças sem estoque / baixo estoque",
-                            DashboardState.pecas_sem_estoque,
-                            "Itens com quantidade igual ou inferior a 5",
-                            "package-x",
-                            "#f59e0b",
-                        ),
-                        columns=rx.breakpoints(
-                            initial="1fr",
-                            sm="repeat(2, minmax(0, 1fr))",
-                            lg="repeat(3, minmax(0, 1fr))",
-                        ),
-                        spacing="4",
-                        width="100%",
-                        class_name="dashboard-kpi-grid",
+                    rx.box(height="148px", width="100%", class_name="dashboard-loading-placeholder", aria_hidden=True),
+                    rx.box(height="320px", width="100%", class_name="dashboard-loading-placeholder", aria_hidden=True),
+                    width="100%",
+                    spacing="4",
+                    aria_label="Carregando indicadores",
+                ),
+                rx.fragment(),
+            ),
+            rx.box(
+                rx.grid(
+                    _metric(
+                        "Vendas no período",
+                        DashboardState.total_vendas,
+                        "Total de vendas filtradas",
+                        "shopping-cart",
+                        "#94a3b8",
                     ),
+                    _metric(
+                        "Recebimento líquido",
+                        DashboardState.valor_liquido,
+                        "Valor líquido recebido no período",
+                        "banknote",
+                        "#94a3b8",
+                    ),
+                    _metric(
+                        "Vendas pagas",
+                        DashboardState.vendas_pagas,
+                        "Vendas com pagamento registrado",
+                        "badge-check",
+                        "#94a3b8",
+                    ),
+                    _metric(
+                        "Valor médio por venda",
+                        DashboardState.ticket_medio,
+                        "Valor bruto dividido pelo total de vendas",
+                        "receipt",
+                        "#94a3b8",
+                    ),
+                    _metric(
+                        "Valor bruto vendido",
+                        DashboardState.valor_bruto,
+                        "Total bruto no período",
+                        "chart-no-axes-column-increasing",
+                        "#94a3b8",
+                    ),
+                    _metric(
+                        "Cancelamentos",
+                        DashboardState.percentual_canceladas,
+                        DashboardState.vendas_canceladas + " vendas canceladas",
+                        "circle-alert",
+                        "#f59e0b",
+                    ),
+                    columns=rx.breakpoints(
+                        initial="1fr",
+                        sm="repeat(2, minmax(0, 1fr))",
+                        lg="repeat(3, minmax(0, 1fr))",
+                    ),
+                    spacing="4",
+                    width="100%",
+                    class_name="dashboard-kpi-grid",
+                ),
+                _trend_chart(),
+                rx.grid(
+                    _payment_chart(),
+                    _mix_chart(),
+                    columns=rx.breakpoints(
+                        initial="1fr", lg="repeat(2, minmax(0, 1fr))"
+                    ),
+                    spacing="4",
+                    width="100%",
+                    class_name="dashboard-analytics-grid",
+                ),
+                rx.cond(
+                    AuthState.is_manager,
+                    rx.vstack(
+                        rx.heading("Estoque atual", size="5", as_="h2"),
+                        rx.text(
+                            "Disponibilidade de veículos e peças, separada das vendas do período.",
+                            class_name="muted",
+                        ),
+                        rx.grid(
+                            _metric(
+                                "Veículos disponíveis",
+                                DashboardState.veiculos_disponiveis,
+                                DashboardState.valor_veiculos + " em valor de estoque",
+                                "car-front",
+                                "#94a3b8",
+                            ),
+                            _metric(
+                                "Peças disponíveis",
+                                DashboardState.pecas_disponiveis,
+                                DashboardState.valor_estoque_pecas
+                                + " em valor de estoque",
+                                "boxes",
+                                "#94a3b8",
+                            ),
+                            _metric(
+                                "Peças sem estoque",
+                                DashboardState.pecas_sem_estoque,
+                                "Itens com quantidade disponível igual a zero",
+                                "package-x",
+                                "#f59e0b",
+                            ),
+                            columns=rx.breakpoints(
+                                initial="1fr",
+                                sm="repeat(2, minmax(0, 1fr))",
+                                lg="repeat(3, minmax(0, 1fr))",
+                            ),
+                            spacing="4",
+                            width="100%",
+                            class_name="dashboard-kpi-grid",
+                        ),
+                        rx.grid(
+                            _vehicle_status_chart(),
+                            _low_stock_parts(),
+                            columns=rx.breakpoints(
+                                initial="1fr", lg="repeat(2, minmax(0, 1fr))"
+                            ),
+                            spacing="4",
+                            width="100%",
+                        ),
+                        align="start",
+                        width="100%",
+                        class_name="dashboard-stock-section",
+                    ),
+                    rx.fragment(),
+                ),
+                rx.vstack(
+                    rx.heading("Detalhamento de vendas", size="5", as_="h2"),
                     rx.grid(
-                        _vehicle_status_chart(),
-                        _low_stock_parts(),
+                        _vehicles_sold_by_brand_chart(),
+                        _parts_sold_by_category_chart(),
+                        _sales_status_report(),
+                        rx.cond(
+                            AuthState.is_manager, _salespeople_report(), rx.fragment()
+                        ),
                         columns=rx.breakpoints(
                             initial="1fr", lg="repeat(2, minmax(0, 1fr))"
                         ),
@@ -764,24 +939,13 @@ def gerenciamento() -> rx.Component:
                     ),
                     align="start",
                     width="100%",
-                    class_name="dashboard-stock-section",
+                    class_name="dashboard-breakdown-section",
                 ),
-                rx.fragment(),
-            ),
-            rx.vstack(
-                rx.heading("Detalhamento de vendas", size="5"),
-                rx.grid(
-                    _vehicles_sold_by_brand_chart(),
-                    _parts_sold_by_category_chart(),
-                    _sales_status_report(),
-                    rx.cond(AuthState.is_manager, _salespeople_report(), rx.fragment()),
-                    columns=rx.breakpoints(initial="1fr", lg="repeat(2, minmax(0, 1fr))"),
-                    spacing="4",
-                    width="100%",
-                ),
-                align="start",
+                display=rx.cond(DashboardState.loading, "none", "flex"),
+                flex_direction="column",
+                gap="22px",
                 width="100%",
-                class_name="dashboard-breakdown-section",
+                class_name="dashboard-results",
             ),
             on_mount=DashboardState.load,
             class_name="page-stack dashboard-page",
