@@ -2,6 +2,7 @@ import reflex as rx
 
 from app.pages.login import login
 from app.state.auth_state import AuthState
+from app.state.settings_state import SettingsState
 
 
 def nav_item(
@@ -70,11 +71,6 @@ def shell(
                         AuthState.is_admin,
                     ),
                     nav_item(
-                        "Auditoria", "/auditoria", "scroll-text",
-                        title == "Auditoria",
-                        AuthState.is_manager,
-                    ),
-                    nav_item(
                         "Configurações", "/configuracoes", "settings-2",
                         title == "Configurações",
                         AuthState.is_manager,
@@ -87,7 +83,7 @@ def shell(
                         ),
                         rx.vstack(
                             rx.text(
-                                AuthState.profile + ": " + AuthState.user_name,
+                                AuthState.profile + ": " + SettingsState.active_display_name,
                                 class_name="user-label",
                             ),
                             align="start",
@@ -146,6 +142,7 @@ def shell(
                         ),
                     ),
                 ),
+                on_mount=SettingsState.load,
             ),
             rx.center(rx.callout("Acesso negado para o seu perfil.", color_scheme="red"), min_height="100vh"),
         ),

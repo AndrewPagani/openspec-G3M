@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-18
+goal: Manter a navegação e o Dashboard limitados a funcionalidades locais
+  disponíveis, sem alterar APIs do Xano.

@@ -1957,6 +1957,100 @@ html, body {
   text-align: center;
 }
 
+.settings-page {
+  max-width: 1240px;
+}
+
+.settings-card {
+  padding: 22px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+}
+
+.settings-card h2 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.settings-field-label,
+.settings-option-title {
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.settings-field-help,
+.settings-option-description {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.settings-option-row,
+.settings-shortcut-row {
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid #243247;
+  border-radius: 9px;
+  background: rgba(148, 163, 184, 0.035);
+}
+
+.settings-order-row {
+  min-height: 50px;
+  padding: 6px 8px;
+  border: 1px solid #243247;
+  border-radius: 9px;
+  background: #111c30;
+  color: #e2e8f0;
+}
+
+.settings-order-handle {
+  width: 30px;
+  height: 30px;
+  color: #94a3b8;
+}
+
+.settings-order-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.settings-order-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.settings-save-button {
+  background: #2563eb;
+  color: #fff;
+}
+
+.settings-actions {
+  padding-top: 4px;
+}
+
+.dashboard-quick-shortcuts {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .settings-card {
+    padding: 16px;
+  }
+
+  .settings-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .settings-actions > button {
+    width: 100%;
+  }
+
+}
+
 .dashboard-empty-state p {
   max-width: 420px;
   margin: 0;
@@ -2719,6 +2813,7 @@ html, body {
 
 /* Keep every internal screen on the dashboard's visual system. */
 .internal-app-shell:not(.dashboard-app-shell) {
+  color-scheme: dark;
   --internal-canvas: #090d16;
   --internal-surface: #0f172a;
   --internal-surface-raised: #111c30;
@@ -3087,3 +3182,1026 @@ html, body {
 .sale-workspace a:focus-visible, .sale-workspace button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 3px; }
 @media (max-width: 1100px) { .sale-workspace { grid-template-columns: minmax(0, 1fr); } .sale-summary { position: static; } }
 @media (max-width: 680px) { .sale-summary { padding: 18px; } .sale-workspace { gap: 20px; } }
+
+.settings-theme-option {
+  min-width: 0;
+  justify-content: flex-start;
+  padding: 14px !important;
+  border: 1px solid #334155 !important;
+  border-radius: 10px !important;
+  background: #0b1220 !important;
+  color: #e2e8f0 !important;
+  text-align: left;
+  white-space: normal;
+}
+
+.settings-theme-option:hover {
+  border-color: #64748b !important;
+  background: #111c30 !important;
+}
+
+.settings-theme-selected,
+.settings-theme-selected:hover {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.settings-theme-title {
+  color: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.settings-theme-selected-label {
+  color: #93c5fd;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.settings-theme-preview {
+  width: 100%;
+  height: 82px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  border-radius: 7px;
+}
+
+.settings-theme-preview-layout {
+  height: 100%;
+  gap: 0;
+  padding: 8px;
+}
+
+.settings-theme-preview-sidebar {
+  width: 24%;
+  height: 100%;
+  flex: 0 0 auto;
+  border-radius: 3px;
+}
+
+.settings-theme-preview-content {
+  height: 100%;
+  padding: 3px 8px;
+  gap: 6px;
+}
+
+.settings-theme-preview-line {
+  width: 68%;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+}
+
+.settings-theme-preview-line:nth-child(2) {
+  width: 46%;
+}
+
+.settings-theme-preview-block {
+  width: 100%;
+  min-height: 23px;
+  flex: 1 1 auto;
+  border-radius: 4px;
+}
+
+.settings-theme-preview-dark {
+  background: #090d16;
+}
+
+.settings-theme-preview-dark .settings-theme-preview-sidebar,
+.settings-theme-preview-dark .settings-theme-preview-block {
+  background: #172235;
+}
+
+.settings-theme-preview-dark .settings-theme-preview-line {
+  background: #475569;
+}
+
+.settings-theme-preview-light {
+  background: #f1f5f9;
+}
+
+.settings-theme-preview-light .settings-theme-preview-sidebar,
+.settings-theme-preview-light .settings-theme-preview-block {
+  background: #fff;
+}
+
+.settings-theme-preview-light .settings-theme-preview-line {
+  background: #94a3b8;
+}
+
+.settings-theme-preview-system {
+  background: linear-gradient(90deg, #090d16 0 50%, #f1f5f9 50% 100%);
+}
+
+.settings-theme-preview-system .settings-theme-preview-sidebar,
+.settings-theme-preview-system .settings-theme-preview-block {
+  background: linear-gradient(90deg, #172235 0 50%, #fff 50% 100%);
+}
+
+.settings-theme-preview-system .settings-theme-preview-line {
+  background: linear-gradient(90deg, #475569 0 50%, #94a3b8 50% 100%);
+}
+
+html[data-app-theme="light"] {
+  color-scheme: light;
+  --app-canvas: #f1f5f9;
+  --app-surface: #ffffff;
+  --app-surface-raised: #f8fafc;
+  --app-surface-hover: #eaf0f7;
+  --app-border: #d7e0eb;
+  --app-border-strong: #c3cfdd;
+  --app-text: #0f172a;
+  --app-text-secondary: #334155;
+  --app-muted: #475569;
+  --app-subtle: #64748b;
+  --app-accent: #1d4ed8;
+  --app-accent-hover: #1e40af;
+  --app-accent-soft: rgba(37, 99, 235, 0.09);
+  --app-input: #ffffff;
+  --app-table-head: #f1f5f9;
+  --app-overlay: #ffffff;
+  --app-shadow: rgba(15, 23, 42, 0.14);
+  --app-success: #047857;
+  --app-warning: #b45309;
+  --app-danger: #be123c;
+  --app-neutral: #475569;
+  --app-chart-primary: #1d4ed8;
+  --app-chart-series-1: #1d4ed8;
+  --app-chart-series-2: #0f766e;
+  --app-chart-series-3: #6d28d9;
+  --app-chart-series-4: #b45309;
+  --app-chart-series-5: #0369a1;
+  --app-chart-series-6: #0e7490;
+  --app-status-available: #047857;
+  --app-status-reserved: #b45309;
+  --app-status-sold: #be123c;
+  --app-status-neutral: #475569;
+  --app-metric-neutral: #475569;
+  --app-metric-warning: #b45309;
+}
+
+html[data-app-theme="light"] .internal-app-shell {
+  color-scheme: light;
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell:not(.dashboard-app-shell) {
+  --internal-canvas: var(--app-canvas);
+  --internal-surface: var(--app-surface);
+  --internal-surface-raised: var(--app-surface-raised);
+  --internal-border: var(--app-border);
+  --internal-accent: var(--app-accent);
+  --internal-accent-hover: var(--app-accent-hover);
+  --internal-text: var(--app-text);
+  --internal-muted: var(--app-muted);
+  background-color: var(--app-canvas);
+  background-image: none;
+}
+
+html[data-app-theme="light"] .internal-app-shell .sidebar,
+html[data-app-theme="light"] .internal-app-shell:not(.dashboard-app-shell) .sidebar {
+  border-color: var(--app-border);
+  background: var(--app-surface);
+}
+
+html[data-app-theme="light"] .internal-app-shell .sidebar-divider,
+html[data-app-theme="light"] .internal-app-shell .sidebar-user,
+html[data-app-theme="light"] .internal-app-shell .topbar {
+  border-color: var(--app-border);
+}
+
+html[data-app-theme="light"] .internal-app-shell .main,
+html[data-app-theme="light"] .internal-app-shell .content {
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell h1,
+html[data-app-theme="light"] .internal-app-shell h2,
+html[data-app-theme="light"] .internal-app-shell h3,
+html[data-app-theme="light"] .internal-app-shell h4,
+html[data-app-theme="light"] .internal-app-shell .user-label {
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell .muted,
+html[data-app-theme="light"] .internal-app-shell .hint,
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-hint,
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-label,
+html[data-app-theme="light"] .internal-app-shell .vehicle-detail-label {
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .internal-app-shell .nav-item {
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .internal-app-shell .nav-item p {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .nav-item:hover {
+  background: var(--app-surface-hover);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell .nav-item-active,
+html[data-app-theme="light"] .internal-app-shell .nav-item-active:hover {
+  border-color: rgba(37, 99, 235, 0.2);
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell .nav-item-active p {
+  color: var(--app-accent) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .sidebar-brand-mark,
+html[data-app-theme="light"] .internal-app-shell .sidebar-user-avatar,
+html[data-app-theme="light"] .internal-app-shell .header-user-avatar,
+html[data-app-theme="light"] .internal-app-shell .client-avatar,
+html[data-app-theme="light"] .internal-app-shell .client-dialog-icon,
+html[data-app-theme="light"] .internal-app-shell .part-dialog-icon {
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell .sidebar-logout,
+html[data-app-theme="light"] .internal-app-shell .header-icon-button {
+  border-color: var(--app-border-strong);
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .internal-app-shell .sidebar-logout:hover,
+html[data-app-theme="light"] .internal-app-shell .header-icon-button:hover {
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell input,
+html[data-app-theme="light"] .internal-app-shell textarea,
+html[data-app-theme="light"] .internal-app-shell select,
+html[data-app-theme="light"] .internal-app-shell [data-radix-select-trigger],
+html[data-app-theme="light"] .internal-app-shell .rt-TextFieldRoot {
+  border-color: var(--app-border-strong);
+  background: var(--app-input);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell input::placeholder,
+html[data-app-theme="light"] .internal-app-shell textarea::placeholder {
+  color: var(--app-subtle);
+}
+
+html[data-app-theme="light"] .internal-app-shell input:focus,
+html[data-app-theme="light"] .internal-app-shell textarea:focus,
+html[data-app-theme="light"] .internal-app-shell [data-radix-select-trigger]:focus-visible {
+  border-color: var(--app-accent);
+  outline-color: rgba(37, 99, 235, 0.2);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-input-wrap {
+  border-color: var(--app-border-strong);
+  background: var(--app-input);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-field-icon,
+html[data-app-theme="light"] .internal-app-shell .vehicle-detail-section-heading,
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-panel-heading {
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-panel,
+html[data-app-theme="light"] .internal-app-shell .form-card,
+html[data-app-theme="light"] .internal-app-shell .generic-form-card,
+html[data-app-theme="light"] .internal-app-shell .vehicle-detail-card,
+html[data-app-theme="light"] .internal-app-shell .vehicle-card,
+html[data-app-theme="light"] .internal-app-shell .part-card,
+html[data-app-theme="light"] .internal-app-shell .sale-picker-card,
+html[data-app-theme="light"] .internal-app-shell .sale-selected-item,
+html[data-app-theme="light"] .internal-app-shell .sale-totals,
+html[data-app-theme="light"] .internal-app-shell .sale-summary {
+  border-color: var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-card:hover,
+html[data-app-theme="light"] .internal-app-shell .part-card:hover,
+html[data-app-theme="light"] .internal-app-shell .sale-picker-card:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-image-dropzone {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.04);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-image-preview-frame,
+html[data-app-theme="light"] .internal-app-shell .vehicle-card-media,
+html[data-app-theme="light"] .internal-app-shell .part-card-media {
+  border-color: var(--app-border);
+  background: var(--app-surface-raised);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-detail-value,
+html[data-app-theme="light"] .internal-app-shell .vehicle-card-title,
+html[data-app-theme="light"] .internal-app-shell .part-card-price,
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-panel-heading h2 {
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell button[data-variant="outline"],
+html[data-app-theme="light"] .internal-app-shell button.rt-variant-outline,
+html[data-app-theme="light"] .internal-app-shell .vehicle-cancel-button,
+html[data-app-theme="light"] .internal-app-shell .part-edit-button,
+html[data-app-theme="light"] .internal-app-shell .client-action-button {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-surface) !important;
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell button[data-variant="outline"]:hover,
+html[data-app-theme="light"] .internal-app-shell button.rt-variant-outline:hover,
+html[data-app-theme="light"] .internal-app-shell .vehicle-cancel-button:hover,
+html[data-app-theme="light"] .internal-app-shell .part-edit-button:hover,
+html[data-app-theme="light"] .internal-app-shell .client-action-button:hover {
+  border-color: var(--app-accent) !important;
+  background: var(--app-surface-raised) !important;
+  color: var(--app-accent) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell a {
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell table {
+  border-color: var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell table th {
+  background: var(--app-table-head);
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .internal-app-shell table td,
+html[data-app-theme="light"] .internal-app-shell table th {
+  border-color: var(--app-border);
+}
+
+html[data-app-theme="light"] .internal-app-shell .status-available {
+  border-color: rgba(4, 120, 87, 0.24);
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+}
+
+html[data-app-theme="light"] .internal-app-shell .status-reserved {
+  border-color: rgba(180, 83, 9, 0.24);
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+}
+
+html[data-app-theme="light"] .internal-app-shell .status-sold {
+  border-color: rgba(190, 18, 60, 0.22);
+  background: rgba(244, 63, 94, 0.1);
+  color: #be123c;
+}
+
+html[data-app-theme="light"] .internal-app-shell .status-neutral {
+  border-color: rgba(71, 85, 105, 0.22);
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
+}
+
+html[data-app-theme="light"] .dashboard-app-shell {
+  --dashboard-bg: var(--app-canvas);
+  --dashboard-surface: var(--app-surface);
+  --dashboard-border: var(--app-border);
+  --dashboard-text: var(--app-text);
+  --dashboard-muted: var(--app-muted);
+  --dashboard-accent: var(--app-accent);
+  background-color: var(--app-canvas);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-card {
+  --card-background-color: var(--app-surface);
+  border-color: var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .sidebar,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-filter-panel,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-periods {
+  border-color: var(--app-border);
+  background: var(--app-surface);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .sidebar-user,
+html[data-app-theme="light"] .dashboard-app-shell .sidebar-user .user-label,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-card h2,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-card h3,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-heading h1,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-stock-section > h2,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-breakdown-section > h2,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-metric-value,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-breakdown-name {
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-filter-field .rt-SelectTrigger,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-filter-select .rt-SelectTrigger,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-filter-trigger,
+html[data-app-theme="light"] .dashboard-app-shell .rt-TextFieldRoot {
+  border-color: var(--app-border-strong);
+  background: var(--app-input);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-filter-label,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-breakdown-detail,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-empty-state p {
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-button {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface);
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-button:hover {
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-empty-state,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-empty-notice {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-breakdown-row,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-chart-data,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-data-row {
+  border-color: var(--app-border);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-breakdown-amount,
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-chart-data {
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .report-row {
+  border-color: var(--app-border);
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-chart-data summary {
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-periods button[aria-pressed="false"] {
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-periods button[aria-pressed="false"]:hover {
+  background: var(--app-surface-hover);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-loading-placeholder {
+  background: #e2e8f0;
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .recharts-cartesian-grid line {
+  stroke: var(--app-border);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .recharts-cartesian-axis-tick-value,
+html[data-app-theme="light"] .dashboard-app-shell .recharts-legend-item-text {
+  fill: var(--app-muted);
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .vehicle-status.status-available,
+html[data-app-theme="light"] .dashboard-app-shell .status-available {
+  color: #047857;
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .vehicle-status.status-reserved,
+html[data-app-theme="light"] .dashboard-app-shell .status-reserved {
+  color: #92400e;
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .vehicle-status.status-sold,
+html[data-app-theme="light"] .dashboard-app-shell .status-sold {
+  color: #be123c;
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .vehicle-status.status-neutral,
+html[data-app-theme="light"] .dashboard-app-shell .status-neutral {
+  color: #475569;
+}
+
+html[data-app-theme="light"] .settings-card,
+html[data-app-theme="light"] .client-metric-card,
+html[data-app-theme="light"] .client-table-panel {
+  border-color: var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .settings-card h2,
+html[data-app-theme="light"] .settings-field-label,
+html[data-app-theme="light"] .settings-option-title,
+html[data-app-theme="light"] .client-dialog-title,
+html[data-app-theme="light"] .client-name,
+html[data-app-theme="light"] .client-dialog-value {
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .settings-field-help,
+html[data-app-theme="light"] .settings-option-description,
+html[data-app-theme="light"] .settings-order-handle,
+html[data-app-theme="light"] .client-metric-label,
+html[data-app-theme="light"] .client-dialog-label,
+html[data-app-theme="light"] .client-dialog-description,
+html[data-app-theme="light"] .client-pagination-note {
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .settings-option-row,
+html[data-app-theme="light"] .settings-shortcut-row,
+html[data-app-theme="light"] .settings-order-row {
+  border-color: var(--app-border);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .settings-theme-option {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-surface-raised) !important;
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .settings-theme-option:hover {
+  border-color: var(--app-accent) !important;
+  background: var(--app-accent-soft) !important;
+}
+
+html[data-app-theme="light"] .settings-theme-selected,
+html[data-app-theme="light"] .settings-theme-selected:hover {
+  border-color: var(--app-accent) !important;
+  background: var(--app-accent-soft) !important;
+}
+
+html[data-app-theme="light"] .settings-theme-selected-label {
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .settings-theme-preview {
+  border-color: var(--app-border);
+}
+
+html[data-app-theme="light"] .client-metric-blue,
+html[data-app-theme="light"] .client-value-blue {
+  color: #1d4ed8;
+}
+
+html[data-app-theme="light"] .client-metric-purple,
+html[data-app-theme="light"] .client-value-purple {
+  color: #6d28d9;
+}
+
+html[data-app-theme="light"] .client-metric-amber,
+html[data-app-theme="light"] .client-value-amber {
+  color: #b45309;
+}
+
+html[data-app-theme="light"] .client-search,
+html[data-app-theme="light"] .client-dialog-detail {
+  border-color: var(--app-border-strong);
+  background: var(--app-input);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .client-search {
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .client-search-input {
+  color: var(--app-text) !important;
+}
+
+html[data-app-theme="light"] .client-sort-select [data-radix-select-trigger],
+html[data-app-theme="light"] .part-dialog-area-select [data-radix-select-trigger] {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-input) !important;
+  color: var(--app-text) !important;
+}
+
+html[data-app-theme="light"] .client-table th {
+  background: var(--app-table-head) !important;
+  color: var(--app-muted) !important;
+}
+
+html[data-app-theme="light"] .client-table td {
+  border-color: var(--app-border) !important;
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .client-table tbody tr:hover {
+  background: var(--app-surface-raised);
+}
+
+html[data-app-theme="light"] .client-row-secondary,
+html[data-app-theme="light"] .client-page-indicator {
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .client-dialog-content,
+html[data-app-theme="light"] .client-action-menu,
+html[data-app-theme="light"] [data-radix-select-content],
+html[data-app-theme="light"] [role="listbox"],
+html[data-app-theme="light"] [role="menu"] {
+  border-color: var(--app-border) !important;
+  background: var(--app-overlay) !important;
+  color: var(--app-text) !important;
+  box-shadow: 0 14px 36px var(--app-shadow) !important;
+}
+
+html[data-app-theme="light"] .client-dialog-header,
+html[data-app-theme="light"] .client-dialog-actions {
+  border-color: var(--app-border);
+}
+
+html[data-app-theme="light"] .client-action-menu [role="menuitem"] {
+  color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .client-action-menu [role="menuitem"]:hover,
+html[data-app-theme="light"] .client-action-menu [role="menuitem"]:focus {
+  background: var(--app-surface-hover);
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .client-action-menu-heading {
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .client-action-menu .client-delete-option,
+html[data-app-theme="light"] .client-action-feedback {
+  color: #be123c;
+}
+
+html[data-app-theme="light"] .client-dialog-close {
+  color: var(--app-muted) !important;
+}
+
+html[data-app-theme="light"] .sale-workspace .sale-picker-card {
+  border-color: var(--app-border) !important;
+  background: var(--app-surface) !important;
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .sale-workspace .sale-picker-empty {
+  background: var(--app-surface-raised);
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .sale-selection:disabled button[role="combobox"] {
+  background: var(--app-surface-raised) !important;
+  color: var(--app-text-secondary) !important;
+  -webkit-text-fill-color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .sale-error {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+}
+
+html[data-app-theme="light"] .sale-workspace a:focus-visible,
+html[data-app-theme="light"] .sale-workspace button:focus-visible {
+  outline-color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .part-edit-button:hover {
+  color: var(--app-accent) !important;
+}
+
+html[data-app-theme="light"] .client-action-feedback {
+  border-color: rgba(190, 18, 60, 0.24) !important;
+  background: rgba(244, 63, 94, 0.07) !important;
+  color: #be123c !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-search {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-search .rt-TextFieldRoot {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-search .rt-TextFieldInput {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--app-text) !important;
+  -webkit-text-fill-color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-info-value {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-card,
+html[data-app-theme="light"] .internal-app-shell .part-card,
+html[data-app-theme="light"] .internal-app-shell .vehicle-form-panel,
+html[data-app-theme="light"] .internal-app-shell .vehicle-detail-card,
+html[data-app-theme="light"] .internal-app-shell .sale-picker-card {
+  --card-background-color: var(--app-surface);
+  background: var(--app-surface) !important;
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-card:hover,
+html[data-app-theme="light"] .internal-app-shell .part-card:hover,
+html[data-app-theme="light"] .internal-app-shell .sale-picker-card:hover {
+  background: var(--app-surface-raised) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-status.status-available {
+  border-color: rgba(4, 120, 87, 0.24) !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  color: var(--app-success) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-status.status-reserved {
+  border-color: rgba(180, 83, 9, 0.24) !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #92400e !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-status.status-sold {
+  border-color: rgba(190, 18, 60, 0.22) !important;
+  background: rgba(244, 63, 94, 0.1) !important;
+  color: var(--app-danger) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .vehicle-status.status-neutral {
+  border-color: rgba(71, 85, 105, 0.22) !important;
+  background: rgba(100, 116, 139, 0.1) !important;
+  color: var(--app-neutral) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .part-card-media {
+  display: grid;
+  place-items: center;
+  background: var(--app-surface-raised);
+}
+
+html[data-app-theme="light"] .internal-app-shell .part-card-image {
+  object-fit: contain;
+  object-position: center;
+  padding: 14px;
+  background: transparent;
+}
+
+html[data-app-theme="light"] .client-dialog-content {
+  border-color: var(--app-border) !important;
+  background: var(--app-surface) !important;
+  color: var(--app-text) !important;
+  box-shadow: 0 14px 36px var(--app-shadow) !important;
+}
+
+html[data-app-theme="light"] .client-dialog-content .client-dialog-icon {
+  border-color: rgba(37, 99, 235, 0.24);
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .client-dialog-content .rt-TextFieldRoot,
+html[data-app-theme="light"] .client-dialog-content input,
+html[data-app-theme="light"] .client-dialog-content textarea,
+html[data-app-theme="light"] .client-dialog-content .rt-SelectTrigger,
+html[data-app-theme="light"] .client-dialog-content [data-radix-select-trigger] {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-input) !important;
+  color: var(--app-text) !important;
+  -webkit-text-fill-color: var(--app-text);
+}
+
+html[data-app-theme="light"] .client-dialog-content input::placeholder,
+html[data-app-theme="light"] .client-dialog-content textarea::placeholder {
+  color: var(--app-subtle);
+  -webkit-text-fill-color: var(--app-subtle);
+}
+
+html[data-app-theme="light"] .client-dialog-content .rt-SelectTriggerInner,
+html[data-app-theme="light"] .client-dialog-content .rt-SelectIcon {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .client-dialog-content button.rt-variant-outline {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-surface) !important;
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .client-dialog-content button.rt-variant-outline:hover {
+  border-color: var(--app-accent) !important;
+  background: var(--app-surface-raised) !important;
+  color: var(--app-accent) !important;
+}
+
+html[data-app-theme="light"] .client-dialog-content .part-dialog-area-select .rt-SelectTrigger,
+html[data-app-theme="light"] .client-dialog-content .part-dialog-area-select [data-radix-select-trigger] {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-input) !important;
+  color: var(--app-text) !important;
+}
+
+html[data-app-theme="light"] .client-dialog-save {
+  border-color: var(--app-accent) !important;
+  background: var(--app-accent) !important;
+  color: #fff !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell button.rt-variant-solid:not([data-accent-color="red"]):not([data-accent-color="green"]):not([data-accent-color="amber"]):not([data-accent-color="orange"]),
+html[data-app-theme="light"] .client-dialog-content button.rt-variant-solid:not([data-accent-color="red"]):not([data-accent-color="green"]):not([data-accent-color="amber"]):not([data-accent-color="orange"]) {
+  border-color: var(--app-accent) !important;
+  background: var(--app-accent) !important;
+  color: #fff !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell button.rt-variant-solid .rt-Text,
+html[data-app-theme="light"] .client-dialog-content button.rt-variant-solid .rt-Text {
+  color: inherit !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell button:disabled,
+html[data-app-theme="light"] .client-dialog-content button:disabled {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-surface-hover) !important;
+  color: var(--app-muted) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .sale-workspace .sale-picker-card {
+  border-color: var(--app-border) !important;
+  background: var(--app-surface) !important;
+  color: var(--app-text);
+}
+
+html[data-app-theme="light"] .sale-workspace .sale-picker-card h3,
+html[data-app-theme="light"] .sale-workspace .sale-picker-card .sale-price {
+  color: var(--app-text) !important;
+}
+
+html[data-app-theme="light"] .sale-workspace .sale-picker-empty {
+  background: var(--app-surface-raised) !important;
+  color: var(--app-muted) !important;
+}
+
+html[data-app-theme="light"] .sale-workspace .rt-SelectTrigger,
+html[data-app-theme="light"] .sale-workspace [role="combobox"] {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-input) !important;
+  color: var(--app-text) !important;
+  -webkit-text-fill-color: var(--app-text);
+}
+
+html[data-app-theme="light"] .sale-workspace .rt-SelectTriggerInner,
+html[data-app-theme="light"] .sale-workspace .rt-SelectIcon {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .sale-selection:disabled button[role="combobox"] {
+  background: var(--app-surface-raised) !important;
+  color: var(--app-text-secondary) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .sale-selected-item button.rt-variant-ghost {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot,
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot {
+  border-color: var(--app-border) !important;
+  background: var(--app-surface-raised) !important;
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot .rt-CalloutText,
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot .rt-CalloutText {
+  color: inherit !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot[data-accent-color="blue"],
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot[data-accent-color=""],
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot[data-accent-color="blue"],
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot[data-accent-color=""] {
+  color: var(--app-accent) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot[data-accent-color="red"],
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot[data-accent-color="red"] {
+  color: var(--app-danger) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot[data-accent-color="green"],
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot[data-accent-color="green"] {
+  color: var(--app-success) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot[data-accent-color="amber"],
+html[data-app-theme="light"] .internal-app-shell .rt-CalloutRoot[data-accent-color="orange"],
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot[data-accent-color="amber"],
+html[data-app-theme="light"] .client-dialog-content .rt-CalloutRoot[data-accent-color="orange"] {
+  color: var(--app-warning) !important;
+}
+
+html[data-app-theme="light"] [data-radix-select-content] [data-radix-select-item],
+html[data-app-theme="light"] .rt-SelectItem {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] [data-radix-select-content] [data-radix-select-item]:hover,
+html[data-app-theme="light"] [data-radix-select-content] [data-radix-select-item][data-highlighted],
+html[data-app-theme="light"] .rt-SelectItem:hover {
+  background: var(--app-surface-hover) !important;
+  color: var(--app-text) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .part-stock-badge.stock-out {
+  border-color: rgba(190, 18, 60, 0.24) !important;
+  background: rgba(244, 63, 94, 0.1) !important;
+  color: var(--app-danger) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .part-stock-badge.stock-low {
+  border-color: rgba(180, 83, 9, 0.24) !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: var(--app-warning) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .part-stock-badge.stock-available {
+  border-color: rgba(4, 120, 87, 0.24) !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  color: var(--app-success) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-SelectTrigger,
+html[data-app-theme="light"] .internal-app-shell [role="combobox"] {
+  border-color: var(--app-border-strong) !important;
+  background: var(--app-surface-raised) !important;
+  color: var(--app-text) !important;
+  -webkit-text-fill-color: var(--app-text);
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-SelectTriggerInner {
+  color: var(--app-text-secondary) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--app-text-secondary);
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-SelectIcon {
+  color: var(--app-muted) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell table td {
+  color: var(--app-text-secondary) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-SelectItem,
+html[data-app-theme="light"] .internal-app-shell .rt-SelectItem * {
+  color: var(--app-text-secondary) !important;
+  opacity: 1 !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-SelectItem:hover,
+html[data-app-theme="light"] .internal-app-shell .rt-SelectItem[data-highlighted] {
+  background: var(--app-surface-hover) !important;
+  color: var(--app-text) !important;
+}
+
+html[data-app-theme="light"] .internal-app-shell .rt-SelectItem:hover *,
+html[data-app-theme="light"] .internal-app-shell .rt-SelectItem[data-highlighted] * {
+  color: var(--app-text) !important;
+}

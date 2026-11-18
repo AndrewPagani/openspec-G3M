@@ -380,10 +380,26 @@ class DashboardStateTests(unittest.TestCase):
                 ]
             ),
             [
-                {"nome": "Disponível", "quantidade": 3.0, "cor": "#10b981"},
-                {"nome": "Reservado", "quantidade": 2.0, "cor": "#f59e0b"},
-                {"nome": "Vendido", "quantidade": 1.0, "cor": "#f43f5e"},
-                {"nome": "Em preparação", "quantidade": 0.0, "cor": "#64748b"},
+                {
+                    "nome": "Disponível",
+                    "quantidade": 3.0,
+                    "cor": "var(--app-status-available, #10b981)",
+                },
+                {
+                    "nome": "Reservado",
+                    "quantidade": 2.0,
+                    "cor": "var(--app-status-reserved, #f59e0b)",
+                },
+                {
+                    "nome": "Vendido",
+                    "quantidade": 1.0,
+                    "cor": "var(--app-status-sold, #f43f5e)",
+                },
+                {
+                    "nome": "Em preparação",
+                    "quantidade": 0.0,
+                    "cor": "var(--app-status-neutral, #64748b)",
+                },
             ],
         )
 

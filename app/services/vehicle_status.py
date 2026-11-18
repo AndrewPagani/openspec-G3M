@@ -1,8 +1,8 @@
 VEHICLE_STATUS_CHART_COLORS = {
-    "status-available": "#10b981",
-    "status-reserved": "#f59e0b",
-    "status-sold": "#f43f5e",
-    "status-neutral": "#64748b",
+    "status-available": "var(--app-status-available, #10b981)",
+    "status-reserved": "var(--app-status-reserved, #f59e0b)",
+    "status-sold": "var(--app-status-sold, #f43f5e)",
+    "status-neutral": "var(--app-status-neutral, #64748b)",
 }
 
 

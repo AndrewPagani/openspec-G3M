@@ -13,6 +13,7 @@ import reflex as rx
 from app.services.vehicle_status import vehicle_status_chart_color
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
+from app.state.settings_state import SettingsState
 
 
 def _decimal(value: Any, label: str) -> Decimal:
@@ -461,12 +462,12 @@ def _chart_rows(
 
 
 _CHART_COLORS = (
-    "#60a5fa",
-    "#2dd4bf",
-    "#c4b5fd",
-    "#fbbf24",
-    "#93c5fd",
-    "#67e8f9",
+    "var(--app-chart-series-1, #60a5fa)",
+    "var(--app-chart-series-2, #2dd4bf)",
+    "var(--app-chart-series-3, #c4b5fd)",
+    "var(--app-chart-series-4, #fbbf24)",
+    "var(--app-chart-series-5, #93c5fd)",
+    "var(--app-chart-series-6, #67e8f9)",
 )
 
 
@@ -743,6 +744,8 @@ class DashboardState(rx.State):
         self.veiculos_por_status = []
 
     async def load(self) -> AsyncIterator[None]:
+        settings_state = await self.get_state(SettingsState)
+        await settings_state.load()
         self.loading, self.error = True, ""
         self._clear_metrics()
         # Flush the loading state before awaiting I/O, so old results are not
@@ -831,7 +834,7 @@ class DashboardState(rx.State):
                 "veículos vendidos por marca",
             )
             self.chart_veiculos_vendidos_por_marca = [
-                {**row, "cor": "#60a5fa"}
+                {**row, "cor": "var(--app-chart-primary, #60a5fa)"}
                 for row in _chart_rows(
                     marcas_vendidas,
                     "veículos vendidos por marca",
@@ -850,7 +853,7 @@ class DashboardState(rx.State):
             self.chart_pecas_vendidas_por_categoria = [
                 {
                     **row,
-                    "cor": "#60a5fa",
+                    "cor": "var(--app-chart-primary, #60a5fa)",
                     "valor_formatado": _currency(row["valor_total"], "valor de peças")
                     if "valor_total" in row
                     else "",

@@ -8,6 +8,7 @@ from app.pages.sales import sales_create_page, sales_detail_page, sales_list_pag
 from app.pages.vehicle_detail import vehicle_detail_page
 from app.pages.client_detail import client_detail_page
 from app.pages.simple import detail_page, form_page
+from app.pages.settings import settings_page
 
 
 def index() -> rx.Component:
@@ -33,5 +34,4 @@ app.add_page(sales_detail_page, route="/vendas/[id]")
 app.add_page(lambda: resource_page("Usuários", "/usuarios", "/usuarios/novo", AuthState.is_admin), route="/usuarios")
 app.add_page(lambda: form_page("Novo usuário", "usuarios", ("Nome", "E-mail", "Perfil"), AuthState.is_admin), route="/usuarios/novo")
 app.add_page(lambda: detail_page("Detalhe do usuário", "usuarios", AuthState.is_admin), route="/usuarios/[id]")
-app.add_page(lambda: resource_page("Auditoria", "/auditoria", allowed=AuthState.is_manager), route="/auditoria")
-app.add_page(lambda: resource_page("Configurações", "/configuracoes-dashboard", allowed=AuthState.is_manager), route="/configuracoes")
+app.add_page(settings_page, route="/configuracoes")

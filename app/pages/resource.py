@@ -38,7 +38,6 @@ def _vehicle_card(row: rx.Var, endpoint: str) -> rx.Component:
                 _vehicle_info("Ano", row["_vehicle_year"]),
                 _vehicle_info("Valor", row["_vehicle_price"]),
                 _vehicle_info("Km", row["_vehicle_mileage"]),
-                _vehicle_info("Comb.", row["_vehicle_fuel"]),
                 class_name="vehicle-card-info",
             ),
             rx.link(
@@ -114,7 +113,15 @@ def _part_card(row: rx.Var, endpoint: str) -> rx.Component:
                         "Disponível",
                     ),
                 ),
-                class_name="part-stock-badge",
+                class_name=rx.cond(
+                    row["_part_stock_class"] == "stock-out",
+                    "part-stock-badge stock-out",
+                    rx.cond(
+                        row["_part_stock_class"] == "stock-low",
+                        "part-stock-badge stock-low",
+                        "part-stock-badge stock-available",
+                    ),
+                ),
             ),
             rx.heading(row["_part_name"], size="4", class_name="vehicle-card-title"),
             rx.text(row["_part_area"], class_name="part-card-area"),

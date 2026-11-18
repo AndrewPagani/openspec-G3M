@@ -144,7 +144,7 @@ Não foram consultados registros de clientes, usuários, vendas ou catálogos. N
 
 Aplicação de concessionária em Python + Reflex; Xano fornece autenticação, persistência e APIs. `httpx` realiza as chamadas. Não há banco próprio da aplicação Python.
 
-- [Registro das páginas](../app/app.py): gerenciamento, login, clientes, veículos, peças, vendas, usuários, auditoria e configurações. Registro de rota não comprova funcionalidade completa.
+- [Registro das páginas](../app/app.py): gerenciamento, login, clientes, veículos, peças, vendas, usuários e configurações. Registro de rota não comprova funcionalidade completa.
 - [Shell](../app/components/app_shell.py): navegação e visibilidade conforme sessão/perfil.
 - [AuthState](../app/state/auth_state.py): login/logout; token, nome e perfil usam `rx.LocalStorage`. `authenticated` verifica presença do token; validade efetiva é responsabilidade do Xano.
 - [ResourceState](../app/state/resource_state.py): listagens, busca/ordenação/paginação local de clientes e diálogos de edição; carrega todas as páginas informadas de clientes, veículos e peças. Na tela de clientes, também consulta vendas para última atividade e pendências.
@@ -223,7 +223,7 @@ O remoto também possui `GET /auditoria_parcelas` no grupo gerenciamento, ausent
 2. As specs de vendas/dashboard/integridade ainda contêm regras ASAAS; o app usa baixa manual. A visão geral também mistura exclusão de ASAAS do escopo com funcionalidades de cobrança. Não escolher silenciosamente uma dessas versões como decisão vigente.
 3. A indicação de 11 tabelas em documentos antigos descreve a base original, não as 16 tabelas retornadas agora.
 4. `workspace_full`, `backup-before-real-mvp`, `workspace`, bundles e migrações não são intercambiáveis com `workspace_current` nem com o snapshot remoto desta consulta.
-5. Rotas de auditoria/configurações estão registradas no app, mas o cliente HTTP local rejeita `/auditoria` e `/configuracoes-dashboard` por ausência de grupo reconhecido. O endpoint remoto `auditoria_parcelas` tem outro caminho. O formulário genérico não implementa cadastro de usuários.
+5. A auditoria genérica não faz parte da navegação nem possui rota local funcional. O cliente HTTP local também rejeita `/configuracoes-dashboard` por ausência de grupo reconhecido. O endpoint remoto `auditoria_parcelas` tem outro caminho. O formulário genérico não implementa cadastro de usuários.
 6. Caminhos de seed e mudanças citados no README devem ser conferidos antes de uso; não inferir existência de arquivos a partir de links antigos.
 
 ## Verificações realizadas e limites

@@ -13,6 +13,7 @@ class AuthState(rx.State):
     token: str = rx.LocalStorage("")
     user_name: str = rx.LocalStorage("")
     profile: str = rx.LocalStorage("")
+    account_id: str = rx.LocalStorage("")
     email: str = ""
     password: str = ""
     busy: bool = False
@@ -56,6 +57,7 @@ class AuthState(rx.State):
             raw_token = str(result.get("authToken") or result.get("token") or "").strip()
             self.token = raw_token[7:].strip() if raw_token.lower().startswith("bearer ") else raw_token
             user = result.get("user") or result
+            self.account_id = str(user.get("id") or self.email.strip().casefold())
             profile = user.get("perfil") or user.get("profile") or {}
             self.user_name = str(user.get("UNome") or user.get("name") or user.get("nome") or self.email)
             role = profile.get("Cargo") if isinstance(profile, dict) else profile
