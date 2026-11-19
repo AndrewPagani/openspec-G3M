@@ -88,7 +88,9 @@ class AsyncXanoClientTests(unittest.IsolatedAsyncioTestCase):
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=session)
         context.__aexit__ = AsyncMock(return_value=False)
-        async_client.return_value = context
+        async_client.return_value = session
+        session.aclose = AsyncMock()
+        await self.client.start()
 
         result = await self.client.async_request(
             "GET",
@@ -112,7 +114,9 @@ class AsyncXanoClientTests(unittest.IsolatedAsyncioTestCase):
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=session)
         context.__aexit__ = AsyncMock(return_value=False)
-        async_client.return_value = context
+        async_client.return_value = session
+        session.aclose = AsyncMock()
+        await self.client.start()
 
         with self.assertRaisesRegex(XanoError, "Sua sessão expirou"):
             await self.client.async_request("GET", "/clientes", token="test-token")

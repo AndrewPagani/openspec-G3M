@@ -7,16 +7,19 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from app.services.xano_client import XanoError
+from app.services.catalogs import catalogs
 from app.services.vehicle_status import vehicle_status_class
-from app.state.auth_state import AuthState
+from app.services.xano_client import XanoError
 from app.state.form_state import (
+    FormState,
     _build_part_payload,
     _build_vehicle_details_payload,
     _build_vehicle_payload,
 )
 from app.state.resource_state import (
-    ResourceState,
+    ClientsState as ResourceState,
+)
+from app.state.resource_state import (
     _client_activity_and_metrics,
     _format_cpf,
     _format_phone,
@@ -25,7 +28,6 @@ from app.state.resource_state import (
     _sort_client_records,
 )
 from app.state.vehicle_detail_state import _normalize_detail
-from app.state.form_state import FormState
 from app.state.vendas_state import _format_local_datetime
 
 
@@ -100,7 +102,7 @@ class ResourceStateTests(unittest.TestCase):
     def test_opens_client_details_from_individual_api(self) -> None:
         async def exercise() -> None:
             async def get_state(_state_type):
-                return SimpleNamespace(token="test-token")
+                return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
             state = SimpleNamespace(
                 records=[
@@ -113,6 +115,7 @@ class ResourceStateTests(unittest.TestCase):
                         "_client_last_activity": "Sem compras",
                     }
                 ],
+                dialog_generation=0,
                 selected_client={},
                 client_dialog_mode="",
                 client_action_message="",
@@ -129,7 +132,7 @@ class ResourceStateTests(unittest.TestCase):
                 None,
             )
             with patch(
-                "app.state.resource_state.client.request",
+                "app.state.resource_state.client.async_request",
                 return_value={
                     "id": 12,
                     "CNome": "Ana Almeida",
@@ -138,7 +141,7 @@ class ResourceStateTests(unittest.TestCase):
                     "Email": "ana@example.test",
                 },
             ) as request:
-                await ResourceState.open_client_details.fn(state, "12")
+                await consume(ResourceState.open_client_details.fn.read_body(state, "12"))
 
             request.assert_called_once_with("GET", "/clientes/12", token="test-token")
             self.assertEqual(state.selected_client["name"], "Ana Almeida")
@@ -151,10 +154,11 @@ class ResourceStateTests(unittest.TestCase):
     def test_shows_client_detail_api_error(self) -> None:
         async def exercise() -> None:
             async def get_state(_state_type):
-                return SimpleNamespace(token="test-token")
+                return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
             state = SimpleNamespace(
                 records=[{"id": 12, "_client_name": "Ana"}],
+                dialog_generation=0,
                 selected_client={},
                 client_dialog_mode="",
                 client_action_message="",
@@ -171,10 +175,10 @@ class ResourceStateTests(unittest.TestCase):
                 None,
             )
             with patch(
-                "app.state.resource_state.client.request",
+                "app.state.resource_state.client.async_request",
                 side_effect=XanoError("Cliente não encontrado."),
             ):
-                await ResourceState.open_client_details.fn(state, "12")
+                await consume(ResourceState.open_client_details.fn.read_body(state, "12"))
 
             self.assertEqual(state.client_action_message, "Cliente não encontrado.")
             self.assertFalse(state.client_detail_loading)
@@ -184,12 +188,13 @@ class ResourceStateTests(unittest.TestCase):
     def test_deletes_client_using_xano_path_id(self) -> None:
         async def exercise() -> None:
             async def get_state(_state_type):
-                return SimpleNamespace(token="test-token")
+                return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
             async def reload_clients(endpoint: str, title: str) -> None:
                 self.assertEqual((endpoint, title), ("/clientes", "Clientes"))
 
             state = SimpleNamespace(
+                read_generation=0,
                 selected_client={"id": "12", "name": "Ana Almeida"},
                 client_delete_loading=False,
                 client_action_message="",
@@ -198,14 +203,14 @@ class ResourceStateTests(unittest.TestCase):
                 load=reload_clients,
             )
             with patch(
-                "app.state.resource_state.client.request",
+                "app.state.resource_state.client.async_request",
                 return_value={
                     "id": 12,
                     "deleted": True,
                     "message": "Cliente excluido com sucesso",
                 },
             ) as request:
-                await ResourceState.delete_client.fn(state)
+                refresh = await ResourceState.delete_client.fn(state)
 
             request.assert_called_once_with(
                 "DELETE",
@@ -218,15 +223,17 @@ class ResourceStateTests(unittest.TestCase):
                 "Cliente excluido com sucesso",
             )
             self.assertFalse(state.client_delete_loading)
+            self.assertEqual(refresh.handler.fn.__name__, "load")
 
         asyncio.run(exercise())
 
     def test_reports_delete_contract_error(self) -> None:
         async def exercise() -> None:
             async def get_state(_state_type):
-                return SimpleNamespace(token="test-token")
+                return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
             state = SimpleNamespace(
+                read_generation=0,
                 selected_client={"id": "12"},
                 client_delete_loading=False,
                 client_action_message="",
@@ -234,7 +241,7 @@ class ResourceStateTests(unittest.TestCase):
                 get_state=get_state,
             )
             with patch(
-                "app.state.resource_state.client.request",
+                "app.state.resource_state.client.async_request",
                 return_value={"id": 12, "deleted": False},
             ):
                 await ResourceState.delete_client.fn(state)
@@ -489,7 +496,7 @@ class ResourceStateTests(unittest.TestCase):
 class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
     async def test_edits_part_without_changing_stock(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         async def reload_parts(endpoint: str, title: str) -> None:
             state.reloaded = (endpoint, title)
@@ -504,6 +511,7 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
                     "area_id": 2,
                 }
             ],
+            read_generation=0,
             part_dialog_loading=False,
             part_dialog_error="",
             part_edit_areas=[],
@@ -540,18 +548,19 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with patch(
-            "app.state.resource_state.client.request",
+            "app.state.resource_state.client.async_request",
             side_effect=[
                 [{"id": 2, "Secao": "Freios"}, {"id": 3, "Secao": "Motor"}],
                 {"ok": True},
                 refreshed_parts,
             ],
         ) as request:
-            await ResourceState.open_part_edit.fn(state, "9")
+            await consume(ResourceState.open_part_edit.fn.read_body(state, "9"))
             state.part_form_name = "Filtro novo"
             state.part_form_price = "34,50"
             state.part_form_area_id = "3"
-            await ResourceState.save_part_edits.fn(state)
+            refresh = await ResourceState.save_part_edits.fn(state)
+            await consume(ResourceState.load.fn.read_body(state, "/pecas", "Peças e estoque"))
 
         self.assertEqual(request.call_args_list[1].args[:2], ("PATCH", "/pecas/9"))
         self.assertEqual(
@@ -560,13 +569,14 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertNotIn("qtd_disp", request.call_args_list[1].kwargs["json"])
         self.assertEqual(state.records[0]["qtd_disp"], 7)
-        self.assertEqual(state.reloaded, ("/pecas", "Peças e estoque"))
+        self.assertEqual(refresh.handler.fn.__name__, "load")
+        self.assertEqual(state.read_generation, 1)
         self.assertFalse(state.part_dialog_open)
         self.assertFalse(state.part_dialog_saving)
 
     async def test_loads_client_contacts_and_sales_derived_activity(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         state = SimpleNamespace(
             endpoint="",
@@ -603,14 +613,14 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with patch(
-            "app.state.resource_state.client.request",
+            "app.state.resource_state.client.async_request",
             side_effect=[
                 client_response,
                 sales_response,
                 {"items": [], "pagination": {"total_pages": 2}},
             ],
         ) as request:
-            await ResourceState.load.fn(state, "/clientes", "Clientes")
+            await consume(ResourceState.load.fn.read_body(state, "/clientes", "Clientes"))
 
         self.assertEqual(request.call_count, 3)
         self.assertEqual(request.call_args_list[0].args[:2], ("GET", "/clientes"))
@@ -628,7 +638,7 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_sales_failure_preserves_clients_and_recovers(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         clients = {
             "items": [{
@@ -650,9 +660,9 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(responses=responses):
                 state = SimpleNamespace(get_state=get_state, pending_purchases=9)
                 with patch(
-                    "app.state.resource_state.client.request", side_effect=responses,
+                    "app.state.resource_state.client.async_request", side_effect=responses,
                 ):
-                    await ResourceState.load.fn(state, "/clientes", "Clientes")
+                    await consume(ResourceState.load.fn.read_body(state, "/clientes", "Clientes"))
 
                 self.assertEqual(state.records[0]["_client_name"], "Ana")
                 self.assertEqual(state.records[0]["_client_email"], "ana@example.test")
@@ -664,10 +674,10 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("vendas", state.client_sales_warning)
 
                 with patch(
-                    "app.state.resource_state.client.request",
+                    "app.state.resource_state.client.async_request",
                     side_effect=[clients, {"items": [], "pagination": {"total_pages": 1}}],
                 ):
-                    await ResourceState.load.fn(state, "/clientes", "Clientes")
+                    await consume(ResourceState.load.fn.read_body(state, "/clientes", "Clientes"))
                 self.assertTrue(state.client_sales_available)
                 self.assertEqual(state.client_sales_warning, "")
                 self.assertEqual(state.pending_purchases, 0)
@@ -675,13 +685,13 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_client_failure_still_reports_primary_error(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         state = SimpleNamespace(get_state=get_state, records=[{"id": 12}])
         with patch(
-            "app.state.resource_state.client.request", side_effect=XanoError("Clientes indisponíveis"),
+            "app.state.resource_state.client.async_request", side_effect=XanoError("Clientes indisponíveis"),
         ) as request:
-            await ResourceState.load.fn(state, "/clientes", "Clientes")
+            await consume(ResourceState.load.fn.read_body(state, "/clientes", "Clientes"))
         self.assertEqual(request.call_count, 1)
         self.assertEqual(state.records, [])
         self.assertEqual(state.error, "Clientes indisponíveis")
@@ -690,7 +700,7 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_load_fetches_every_vehicle_page(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         state = SimpleNamespace(
             endpoint="",
@@ -710,10 +720,10 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with patch(
-            "app.state.resource_state.client.request",
+            "app.state.resource_state.client.async_request",
             side_effect=[first_page, second_page],
         ) as request:
-            await ResourceState.load.fn(state, "/veiculos", "Veículos")
+            await consume(ResourceState.load.fn.read_body(state, "/veiculos", "Veículos"))
 
         self.assertEqual([row["id"] for row in state.records], [1, 2])
         self.assertEqual(request.call_count, 2)
@@ -736,9 +746,11 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
 
 
 class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        catalogs.invalidate()
     async def test_loads_real_statuses_and_defaults_to_available(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         state = SimpleNamespace(
             values={},
@@ -754,9 +766,9 @@ class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         with patch(
-            "app.state.form_state.client.request", return_value=statuses
+            "app.state.form_state.client.async_request", return_value=statuses
         ) as request:
-            await FormState.load_vehicle_statuses.fn(state)
+            await FormState.load_vehicle_statuses.fn.read_body(state)
 
         self.assertEqual(state.values["Status (ID)"], "2")
         self.assertEqual(
@@ -773,7 +785,7 @@ class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_saves_vehicle_status_and_image_url_to_xano(self) -> None:
         async def get_state(_state_type):
-            return SimpleNamespace(token="test-token")
+            return SimpleNamespace(token="test-token", read_generation=0, records=[], complete=False)
 
         state = SimpleNamespace(
             values={
@@ -795,7 +807,7 @@ class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
             get_state=get_state,
         )
 
-        with patch("app.state.form_state.client.request", return_value={"id": 15}) as request:
+        with patch("app.state.form_state.client.async_request", return_value={"id": 15}) as request:
             await FormState.save.fn(state, "veiculos")
 
         self.assertEqual(request.call_args_list[0].args[:2], ("POST", "/veiculos"))
@@ -817,3 +829,8 @@ class VehicleFormStateTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+async def consume(generator):
+    async for _ in generator:
+        pass

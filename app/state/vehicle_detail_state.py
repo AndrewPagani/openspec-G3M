@@ -6,6 +6,7 @@ import reflex as rx
 
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
+from app.state.read_lifecycle import read_event
 
 
 def _value(record: dict[str, Any], *keys: str, default: str = "Não informado") -> str:
@@ -56,18 +57,24 @@ def _normalize_detail(response: object) -> dict[str, Any]:
 class VehicleDetailState(rx.State):
     vehicle: dict[str, Any] = {}
     opcionais: list[str] = []
+    read_id: str = ""
+    read_generation: int = 0
     loading: bool = False
     error: str = ""
 
+    @read_event(outputs=('vehicle', 'opcionais', 'loading', 'error', 'read_id'), clear=('vehicle', 'opcionais', 'error'))
     async def load(self) -> None:
         vehicle_id = str(self.router.page.params.get("id", "")).strip()
+        self.read_id = vehicle_id
         if not vehicle_id.isdigit() or int(vehicle_id) < 1:
+            self.loading = False
+            self.vehicle = {}
             self.error = "Identificador de veículo inválido."
             return
         self.loading, self.error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            response = client.request(
+            response = await client.async_request(
                 "GET",
                 f"/veiculos/{vehicle_id}",
                 token=auth_state.token,

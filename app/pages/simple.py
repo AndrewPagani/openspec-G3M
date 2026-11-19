@@ -1,7 +1,6 @@
 import reflex as rx
 
 from app.components.app_shell import shell
-from app.state.auth_state import AuthState
 from app.state.form_state import FormState
 
 
@@ -532,7 +531,7 @@ def form_page(
         return shell(
             rx.vstack(
                 _vehicle_form(),
-                on_mount=FormState.load_vehicle_statuses,
+
                 class_name="vehicle-create-page",
             ),
             title,
@@ -542,7 +541,7 @@ def form_page(
         return shell(
             rx.vstack(
                 _part_form(),
-                on_mount=FormState.load_part_areas,
+
                 class_name="vehicle-create-page",
             ),
             title,

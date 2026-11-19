@@ -1,0 +1,214 @@
+{
+  "fixture_only": true,
+  "cold_vehicles_ms": 16443.3,
+  "navigations": [
+    {
+      "path": "/pecas",
+      "route_ms": 211.4,
+      "observation_ms": 320.1,
+      "early_content": "Novo\n\nImagem não cadastrada\n\nVeículo visual 1\n\nAno\n\n2025\n\nValor\n\nR$ 40.000,00\n\nKm\n\nNão informado\n\nVer Detalhes\n\nImagem não cadastrada\n\nVeículo visual 2\n\nAno\n\n2025\n\nValor\n\nR$ 40.000",
+      "data_ms": 1676.0
+    },
+    {
+      "path": "/clientes",
+      "route_ms": 183.6,
+      "observation_ms": 306.9,
+      "early_content": "Total de clientes\n\n2\n\nNovos neste mês\n\n0\n\nCompras pendentes\n\nIndisponível\n\nMais novo para o mais antigo\n\nNovo Cliente\n\nCliente\tCPF\tE-mail\tÚltima atividade\tAções\n\n\n\t\t\t\t\n\n\n\n\t\t\t\t\n\nÚlt",
+      "data_ms": 1713.6
+    },
+    {
+      "path": "/veiculos",
+      "route_ms": 52.5,
+      "observation_ms": 160.1,
+      "early_content": "Novo\n\nCliente - CPF\tAções\nCliente visual 1 - 00000000000\tAbrir\nCliente visual 2 - 00000000000\tAbrir",
+      "data_ms": 2071.2
+    }
+  ],
+  "errors": [],
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 418.0569898
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 418.4073339
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 418.7670682
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 419.1179329
+    },
+    {
+      "method": "GET",
+      "path": "/pecas",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 419.4795275
+    },
+    {
+      "method": "GET",
+      "path": "/pecas",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 419.8300404
+    },
+    {
+      "method": "GET",
+      "path": "/pecas",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 420.185844
+    },
+    {
+      "method": "GET",
+      "path": "/pecas",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 420.5363187
+    },
+    {
+      "method": "GET",
+      "path": "/clientes",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 420.8952756
+    },
+    {
+      "method": "GET",
+      "path": "/clientes",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 421.2455902
+    },
+    {
+      "method": "GET",
+      "path": "/vendas",
+      "params": {
+        "page": "1",
+        "per_page": "100",
+        "busca": ""
+      },
+      "at": 421.5975532
+    },
+    {
+      "method": "GET",
+      "path": "/vendas",
+      "params": {
+        "page": "2",
+        "per_page": "100",
+        "busca": ""
+      },
+      "at": 421.9486512
+    },
+    {
+      "method": "GET",
+      "path": "/clientes",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 422.3116576
+    },
+    {
+      "method": "GET",
+      "path": "/clientes",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 422.6623913
+    },
+    {
+      "method": "GET",
+      "path": "/vendas",
+      "params": {
+        "page": "1",
+        "per_page": "100",
+        "busca": ""
+      },
+      "at": 423.0128637
+    },
+    {
+      "method": "GET",
+      "path": "/vendas",
+      "params": {
+        "page": "2",
+        "per_page": "100",
+        "busca": ""
+      },
+      "at": 423.3632709
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 423.7201757
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 424.0706724
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 424.427931
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 424.7780735
+    }
+  ]
+}

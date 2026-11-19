@@ -6,9 +6,11 @@ from urllib.parse import urlparse
 
 import reflex as rx
 
-from app.services.xano_client import XanoError, client
+from app.services.catalogs import catalogs
 from app.services.vehicle_status import vehicle_status_class
+from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
+from app.state.read_lifecycle import read_event
 
 
 def _validate_image_url(value: str) -> str:
@@ -186,6 +188,8 @@ def _build_vehicle_details_payload(values: dict[str, str]) -> dict[str, object]:
 
 
 class FormState(rx.State):
+    read_generation: int = 0
+    areas_generation: int = 0
     values: dict[str, str] = {}
     vehicle_statuses: list[dict] = []
     part_areas: list[dict] = []
@@ -227,15 +231,13 @@ class FormState(rx.State):
         self.error = ""
         self.success = ""
 
+    @read_event(outputs=("vehicle_statuses", "loading_statuses", "status_error", "values"),
+                loading="loading_statuses", clear=("status_error",), merge=("values",))
     async def load_vehicle_statuses(self) -> None:
         self.loading_statuses, self.status_error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            result = client.request(
-                "GET",
-                "/status-veiculos",
-                token=auth_state.token,
-            )
+            result = await catalogs.get("/status-veiculos", auth_state.token)
             if not isinstance(result, list) or any(
                 not isinstance(status, dict)
                 or status.get("id") is None
@@ -264,11 +266,13 @@ class FormState(rx.State):
         finally:
             self.loading_statuses = False
 
+    @read_event(outputs=("part_areas", "loading_part_areas", "part_area_error"),
+                loading="loading_part_areas", clear=("part_area_error",), generation_field="areas_generation")
     async def load_part_areas(self) -> None:
         self.loading_part_areas, self.part_area_error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            result = client.request("GET", "/veiculo-areas", token=auth_state.token)
+            result = await catalogs.get("/veiculo-areas", auth_state.token)
             if not isinstance(result, list) or any(
                 not isinstance(area, dict)
                 or area.get("id") is None
@@ -356,19 +360,31 @@ class FormState(rx.State):
                         raise XanoError(f"Valor inválido no campo {label}.") from exc
 
             auth_state = await self.get_state(AuthState)
-            response = client.request(
+            response = await client.async_request(
                 "POST",
                 f"/{endpoint.strip('/')}",
                 token=auth_state.token,
                 json=payload,
             )
+            from app.state.resource_state import (
+                ClientsState,
+                PartsState,
+                UsersState,
+                VehiclesState,
+            )
+            affected = {"clientes": ClientsState, "veiculos": VehiclesState, "pecas": PartsState, "usuarios": UsersState}.get(endpoint.strip("/"))
+            if affected:
+                collection = await self.get_state(affected)
+                collection.read_generation += 1
+                collection.records = []
+                collection.complete = False
             if endpoint.strip("/") == "veiculos" and details_payload:
                 vehicle_id = response.get("id") if isinstance(response, dict) else None
                 if vehicle_id is None:
                     raise XanoError(
                         "O veículo foi salvo, mas a API não retornou o ID para salvar os detalhes."
                     )
-                client.request(
+                await client.async_request(
                     "POST",
                     f"/veiculos/{vehicle_id}/detalhes",
                     token=auth_state.token,

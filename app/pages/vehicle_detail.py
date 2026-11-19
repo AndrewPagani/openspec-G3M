@@ -69,7 +69,7 @@ def vehicle_detail_page() -> rx.Component:
                 align="center",
             ),
             rx.cond(
-                VehicleDetailState.loading,
+                VehicleDetailState.loading | (VehicleDetailState.read_id != VehicleDetailState.router.page.params.get("id", "")),
                 rx.center(rx.spinner(), min_height="260px"),
                 rx.cond(
                     VehicleDetailState.error != "",
@@ -165,7 +165,7 @@ def vehicle_detail_page() -> rx.Component:
             spacing="4",
             align="stretch",
             width="100%",
-            on_mount=VehicleDetailState.load,
+
         ),
         "Detalhes do veículo",
     )

@@ -1,5 +1,25 @@
 # Contexto verificado do projeto
 
+## Navegação e carregamento otimizados em 19/11/2026
+
+Change arquivada com 20/20 tarefas e specs sincronizadas: seis requisitos novos
+e um atualizado em interface interna, cadastros/listagens e integração Xano.
+
+A change `otimizar-navegacao-e-carregamento` implementa estados independentes por
+recurso, leituras em background com descarte de respostas antigas, HTTPX com pool
+assíncrono e coleções progressivas. A consulta auxiliar de vendas não bloqueia a
+lista de clientes. Somente formas de pagamento, status de veículos e áreas usam
+cache por credencial/ambiente (300 s, até 128 entradas); há limite de três leituras
+HTTP simultâneas por processo. Escritas não receberam retries automáticos.
+Logout/troca de conta limpam dados operacionais e preservam preferências por conta.
+Detalhes de pagamento não sobrescrevem o rascunho/ID de recuperação da criação.
+
+Ver [implementação e evidências](openspec/changes/archive/2026-11-19-otimizar-navegacao-e-carregamento/implementation-report.md).
+As medições usam fixtures locais, não comprovam latência, autorização ou execução
+financeira no Xano. Nenhuma API/tabela remota foi alterada nesta change. A carga
+integral de veículos e os parâmetros atuais das APIs foram preservados.
+
+
 ## Rotas locais recuperadas em 16/11/2026
 
 Após o refinamento do dashboard, foi reproduzido `404: Page not found` nas

@@ -4205,3 +4205,41 @@ html[data-app-theme="light"] .internal-app-shell .rt-SelectItem:hover *,
 html[data-app-theme="light"] .internal-app-shell .rt-SelectItem[data-highlighted] * {
   color: var(--app-text) !important;
 }
+
+/* Progressive collections use the existing internal-app palette in every theme. */
+.internal-app-shell .collection-status {
+  gap: 12px;
+  min-width: 0;
+  color: var(--internal-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.internal-app-shell .collection-refresh {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--internal-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--internal-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: none;
+}
+.internal-app-shell .collection-refresh:hover:enabled {
+  background: var(--internal-surface);
+}
+.internal-app-shell .collection-refresh:focus-visible {
+  outline: 2px solid var(--internal-accent);
+  outline-offset: 3px;
+}
+.internal-app-shell .collection-refresh:disabled {
+  opacity: .6;
+  cursor: progress;
+}
+
+/* Keep the existing client metric surface visible through Radix's card layer. */
+.internal-app-shell .client-metric-card::before {
+  background: transparent;
+  box-shadow: none;
+}

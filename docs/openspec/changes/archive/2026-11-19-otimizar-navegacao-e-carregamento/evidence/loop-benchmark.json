@@ -1,0 +1,23 @@
+{
+  "baseline_ref": "970758fbd1ecf109000b6f8ec8dbe2c9dec9f07a",
+  "baseline": {
+    "fixture_only": true,
+    "rows": 1000,
+    "requests": 11,
+    "first_feedback_ms": 452.6,
+    "first_data_ms": 452.6,
+    "complete_ms": 452.6,
+    "updates": 1,
+    "max_heartbeat_gap_ms": 452.7
+  },
+  "final": {
+    "fixture_only": true,
+    "rows": 1000,
+    "requests": 11,
+    "first_feedback_ms": 0.3,
+    "first_data_ms": 51.5,
+    "complete_ms": 540.3,
+    "updates": 12,
+    "max_heartbeat_gap_ms": 18.1
+  }
+}

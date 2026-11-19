@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -8,9 +9,11 @@ from zoneinfo import ZoneInfo
 
 import reflex as rx
 
+from app.services.catalogs import catalogs
 from app.services.sales_query import sales_query_params
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
+from app.state.read_lifecycle import read_event
 
 
 def _parse_installment_count(value: str) -> int:
@@ -60,6 +63,20 @@ def _positive_integer(value: object, label: str) -> int:
 
 
 class VendasState(rx.State):
+    read_generation: int = 0
+    methods_generation: int = 0
+    references_generation: int = 0
+    read_id: str = ""
+    detail_generation: int = 0
+    list_needs_refresh: bool = False
+    list_loading: bool = False
+    list_error: str = ""
+    methods_loading: bool = True
+    methods_error: str = ""
+    detail_loading: bool = False
+    detail_error: str = ""
+    references_loading: bool = False
+    references_error: str = ""
     clientes: list[dict[str, str]] = []
     veiculos_disponiveis: list[dict[str, str]] = []
     pecas_disponiveis: list[dict[str, str]] = []
@@ -91,17 +108,27 @@ class VendasState(rx.State):
     selected_part_quantity: str = "1"
     selected_items: list[dict[str, str]] = []
 
+    def _invalidate_list_query(self):
+        self.read_generation += 1
+        self.list_loading = False
+        self.list_needs_refresh = True
+        self.vendas, self.list_error = [], ""
+
     def set_busca(self, value: str) -> None:
         self.busca = value
+        self._invalidate_list_query()
 
     def set_filtro_forma_pagamento(self, value: str) -> None:
         self.filtro_forma_pagamento = value
+        self._invalidate_list_query()
 
     def set_filtro_data_inicio(self, value: str) -> None:
         self.filtro_data_inicio = value
+        self._invalidate_list_query()
 
     def set_filtro_data_fim(self, value: str) -> None:
         self.filtro_data_fim = value
+        self._invalidate_list_query()
 
     def set_selected_vehicle_id(self, value: str) -> None:
         self.selected_vehicle_id = value
@@ -121,8 +148,11 @@ class VendasState(rx.State):
             raise XanoError(message)
         return rows
 
+    @read_event(outputs=("vendas", "list_loading", "list_error", "list_needs_refresh"),
+                inputs=("busca", "filtro_forma_pagamento", "filtro_data_inicio", "filtro_data_fim"),
+                loading="list_loading", clear=("vendas", "list_error", "list_needs_refresh"))
     async def load_sales(self) -> None:
-        self.processando, self.erro, self.mensagem = True, "", ""
+        self.list_loading, self.list_error, self.mensagem = True, "", ""
         try:
             auth_state = await self.get_state(AuthState)
             params = sales_query_params(
@@ -131,7 +161,7 @@ class VendasState(rx.State):
                 data_inicio=self.filtro_data_inicio,
                 data_fim=self.filtro_data_fim,
             )
-            result = client.request("GET", "/vendas", token=auth_state.token, params=params)
+            result = await client.async_request("GET", "/vendas", token=auth_state.token, params=params)
             self.vendas = [
                 {
                     "id": str(row.get("id", "")),
@@ -145,22 +175,26 @@ class VendasState(rx.State):
             ]
         except (XanoError, InvalidOperation, ValueError) as exc:
             self.vendas = []
-            self.erro = str(exc)
+            self.list_error = str(exc)
         finally:
-            self.processando = False
+            self.list_loading = False
 
-    async def load_sales_page(self) -> None:
-        await self.load_payment_methods()
-        await self.load_sales()
+    def load_sales_page(self):
+        return [VendasState.load_sales, VendasState.load_payment_methods]
 
+    @read_event(outputs=("clientes", "veiculos_disponiveis", "pecas_disponiveis", "references_loading", "references_error"),
+                loading="references_loading", clear=("clientes", "veiculos_disponiveis", "pecas_disponiveis", "references_error"),
+                generation_field="references_generation")
     async def load_sale_references(self) -> None:
-        self.processando, self.erro = True, ""
+        self.references_loading, self.references_error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            clients = client.request("GET", "/clientes", token=auth_state.token, params={"page": 1, "per_page": 100})
-            vehicles = client.request("GET", "/veiculos", token=auth_state.token, params={"page": 1, "per_page": 100})
-            parts = client.request("GET", "/pecas", token=auth_state.token, params={"page": 1, "per_page": 100})
-            statuses = client.request("GET", "/status-veiculos", token=auth_state.token)
+            clients, vehicles, parts, statuses = await asyncio.gather(
+                client.async_request("GET", "/clientes", token=auth_state.token, params={"page": 1, "per_page": 100}),
+                client.async_request("GET", "/veiculos", token=auth_state.token, params={"page": 1, "per_page": 100}),
+                client.async_request("GET", "/pecas", token=auth_state.token, params={"page": 1, "per_page": 100}),
+                catalogs.get("/status-veiculos", auth_state.token),
+            )
             status_rows = self._rows(statuses, "A API retornou status de veículos inválidos.")
             available_ids = {
                 str(row.get("id")) for row in status_rows
@@ -195,9 +229,9 @@ class VendasState(rx.State):
                 if row.get("id") is not None and Decimal(str(row.get("qtd_disp", 0) or 0)) > 0
             ]
         except (XanoError, InvalidOperation, ValueError) as exc:
-            self.erro = str(exc)
+            self.references_error = str(exc)
         finally:
-            self.processando = False
+            self.references_loading = False
 
     def add_vehicle(self, vehicle_id: str) -> None:
         self.selected_vehicle_id = vehicle_id
@@ -265,15 +299,13 @@ class VendasState(rx.State):
     def set_forma_recebida_id(self, value: str) -> None:
         self.forma_recebida_id = value
 
-    async def load_payment_methods(self) -> None:
-        self.erro = ""
+    @read_event(outputs=("payment_methods", "methods_error", "methods_loading"), loading="methods_loading",
+                clear=("payment_methods", "methods_error"), generation_field="methods_generation")
+    async def load_payment_methods(self, force: bool = False) -> None:
+        self.methods_loading, self.methods_error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            result = client.request(
-                "GET",
-                "/formas-pagamento",
-                token=auth_state.token,
-            )
+            result = await catalogs.get("/formas-pagamento", auth_state.token, force=force)
             rows = result if isinstance(result, list) else result.get(
                 "items", result.get("data", [])
             )
@@ -301,7 +333,9 @@ class VendasState(rx.State):
                 )
         except (XanoError, AttributeError) as exc:
             self.payment_methods = []
-            self.erro = str(exc)
+            self.methods_error = str(exc)
+        finally:
+            self.methods_loading = False
 
     def _sale_payload(self) -> dict[str, object]:
         if not self.cliente_id.strip():
@@ -355,7 +389,7 @@ class VendasState(rx.State):
             payload = self._sale_payload()
             auth_state = await self.get_state(AuthState)
             attempted = True
-            response = client.request(
+            response = await client.async_request(
                 "POST",
                 "/vendas",
                 token=auth_state.token,
@@ -378,6 +412,15 @@ class VendasState(rx.State):
                 self.venda_id = str(_positive_integer(sale_id, "ID da venda retornado"))
             except XanoError as exc:
                 raise XanoError("A API não retornou o ID válido da venda. Confira a listagem antes de repetir.") from exc
+            self.read_generation += 1
+            self.references_generation += 1
+            self.vendas = []
+            from app.state.resource_state import ClientsState, PartsState, VehiclesState
+            for cls in (ClientsState, VehiclesState, PartsState):
+                collection = await self.get_state(cls)
+                collection.read_generation += 1
+                collection.records = []
+                collection.complete = False
             self.parcelas = []
             self.payment_flow = "ASAAS"
             amount = Decimal(str(response.get("Valor_final")))
@@ -403,7 +446,7 @@ class VendasState(rx.State):
         self.processando, self.erro, self.mensagem = True, "", ""
         try:
             auth_state = await self.get_state(AuthState)
-            response = client.request(
+            response = await client.async_request(
                 "POST", f"/vendas/{self.venda_id}/link-pagamento", token=auth_state.token,
             )
             self._set_payment(response)
@@ -512,20 +555,25 @@ class VendasState(rx.State):
             )
         return installments
 
+    @read_event(outputs=("read_id", "venda_id", "payment_url", "payment_status", "payment_flow", "total_confirmado", "payment_due_date", "parcelas", "detail_error", "detail_loading", "payment_methods", "methods_error", "methods_loading"),
+                loading="detail_loading", clear=("payment_url", "payment_status", "payment_flow", "total_confirmado", "payment_due_date", "parcelas", "detail_error", "erro", "mensagem"),
+                generation_field="detail_generation")
     async def load_sale(self) -> None:
         self.payment_url = self.payment_status = self.payment_flow = ""
         self.total_confirmado = self.payment_due_date = ""
         self.parcelas = []
         sale_id = str(self.router.page.params.get("id", "")).strip()
+        self.read_id = sale_id
         if not sale_id.isdigit() or int(sale_id) < 1:
             self.venda_id = ""
-            self.erro = "Identificador de venda inválido."
+            self.detail_loading = False
+            self.detail_error = "Identificador de venda inválido."
             return
         self.venda_id = sale_id
-        self.processando, self.erro, self.mensagem = True, "", ""
+        self.detail_loading, self.detail_error, self.mensagem = True, "", ""
         try:
             auth_state = await self.get_state(AuthState)
-            response = client.request(
+            response = await client.async_request(
                 "GET",
                 f"/vendas/{sale_id}/pagamento",
                 token=auth_state.token,
@@ -540,11 +588,11 @@ class VendasState(rx.State):
             self.total_confirmado = "R$ " + _format_currency(amount)
             self.parcelas = self._extract_installments(response)
             if self.payment_flow != "ASAAS":
-                await self.load_payment_methods()
+                await VendasState.load_payment_methods.fn.read_body(self)
         except (XanoError, InvalidOperation, ValueError) as exc:
-            self.erro = str(exc)
+            self.detail_error = str(exc)
         finally:
-            self.processando = False
+            self.detail_loading = False
 
     async def receive_installment(self, parcela_id: str) -> None:
         self.processando, self.erro, self.mensagem = True, "", ""
@@ -560,15 +608,58 @@ class VendasState(rx.State):
             if not self.forma_recebida_id.isdigit() or int(self.forma_recebida_id) < 1:
                 raise XanoError("Selecione a forma de pagamento realmente recebida.")
             auth_state = await self.get_state(AuthState)
-            client.request(
+            await client.async_request(
                 "POST",
                 f"/vendas/{self.venda_id}/parcelas/{parcela_id}/receber",
                 token=auth_state.token,
                 json={"forma_pagamento_id": int(self.forma_recebida_id)},
             )
             self.mensagem = "Baixa manual registrada no Xano."
-            await self.load_sale()
+            self.detail_generation += 1
+            return SaleDetailState.load_sale
         except XanoError as exc:
             self.erro = str(exc)
         finally:
             self.processando = False
+
+
+class SaleDetailState(rx.State):
+    """Payment detail never overwrites a sale draft or its recovery identifier."""
+    read_generation: int = 0
+    methods_generation: int = 0
+    read_id: str = ""
+    detail_generation: int = 0
+    venda_id: str = ""
+    payment_url: str = ""
+    payment_status: str = ""
+    payment_flow: str = ""
+    payment_due_date: str = ""
+    total_confirmado: str = ""
+    parcelas: list[dict[str, str]] = []  # noqa: RUF012 -- Reflex creates per-session defaults
+    payment_methods: list[dict[str, str]] = []  # noqa: RUF012 -- Reflex creates per-session defaults
+    methods_error: str = ""
+    methods_loading: bool = False
+    forma_recebida_id: str = ""
+    detail_loading: bool = False
+    detail_error: str = ""
+    processando: bool = False
+    erro: str = ""
+    mensagem: str = ""
+
+    _set_payment = VendasState._set_payment
+    _extract_installments = staticmethod(VendasState._extract_installments)
+    load_sale = VendasState.load_sale.fn
+    load_payment_methods = VendasState.load_payment_methods.fn
+    generate_payment_link = VendasState.generate_payment_link.fn
+    receive_installment = VendasState.receive_installment.fn
+    set_forma_recebida_id = VendasState.set_forma_recebida_id.fn
+
+    @rx.var
+    def payment_status_label(self) -> str:
+        return {
+            "": "Aguardando geração do link", "PENDING": "Aguardando pagamento",
+            "OVERDUE": "Vencida", "CONFIRMED": "Pagamento confirmado",
+            "RECEIVED": "Pagamento recebido", "RECEIVED_IN_CASH": "Pagamento recebido",
+            "DELETED": "Cobrança cancelada", "REFUNDED": "Pagamento estornado",
+            "CHARGEBACK_REQUESTED": "Pagamento em análise",
+        }.get(self.payment_status, "Consulte a situação na fatura")

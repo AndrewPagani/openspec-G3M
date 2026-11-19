@@ -1,15 +1,16 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import reflex as rx
 
 from app.state.auth_state import AuthState
 
 
-class AuthStateTests(unittest.TestCase):
+class AuthStateTests(unittest.IsolatedAsyncioTestCase):
+    @patch("app.state.auth_state.clear_operational_state", new_callable=AsyncMock)
     @patch(
-        "app.state.auth_state.client.login",
+        "app.state.auth_state.client.async_login",
         return_value={
             "authToken": "session-token",
             "user": {
@@ -19,7 +20,7 @@ class AuthStateTests(unittest.TestCase):
             },
         },
     )
-    def test_login_saves_account_identifier_for_local_preferences(self, login) -> None:
+    async def test_login_saves_account_identifier_for_local_preferences(self, login, clear) -> None:
         state = SimpleNamespace(
             email="user@example.test",
             password="secret",
@@ -32,13 +33,14 @@ class AuthStateTests(unittest.TestCase):
             profile="",
         )
 
-        AuthState.login.fn(state)
+        await AuthState.login.fn(state)
 
         self.assertEqual(state.account_id, "17")
         self.assertEqual(state.user_name, "Gerente")
         login.assert_called_once_with("user@example.test", "secret")
 
-    def test_logout_clears_session_and_returns_login_redirect(self) -> None:
+    @patch("app.state.auth_state.clear_operational_state", new_callable=AsyncMock)
+    async def test_logout_clears_session_and_returns_login_redirect(self, clear) -> None:
         state = SimpleNamespace(
             token="session-token",
             user_name="Gerente",
@@ -51,7 +53,7 @@ class AuthStateTests(unittest.TestCase):
             notice="Aviso",
         )
 
-        event = AuthState.logout.fn(state)
+        event = await AuthState.logout.fn(state)
 
         self.assertEqual(
             vars(state),
@@ -59,7 +61,7 @@ class AuthStateTests(unittest.TestCase):
                 "token": "",
                 "user_name": "",
                 "profile": "",
-                "account_id": "user-17",
+                "account_id": "",
                 "email": "",
                 "password": "",
                 "busy": False,

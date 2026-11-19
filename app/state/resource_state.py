@@ -3,15 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
-from unicodedata import combining, normalize as normalize_unicode
+from unicodedata import combining
+from unicodedata import normalize as normalize_unicode
 from zoneinfo import ZoneInfo
 
 import reflex as rx
 
-from app.services.xano_client import XanoError, client
+from app.services.catalogs import catalogs
 from app.services.sales_query import sales_query_params
 from app.services.vehicle_status import vehicle_status_class
+from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
+from app.state.read_lifecycle import read_event
 
 _LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
@@ -325,10 +328,10 @@ def _pagination_total_pages(pagination: Any, title: str) -> int:
     return total_pages
 
 
-def _load_client_sales_activity(
+async def _load_client_sales_activity(
     records: list[dict], token: str
 ) -> tuple[dict[str, str], int, int]:
-    sales_result = client.request(
+    sales_result = await client.async_request(
         "GET",
         "/vendas",
         token=token,
@@ -348,7 +351,7 @@ def _load_client_sales_activity(
         else _pagination_total_pages(sales_pagination, "Vendas")
     )
     for page in range(2, sales_total_pages + 1):
-        page_result = client.request(
+        page_result = await client.async_request(
             "GET",
             "/vendas",
             token=token,
@@ -358,9 +361,16 @@ def _load_client_sales_activity(
     return _client_activity_and_metrics(records, sales)
 
 
-class ResourceState(rx.State):
-    """Shared list state used by the operational screens."""
+class ResourceState(rx.State, mixin=True):
+    """Mixin copied into each independent operational resource namespace."""
 
+    read_generation: int = 0
+    dialog_generation: int = 0
+    part_detail_generation: int = 0
+    complete: bool = False
+    loaded_pages: int = 0
+    total_pages: int = 0
+    activity_pending: bool = False
     records: list[dict] = []
     query: str = ""
     loading: bool = False
@@ -393,75 +403,68 @@ class ResourceState(rx.State):
     part_form_area_id: str = ""
     part_edit_areas: list[dict[str, str]] = []
 
-    async def load(self, endpoint: str, title: str) -> None:
+    @read_event(
+        outputs=("records", "endpoint", "title", "loading", "error", "complete", "loaded_pages", "total_pages",
+                 "clients_new_this_month", "pending_purchases", "client_sales_available", "client_sales_warning", "activity_pending"),
+        clear=("records", "error", "complete", "loaded_pages", "total_pages"),
+    )
+    async def load(self, endpoint: str, title: str):
         self.endpoint, self.title = endpoint, title
-        self.loading, self.error = True, ""
-        self.client_sales_available = False
+        self.loading, self.error, self.complete = True, "", False
+        self.loaded_pages, self.total_pages = 0, 0
+        self.client_sales_available, self.activity_pending = False, endpoint == "/clientes"
         self.client_sales_warning = ""
+        self.clients_new_this_month, self.pending_purchases = 0, 0
+        self.records = []
+        yield
+        records = []
         try:
             auth_state = await self.get_state(AuthState)
-            if endpoint in ("/veiculos", "/pecas", "/clientes"):
-                result = client.request(
-                    "GET",
-                    endpoint,
-                    token=auth_state.token,
-                    params={"page": 1, "per_page": 100},
-                )
-                records = _records_from_response(result)
-                pagination = result.get("pagination", {}) if isinstance(result, dict) else {}
-                total_pages = (
-                    1
-                    if not records
-                    and isinstance(pagination, dict)
-                    and pagination.get("total_pages") in (0, "0")
-                    else _pagination_total_pages(pagination, title)
-                )
-                for page in range(2, total_pages + 1):
-                    page_result = client.request(
-                        "GET",
-                        endpoint,
-                        token=auth_state.token,
-                        params={"page": page, "per_page": 100},
-                    )
-                    records.extend(_records_from_response(page_result))
-            else:
-                result = client.request("GET", endpoint, token=auth_state.token)
-                records = _records_from_response(result)
+            page, total = 1, 1
+            while page <= total:
+                params = {"page": page, "per_page": 100} if endpoint != "/usuarios" else None
+                result = await client.async_request("GET", endpoint, token=auth_state.token, params=params)
+                rows = _records_from_response(result)
+                if page == 1:
+                    pagination = result.get("pagination", {}) if isinstance(result, dict) else {}
+                    total = (1 if not rows and pagination.get("total_pages") in (0, "0")
+                             else _pagination_total_pages(pagination, title))
+                # Normalize the entire new page before publishing it.
+                normalized = [_normalize_record(row, endpoint) for row in rows]
+                if endpoint == "/clientes":
+                    for row in normalized:
+                        row["_client_last_activity"] = "Aguardando lista completa"
+                if endpoint == "/clientes":
+                    _, new_this_month, _ = _client_activity_and_metrics([*records, *rows], [])
+                records.extend(rows)
+                self.records = [*self.records, *normalized]
+                self.loaded_pages, self.total_pages = page, total
+                self.loading = False
+                self.complete = page == total
+                if endpoint == "/clientes":
+                    self.clients_new_this_month = new_this_month
+                    if self.complete:
+                        for row in self.records:
+                            row["_client_last_activity"] = "Carregando atividade…"
+                yield
+                page += 1
             if endpoint == "/clientes":
-                # Client metrics remain valid even when the auxiliary sales API fails.
-                _, self.clients_new_this_month, _ = _client_activity_and_metrics(records, [])
-                self.pending_purchases = 0
-                self.client_page = 1
-                activity = {}
                 try:
-                    activity, _, self.pending_purchases = _load_client_sales_activity(
-                        records, auth_state.token
-                    )
+                    activity, _, pending = await _load_client_sales_activity(records, auth_state.token)
+                    self.pending_purchases = pending
                     self.client_sales_available = True
+                    for row in self.records:
+                        row["_client_last_activity"] = activity.get(str(row.get("id", "")), "Sem compras")
                 except XanoError:
                     self.client_sales_warning = (
-                        "Clientes carregados. Última atividade e compras pendentes "
-                        "estão indisponíveis porque não foi possível consultar as vendas."
+                        "Clientes carregados. Não foi possível consultar as vendas. Atividade e compras pendentes indisponíveis. Atualize para tentar novamente."
                     )
-                records = [
-                    {
-                        **record,
-                        "_client_last_activity": (
-                            activity.get(str(record.get("id", "")), "")
-                            if self.client_sales_available else "Indisponível"
-                        ),
-                    }
-                    for record in records
-                ]
-            self.records = [_normalize_record(row, endpoint) for row in records]
+                    for row in self.records:
+                        row["_client_last_activity"] = "Indisponível"
         except XanoError as exc:
-            self.records, self.error = [], str(exc)
-            self.clients_new_this_month = 0
-            self.pending_purchases = 0
-            self.client_sales_available = False
-            self.client_sales_warning = ""
+            self.error = str(exc)
         finally:
-            self.loading = False
+            self.loading, self.activity_pending = False, False
 
     def set_query(self, value: str) -> None:
         self.query = value
@@ -479,7 +482,9 @@ class ResourceState(rx.State):
             None,
         )
 
-    async def open_client_details(self, client_id: str) -> None:
+    @read_event(outputs=("selected_client", "client_dialog_mode", "client_action_message", "client_dialog_open", "client_detail_loading"),
+                loading="client_detail_loading", generation_field="dialog_generation")
+    async def open_client_details(self, client_id: str):
         row = self._find_client(client_id)
         if row is None:
             self.client_action_message = "Não foi possível localizar este cliente."
@@ -496,9 +501,10 @@ class ResourceState(rx.State):
         self.client_action_message = ""
         self.client_dialog_open = True
         self.client_detail_loading = True
+        yield
         try:
             auth_state = await self.get_state(AuthState)
-            result = client.request(
+            result = await client.async_request(
                 "GET",
                 f"/clientes/{client_id}",
                 token=auth_state.token,
@@ -523,6 +529,7 @@ class ResourceState(rx.State):
             self.client_detail_loading = False
 
     def open_client_edit(self, client_id: str) -> None:
+        self.dialog_generation += 1
         row = self._find_client(client_id)
         if row is None:
             self.client_action_message = "Não foi possível localizar este cliente."
@@ -545,6 +552,8 @@ class ResourceState(rx.State):
 
     def close_client_dialog(self, is_open: bool) -> None:
         self.client_dialog_open = is_open
+        if not is_open:
+            self.dialog_generation += 1
 
     def set_client_form_name(self, value: str) -> None:
         self.client_form_name = value
@@ -559,6 +568,7 @@ class ResourceState(rx.State):
         self.client_form_email = value
 
     def open_client_delete(self, client_id: str) -> None:
+        self.dialog_generation += 1
         row = self._find_client(client_id)
         if row is None:
             self.client_action_message = "Não foi possível localizar este cliente."
@@ -585,7 +595,7 @@ class ResourceState(rx.State):
         self.client_action_message = ""
         try:
             auth_state = await self.get_state(AuthState)
-            response = client.request(
+            response = await client.async_request(
                 "DELETE",
                 f"/clientes/{client_id}",
                 token=auth_state.token,
@@ -593,10 +603,10 @@ class ResourceState(rx.State):
             if not isinstance(response, dict) or response.get("deleted") is not True:
                 raise XanoError("A API não confirmou a exclusão do cliente.")
             self.client_dialog_open = False
-            await self.load("/clientes", "Clientes")
-            self.client_action_message = (
-                response.get("message") or "Cliente excluído com sucesso."
-            )
+            self.read_generation += 1
+            self.records = []
+            self.client_action_message = response.get("message") or "Cliente excluído com sucesso."
+            return ClientsState.load("/clientes", "Clientes")
         except XanoError as exc:
             self.client_action_message = str(exc)
         finally:
@@ -616,7 +626,7 @@ class ResourceState(rx.State):
         self.client_action_message = ""
         try:
             auth_state = await self.get_state(AuthState)
-            client.request(
+            await client.async_request(
                 "PATCH",
                 f"/clientes/{client_id}",
                 token=auth_state.token,
@@ -629,11 +639,16 @@ class ResourceState(rx.State):
             )
             self.client_dialog_open = False
             self.client_action_message = "Cadastro do cliente atualizado."
-            await self.load("/clientes", "Clientes")
+            self.read_generation += 1
+            self.records = []
+            self.complete = False
+            return ClientsState.load("/clientes", "Clientes")
         except XanoError as exc:
             self.client_action_message = str(exc)
 
-    async def open_part_edit(self, part_id: str) -> None:
+    @read_event(outputs=("part_dialog_loading", "part_dialog_error", "part_edit_areas", "selected_part_id", "part_form_name", "part_form_price", "part_form_area_id", "part_dialog_open"),
+                loading="part_dialog_loading", generation_field="part_detail_generation")
+    async def open_part_edit(self, part_id: str):
         row = next(
             (item for item in self.records if str(item.get("id", "")) == part_id),
             None,
@@ -643,13 +658,15 @@ class ResourceState(rx.State):
             return
         self.part_dialog_loading = True
         self.part_dialog_error = ""
+        self.selected_part_id = part_id
+        self.part_form_name = str(row.get("PCNome", row.get("Nome", "")))
+        self.part_form_price = str(row.get("PCvalor", ""))
+        self.part_form_area_id = str(row.get("area_id", "") or "")
+        self.part_dialog_open = True
+        yield
         try:
             auth_state = await self.get_state(AuthState)
-            areas = client.request(
-                "GET",
-                "/veiculo-areas",
-                token=auth_state.token,
-            )
+            areas = await catalogs.get("/veiculo-areas", auth_state.token)
             if not isinstance(areas, list) or any(
                 not isinstance(area, dict)
                 or area.get("id") is None
@@ -678,6 +695,8 @@ class ResourceState(rx.State):
 
     def close_part_dialog(self, is_open: bool) -> None:
         self.part_dialog_open = is_open
+        if not is_open:
+            self.part_detail_generation += 1
 
     def set_part_form_name(self, value: str) -> None:
         self.part_form_name = value
@@ -718,14 +737,17 @@ class ResourceState(rx.State):
         self.part_dialog_error = ""
         try:
             auth_state = await self.get_state(AuthState)
-            client.request(
+            await client.async_request(
                 "PATCH",
                 f"/pecas/{self.selected_part_id}",
                 token=auth_state.token,
                 json=payload,
             )
             self.part_dialog_open = False
-            await self.load("/pecas", "Peças e estoque")
+            self.read_generation += 1
+            self.records = []
+            self.complete = False
+            return PartsState.load("/pecas", "Peças e estoque")
         except XanoError as exc:
             self.part_dialog_error = str(exc)
         finally:
@@ -761,3 +783,19 @@ class ResourceState(rx.State):
     def paginated_clients(self) -> list[dict]:
         start = (self.client_page - 1) * 10
         return self.filtered_records[start : start + 10]
+
+
+class ClientsState(ResourceState, rx.State):
+    """Independent client list, search, pagination and dialogs."""
+
+
+class VehiclesState(ResourceState, rx.State):
+    """Independent vehicle collection."""
+
+
+class PartsState(ResourceState, rx.State):
+    """Independent parts and editing state."""
+
+
+class UsersState(ResourceState, rx.State):
+    """Independent user collection."""

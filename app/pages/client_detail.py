@@ -34,7 +34,7 @@ def client_detail_page() -> rx.Component:
                 href="/clientes",
             ),
             rx.cond(
-                ClientDetailState.loading,
+                ClientDetailState.loading | (ClientDetailState.read_id != ClientDetailState.router.page.params.get("id", "")),
                 rx.center(rx.spinner(), min_height="260px"),
                 rx.cond(
                     ClientDetailState.error != "",
@@ -67,7 +67,7 @@ def client_detail_page() -> rx.Component:
             spacing="4",
             align="stretch",
             width="100%",
-            on_mount=ClientDetailState.load,
+
         ),
         "Detalhe do cliente",
     )

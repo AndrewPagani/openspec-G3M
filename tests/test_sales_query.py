@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import httpx
 
-from app.state.vendas_state import VendasState
 from app.services.sales_query import sales_query_params
+from app.state.vendas_state import VendasState
 
 
 class SalesQueryTests(unittest.IsolatedAsyncioTestCase):
@@ -42,20 +42,20 @@ class SalesQueryTests(unittest.IsolatedAsyncioTestCase):
             _rows=lambda result, message: result["items"],
         )
         with patch(
-            "app.services.xano_client.httpx.request",
-            return_value=httpx.Response(200, json={"items": []}),
+            "app.state.vendas_state.client.async_request",
+            return_value={"items": []},
         ) as request:
-            await VendasState.load_sales.fn(state)
+            await VendasState.load_sales.fn.read_body(state)
 
         args, kwargs = request.call_args
         self.assertEqual(args[0], "GET")
-        self.assertTrue(args[1].endswith("/vendas"))
-        self.assertIsNone(kwargs["json"])
+        self.assertEqual(args[1], "/vendas")
+        self.assertNotIn("json", kwargs)
         outgoing = httpx.Request(*args, params=kwargs["params"])
         self.assertEqual(dict(outgoing.url.params), {
             "page": "1", "per_page": "100", "busca": "Ana",
             "forma_pagamento_id": "3",
             "data_inicio": "2026-11-01", "data_fim": "2026-11-13",
         })
-        self.assertEqual(state.erro, "")
-        self.assertFalse(state.processando)
+        self.assertEqual(state.list_error, "")
+        self.assertFalse(state.list_loading)

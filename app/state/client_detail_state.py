@@ -6,6 +6,7 @@ import reflex as rx
 
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
+from app.state.read_lifecycle import read_event
 
 
 def _client_value(record: dict[str, Any], *keys: str) -> str:
@@ -18,18 +19,24 @@ def _client_value(record: dict[str, Any], *keys: str) -> str:
 
 class ClientDetailState(rx.State):
     client: dict[str, str] = {}
+    read_id: str = ""
+    read_generation: int = 0
     loading: bool = False
     error: str = ""
 
+    @read_event(outputs=('client', 'loading', 'error', 'read_id'), clear=('client', 'error'))
     async def load(self) -> None:
         client_id = str(self.router.page.params.get("id", "")).strip()
+        self.read_id = client_id
         if not client_id.isdigit() or int(client_id) < 1:
+            self.loading = False
+            self.client = {}
             self.error = "Identificador de cliente inválido."
             return
         self.loading, self.error = True, ""
         try:
             auth_state = await self.get_state(AuthState)
-            response = client.request(
+            response = await client.async_request(
                 "GET",
                 f"/clientes/{client_id}",
                 token=auth_state.token,

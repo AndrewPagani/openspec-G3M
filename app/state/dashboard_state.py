@@ -13,7 +13,7 @@ import reflex as rx
 from app.services.vehicle_status import vehicle_status_chart_color
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
-from app.state.settings_state import SettingsState
+from app.state.read_lifecycle import read_event
 
 
 def _decimal(value: Any, label: str) -> Decimal:
@@ -604,6 +604,8 @@ def _build_params(
 class DashboardState(rx.State):
     data_inicio: str = date.today().replace(day=1).isoformat()
     data_fim: str = date.today().isoformat()
+    needs_refresh: bool = False
+    read_generation: int = 0
     loading: bool = False
     error: str = ""
     valor_liquido: str = "—"
@@ -652,17 +654,28 @@ class DashboardState(rx.State):
     filtro_status_veiculo_id: str = "todos"
     periodo_ativo: str = "dia"
 
+    def _invalidate_query(self):
+        self.read_generation += 1
+        self.loading, self.error, self.needs_refresh = False, "", True
+        options = (self.status_venda_opcoes, self.vendedor_opcoes, self.forma_pagamento_opcoes, self.status_veiculo_opcoes)
+        self._clear_metrics()
+        self.status_venda_opcoes, self.vendedor_opcoes, self.forma_pagamento_opcoes, self.status_veiculo_opcoes = options
+
     def set_data_inicio(self, value: str) -> None:
         self.data_inicio = value
+        self._invalidate_query()
 
     def set_data_fim(self, value: str) -> None:
         self.data_fim = value
+        self._invalidate_query()
 
     def set_filtro_status_id(self, value: str) -> None:
         self.filtro_status_id = value
+        self._invalidate_query()
 
     def set_filtro_vendedor_id(self, value: str) -> None:
         self.filtro_vendedor_id = value
+        self._invalidate_query()
 
     def set_filtro_vendedor_nome(self, value: str) -> None:
         self.filtro_vendedor_nome = value
@@ -679,12 +692,15 @@ class DashboardState(rx.State):
 
     def set_filtro_forma_pagamento_id(self, value: str) -> None:
         self.filtro_forma_pagamento_id = value
+        self._invalidate_query()
 
     def set_filtro_tipo_item(self, value: str) -> None:
         self.filtro_tipo_item = value
+        self._invalidate_query()
 
     def set_filtro_status_veiculo_id(self, value: str) -> None:
         self.filtro_status_veiculo_id = value
+        self._invalidate_query()
 
     async def set_periodo(self, value: str) -> None:
         if value not in ("dia", "semana", "mes", "ano"):
@@ -695,7 +711,7 @@ class DashboardState(rx.State):
                 _trend_chart_rows(self.timeline_rows, self.periodo_ativo)
             )
             return
-        await self.load()
+        return DashboardState.load
 
     def _clear_metrics(self) -> None:
         self.valor_liquido = "—"
@@ -743,10 +759,30 @@ class DashboardState(rx.State):
         self.mix_itens = []
         self.veiculos_por_status = []
 
+    @read_event(
+        outputs=(
+            'needs_refresh', 'loading', 'error', 'valor_liquido', 'total_vendas',
+            'vendas_pagas', 'ticket_medio', 'valor_bruto', 'vendas_canceladas',
+            'percentual_canceladas', 'veiculos_disponiveis', 'valor_veiculos', 'pecas_disponiveis',
+            'valor_estoque_pecas', 'pecas_sem_estoque', 'pecas_baixo_estoque', 'pecas_baixo_estoque_labels',
+            'veiculos_vendidos_por_marca', 'chart_veiculos_vendidos_por_marca', 'chart_pecas_vendidas_por_categoria', 'pecas_vendidas_por_categoria',
+            'conversao_estoque', 'giro_estoque', 'vendas_por_periodo', 'chart_vendas_por_periodo',
+            'chart_formas_pagamento', 'chart_mix_itens', 'chart_veiculos_por_status', 'pagamentos_com_movimento',
+            'mix_com_movimento', 'estoque_com_movimento', 'timeline_rows', 'vendas_por_status',
+            'vendas_por_pagamento', 'vendas_por_vendedor', 'status_venda_opcoes', 'vendedor_opcoes',
+            'forma_pagamento_opcoes', 'status_veiculo_opcoes', 'mix_itens', 'veiculos_por_status',
+        ),
+        inputs=(
+            'data_inicio', 'data_fim', 'filtro_status_id',
+            'filtro_vendedor_id', 'filtro_forma_pagamento_id', 'filtro_tipo_item', 'filtro_status_veiculo_id',
+            'periodo_ativo',
+        ),
+        clear=(
+            'error', 'needs_refresh',
+        ),
+    )
     async def load(self) -> AsyncIterator[None]:
-        settings_state = await self.get_state(SettingsState)
-        await settings_state.load()
-        self.loading, self.error = True, ""
+        self.loading, self.error, self.needs_refresh = True, "", False
         self._clear_metrics()
         # Flush the loading state before awaiting I/O, so old results are not
         # presented as a completed refresh and the action is disabled in time.

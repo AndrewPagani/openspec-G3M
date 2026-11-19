@@ -2,7 +2,7 @@ import reflex as rx
 
 from app.components.app_shell import shell
 from app.state.auth_state import AuthState
-from app.state.vendas_state import VendasState
+from app.state.vendas_state import SaleDetailState, VendasState
 
 
 def _sale_log_row(row: rx.Var) -> rx.Component:
@@ -49,6 +49,7 @@ def sales_list_page() -> rx.Component:
                     ),
                     value=VendasState.filtro_forma_pagamento,
                     on_change=VendasState.set_filtro_forma_pagamento,
+                    disabled=VendasState.methods_loading | (VendasState.methods_error != ""),
                     width="210px",
                 ),
                 rx.button("Filtrar", on_click=VendasState.load_sales),
@@ -74,13 +75,14 @@ def sales_list_page() -> rx.Component:
                     rx.table.body(rx.foreach(VendasState.vendas, _sale_log_row)),
                     width="100%",
                 ),
-                rx.callout("Nenhuma venda encontrada."),
+                rx.cond(VendasState.list_loading, rx.text("Carregando vendas…", role="status"), rx.cond(VendasState.list_needs_refresh, rx.callout("Filtros alterados. Clique em Filtrar para consultar as vendas."), rx.callout("Nenhuma venda encontrada."))),
             ),
-            rx.cond(VendasState.erro != "", rx.callout(VendasState.erro, color_scheme="red")),
-            rx.cond(VendasState.processando, rx.spinner()),
+            rx.cond(VendasState.list_error != "", rx.callout(VendasState.list_error, color_scheme="red")),
+            rx.cond(VendasState.list_loading, rx.spinner()),
+            rx.cond(VendasState.methods_error != "", rx.vstack(rx.callout(VendasState.methods_error, color_scheme="amber"), rx.button("Recarregar formas", on_click=VendasState.load_payment_methods(True), variant="outline"))),
             width="100%",
             align="start",
-            on_mount=VendasState.load_sales_page,
+
         ),
         "Vendas realizadas",
     )
@@ -129,21 +131,21 @@ def _part_picker(row: rx.Var) -> rx.Component:
     )
 
 
-def _payment_panel() -> rx.Component:
+def _payment_panel(state=VendasState) -> rx.Component:
     return rx.vstack(
-        rx.heading("Pagamento da venda #" + VendasState.venda_id, size="4"),
-        rx.text(VendasState.total_confirmado, class_name="sale-total-amount"),
-        rx.text(VendasState.payment_status_label, role="status"),
-        rx.cond(VendasState.payment_due_date != "", rx.text("Vencimento: " + VendasState.payment_due_date)),
+        rx.heading("Pagamento da venda #" + state.venda_id, size="4"),
+        rx.text(state.total_confirmado, class_name="sale-total-amount"),
+        rx.text(state.payment_status_label, role="status"),
+        rx.cond(state.payment_due_date != "", rx.text("Vencimento: " + state.payment_due_date)),
         rx.cond(
-            VendasState.payment_url != "",
+            state.payment_url != "",
             rx.vstack(
                 rx.text("O cliente escolhe como pagar na fatura do ASAAS."),
                 rx.hstack(
-                    rx.link(rx.button("Abrir link de pagamento"), href=VendasState.payment_url,
+                    rx.link(rx.button("Abrir link de pagamento"), href=state.payment_url,
                             is_external=True, rel="noopener noreferrer"),
                     rx.button("Copiar link", variant="outline",
-                              on_click=rx.set_clipboard(VendasState.payment_url)),
+                              on_click=rx.set_clipboard(state.payment_url)),
                     wrap="wrap", spacing="3",
                 ),
                 rx.text("O link fica salvo nesta venda. Não enviamos e-mails.", class_name="sale-help"),
@@ -151,8 +153,8 @@ def _payment_panel() -> rx.Component:
             ),
             rx.vstack(
                 rx.text("A venda está reservada. Você pode gerar ou recuperar o link sem criar outra venda."),
-                rx.button("Gerar ou recuperar link", on_click=VendasState.generate_payment_link,
-                          loading=VendasState.processando),
+                rx.button("Gerar ou recuperar link", on_click=state.generate_payment_link,
+                          loading=state.processando),
                 align="start", spacing="3",
             ),
         ),
@@ -242,7 +244,9 @@ def sales_create_page() -> rx.Component:
                 ),
                 class_name="sale-workspace",
             ),
-            width="100%", spacing="5", on_mount=VendasState.load_sale_references,
+            rx.cond(VendasState.references_loading, rx.text("Carregando clientes e estoque…", role="status")),
+            rx.cond(VendasState.references_error != "", rx.callout(VendasState.references_error, color_scheme="red")),
+            width="100%", spacing="5",
         ),
         "Nova venda",
     )
@@ -250,30 +254,32 @@ def sales_create_page() -> rx.Component:
 
 def sales_detail_page() -> rx.Component:
     return shell(
-        rx.vstack(
-            rx.cond(VendasState.payment_flow == "ASAAS", _payment_panel(),
+        rx.cond(
+            (SaleDetailState.read_id == SaleDetailState.router.page.params.get("id", "")) & ~SaleDetailState.detail_loading,
+            rx.vstack(
+            rx.cond(SaleDetailState.payment_flow == "ASAAS", _payment_panel(SaleDetailState),
                 rx.text("Histórico de parcelas da venda anterior à integração ASAAS.")),
             rx.cond(
-                AuthState.is_manager & (VendasState.payment_flow != "ASAAS") & (VendasState.payment_methods.length() > 0),
+                AuthState.is_manager & (SaleDetailState.payment_flow != "ASAAS") & (SaleDetailState.payment_methods.length() > 0),
                 rx.select.root(
                     rx.select.trigger(placeholder="Forma realmente recebida"),
                     rx.select.content(
                         rx.foreach(
-                            VendasState.payment_methods,
+                            SaleDetailState.payment_methods,
                             lambda method: rx.select.item(
                                 method["name"],
                                 value=method["id"],
                             ),
                         )
                     ),
-                    value=VendasState.forma_recebida_id,
-                    on_change=VendasState.set_forma_recebida_id,
+                    value=SaleDetailState.forma_recebida_id,
+                    on_change=SaleDetailState.set_forma_recebida_id,
                     width="100%",
                 ),
                 rx.fragment(),
             ),
             rx.foreach(
-                VendasState.parcelas,
+                SaleDetailState.parcelas,
                 lambda parcela: rx.hstack(
                     rx.vstack(
                         rx.text(
@@ -295,11 +301,11 @@ def sales_detail_page() -> rx.Component:
                         align="start",
                     ),
                     rx.cond(
-                        (parcela["status"] == "PENDENTE") & AuthState.is_manager & (VendasState.payment_flow != "ASAAS"),
+                        (parcela["status"] == "PENDENTE") & AuthState.is_manager & (SaleDetailState.payment_flow != "ASAAS"),
                         rx.button(
                             "Confirmar recebimento integral",
-                            on_click=VendasState.receive_installment(parcela["id"]),
-                            loading=VendasState.processando,
+                            on_click=SaleDetailState.receive_installment(parcela["id"]),
+                            loading=SaleDetailState.processando,
                         ),
                         rx.fragment(),
                     ),
@@ -309,19 +315,22 @@ def sales_detail_page() -> rx.Component:
                     class_name="form-card",
                 ),
             ),
-            rx.cond(VendasState.processando, rx.spinner()),
-            rx.cond(VendasState.mensagem != "", rx.callout(VendasState.mensagem)),
+            rx.cond(SaleDetailState.detail_loading, rx.spinner()),
+            rx.cond(SaleDetailState.erro != "", rx.callout(SaleDetailState.erro, color_scheme="red", role="alert")),
+            rx.cond(SaleDetailState.mensagem != "", rx.callout(SaleDetailState.mensagem)),
             rx.cond(
-                VendasState.erro != "",
-                rx.callout(VendasState.erro, color_scheme="red"),
+                SaleDetailState.detail_error != "",
+                rx.callout(SaleDetailState.detail_error, color_scheme="red"),
             ),
-            rx.button("Atualizar pagamento", on_click=VendasState.load_sale, variant="outline", loading=VendasState.processando),
+            rx.button("Atualizar pagamento", on_click=SaleDetailState.load_sale, variant="outline", loading=SaleDetailState.detail_loading),
             rx.link("Voltar para vendas", href="/vendas"),
             spacing="4",
             align="start",
             width="100%",
             max_width="760px",
-            on_mount=VendasState.load_sale,
+
+        ),
+            rx.text("Carregando pagamento…", role="status"),
         ),
         "Pagamento da venda",
     )

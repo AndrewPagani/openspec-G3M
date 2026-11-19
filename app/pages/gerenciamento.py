@@ -938,7 +938,7 @@ def gerenciamento() -> rx.Component:
                     ),
                     rx.button(
                         rx.cond(
-                            DashboardState.loading, "Carregando…", "Atualizar dados"
+                            DashboardState.loading, "Carregando…", rx.cond(DashboardState.needs_refresh, "Aplicar filtros", "Atualizar dados")
                         ),
                         on_click=DashboardState.load,
                         disabled=DashboardState.loading,
@@ -996,7 +996,7 @@ def gerenciamento() -> rx.Component:
                     ),
                 ),
             ),
-            on_mount=DashboardState.load,
+
             class_name="page-stack dashboard-page",
             width="100%",
         ),

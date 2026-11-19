@@ -5,7 +5,9 @@ return a clear configuration error so every screen can show an actionable state.
 """
 from __future__ import annotations
 
+import asyncio
 import os
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -26,6 +28,8 @@ class XanoClient:
             "vendas": os.getenv("XANO_API_GROUP_VENDAS", "Q9GErvvS"),
             "gerenciamento": os.getenv("XANO_API_GROUP_GERENCIAMENTO", "gerenciamento"),
         }
+        self._session: httpx.AsyncClient | None = None
+        self._reads: asyncio.Semaphore | None = None
         self.timeout = float(os.getenv("XANO_TIMEOUT", "12"))
 
     @property
@@ -106,10 +110,18 @@ class XanoClient:
                 normalized = normalized[7:].strip()
             headers["Authorization"] = "Bearer " + normalized
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as session:
-                response = await session.request(
-                    method, self._url(path), headers=headers, json=json, params=params
+            if self._session is None:
+                raise XanoError("Transporte Xano indisponível. Reinicie o servidor.")
+            async def send():
+                return await self._session.request(
+                    method, self._url(path), headers=headers, json=json, params=params,
+                    timeout=self.timeout,
                 )
+            if method.upper() in {"GET", "HEAD"}:
+                async with self._reads:
+                    response = await send()
+            else:
+                response = await send()
             if response.status_code == 401:
                 if path.strip("/").lower() == "auth/login":
                     raise XanoError("E-mail ou senha inválidos.")
@@ -119,9 +131,35 @@ class XanoClient:
             if response.status_code >= 400:
                 detail = response.text[:240] or "erro sem detalhes"
                 raise XanoError(f"Xano recusou a operação ({response.status_code}): {detail}")
-            return response.json() if response.content else {}
+            result = response.json() if response.content else {}
+            if method.upper() not in {"GET", "HEAD"}:
+                from app.services.catalogs import CATALOGS, catalogs
+                if "/" + path.strip("/").split("/", 1)[0] in CATALOGS:
+                    catalogs.invalidate()
+            return result
         except httpx.HTTPError as exc:
             raise XanoError("Não foi possível conectar ao Xano. Verifique a URL e a rede.") from exc
+
+    async def start(self) -> None:
+        if self._session is None:
+            self._session = httpx.AsyncClient(timeout=self.timeout)
+            self._reads = asyncio.Semaphore(3)
+
+    async def close(self) -> None:
+        session, self._session = self._session, None
+        if session is not None:
+            await session.aclose()
+
+    @asynccontextmanager
+    async def lifespan(self):
+        await self.start()
+        try:
+            yield
+        finally:
+            await self.close()
+
+    async def async_login(self, email: str, password: str) -> Any:
+        return await self.async_request("POST", "/auth/login", json={"email": email, "senha": password})
 
     def login(self, email: str, password: str) -> Any:
         return self.request("POST", "/auth/login", json={"email": email, "senha": password})

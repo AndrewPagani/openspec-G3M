@@ -3,7 +3,7 @@ import reflex as rx
 from app.components.app_shell import shell
 from app.components.states import empty_state, feedback
 from app.state.auth_state import AuthState
-from app.state.resource_state import ResourceState
+from app.state.resource_state import ClientsState, PartsState, UsersState, VehiclesState
 
 
 def _vehicle_card(row: rx.Var, endpoint: str) -> rx.Component:
@@ -138,7 +138,7 @@ def _part_card(row: rx.Var, endpoint: str) -> rx.Component:
                         align="center",
                         spacing="2",
                     ),
-                    on_click=ResourceState.open_part_edit(row["id"].to_string()),
+                    on_click=PartsState.open_part_edit(row["id"].to_string()),
                     width="100%",
                     class_name="part-edit-button",
                 ),
@@ -187,8 +187,9 @@ def _part_dialog() -> rx.Component:
                     rx.vstack(
                         rx.text("Nome", class_name="client-dialog-label"),
                         rx.input(
-                            value=ResourceState.part_form_name,
-                            on_change=ResourceState.set_part_form_name,
+                            value=PartsState.part_form_name,
+                            on_change=PartsState.set_part_form_name,
+                            disabled=PartsState.part_dialog_loading,
                             aria_label="Nome da peça",
                         ),
                         align="stretch",
@@ -201,8 +202,9 @@ def _part_dialog() -> rx.Component:
                             type="number",
                             min="0",
                             step="0.01",
-                            value=ResourceState.part_form_price,
-                            on_change=ResourceState.set_part_form_price,
+                            value=PartsState.part_form_price,
+                            on_change=PartsState.set_part_form_price,
+                            disabled=PartsState.part_dialog_loading,
                             aria_label="Preço da peça",
                         ),
                         align="stretch",
@@ -215,15 +217,16 @@ def _part_dialog() -> rx.Component:
                             rx.select.trigger(placeholder="Selecione uma área"),
                             rx.select.content(
                                 rx.foreach(
-                                    ResourceState.part_edit_areas,
+                                    PartsState.part_edit_areas,
                                     lambda area: rx.select.item(
                                         area["Secao"],
                                         value=area["id"],
                                     ),
                                 )
                             ),
-                            value=ResourceState.part_form_area_id,
-                            on_change=ResourceState.set_part_form_area_id,
+                            value=PartsState.part_form_area_id,
+                            on_change=PartsState.set_part_form_area_id,
+                            disabled=PartsState.part_dialog_loading,
                             class_name="part-dialog-area-select",
                         ),
                         align="stretch",
@@ -231,9 +234,9 @@ def _part_dialog() -> rx.Component:
                         spacing="1",
                     ),
                     rx.cond(
-                        ResourceState.part_dialog_error != "",
+                        PartsState.part_dialog_error != "",
                         rx.callout(
-                            ResourceState.part_dialog_error,
+                            PartsState.part_dialog_error,
                             color_scheme="red",
                             role="alert",
                         ),
@@ -246,9 +249,9 @@ def _part_dialog() -> rx.Component:
                         rx.button(
                             rx.icon("save", size=16),
                             rx.text("Salvar alterações"),
-                            on_click=ResourceState.save_part_edits,
-                            disabled=ResourceState.part_dialog_saving
-                            | ResourceState.part_dialog_loading,
+                            on_click=PartsState.save_part_edits,
+                            disabled=PartsState.part_dialog_saving
+                            | PartsState.part_dialog_loading,
                             class_name="client-dialog-save",
                         ),
                         justify="end",
@@ -262,8 +265,8 @@ def _part_dialog() -> rx.Component:
                 ),
                 class_name="client-dialog-content",
         ),
-        open=ResourceState.part_dialog_open,
-        on_open_change=ResourceState.close_part_dialog,
+        open=PartsState.part_dialog_open,
+        on_open_change=PartsState.close_part_dialog,
     )
 
 
@@ -322,7 +325,7 @@ def _client_row(row: rx.Var) -> rx.Component:
                             align="center",
                             spacing="2",
                         ),
-                        on_select=ResourceState.open_client_edit(
+                        on_select=ClientsState.open_client_edit(
                             row["id"].to_string()
                         ),
                     ),
@@ -333,7 +336,7 @@ def _client_row(row: rx.Var) -> rx.Component:
                             align="center",
                             spacing="2",
                         ),
-                        on_select=ResourceState.open_client_delete(
+                        on_select=ClientsState.open_client_delete(
                             row["id"].to_string()
                         ),
                         class_name="client-delete-option",
@@ -352,7 +355,7 @@ def _client_dialog() -> rx.Component:
                 rx.center(
                     rx.icon(
                         rx.cond(
-                            ResourceState.client_dialog_mode == "edit",
+                            ClientsState.client_dialog_mode == "edit",
                             "square-pen",
                             "user-round",
                         ),
@@ -363,15 +366,15 @@ def _client_dialog() -> rx.Component:
                 rx.vstack(
                     rx.dialog.title(
                         rx.cond(
-                            ResourceState.client_dialog_mode == "edit",
+                            ClientsState.client_dialog_mode == "edit",
                             "Editar cliente",
-                            ResourceState.selected_client.get("name", "Cliente"),
+                            ClientsState.selected_client.get("name", "Cliente"),
                         ),
                         class_name="client-dialog-title",
                     ),
                     rx.dialog.description(
                         rx.cond(
-                            ResourceState.client_dialog_mode == "edit",
+                            ClientsState.client_dialog_mode == "edit",
                             "Atualize os dados e contatos cadastrados.",
                             "Dados do cadastro e atividade comercial.",
                         ),
@@ -394,13 +397,13 @@ def _client_dialog() -> rx.Component:
                 class_name="client-dialog-header",
             ),
             rx.cond(
-                ResourceState.client_dialog_mode == "edit",
+                ClientsState.client_dialog_mode == "edit",
                 rx.vstack(
                     rx.vstack(
                         rx.text("Nome completo", class_name="client-dialog-label"),
                         rx.input(
-                            value=ResourceState.client_form_name,
-                            on_change=ResourceState.set_client_form_name,
+                            value=ClientsState.client_form_name,
+                            on_change=ClientsState.set_client_form_name,
                             aria_label="Nome completo",
                         ),
                         align="stretch",
@@ -411,8 +414,8 @@ def _client_dialog() -> rx.Component:
                         rx.vstack(
                             rx.text("CPF", class_name="client-dialog-label"),
                             rx.input(
-                                value=ResourceState.client_form_cpf,
-                                on_change=ResourceState.set_client_form_cpf,
+                                value=ClientsState.client_form_cpf,
+                                on_change=ClientsState.set_client_form_cpf,
                                 aria_label="CPF",
                             ),
                             align="stretch",
@@ -424,8 +427,8 @@ def _client_dialog() -> rx.Component:
                                 class_name="client-dialog-label",
                             ),
                             rx.input(
-                                value=ResourceState.client_form_phone,
-                                on_change=ResourceState.set_client_form_phone,
+                                value=ClientsState.client_form_phone,
+                                on_change=ClientsState.set_client_form_phone,
                                 aria_label="Telefone / WhatsApp",
                             ),
                             align="stretch",
@@ -438,8 +441,8 @@ def _client_dialog() -> rx.Component:
                         rx.text("E-mail", class_name="client-dialog-label"),
                         rx.input(
                             type="email",
-                            value=ResourceState.client_form_email,
-                            on_change=ResourceState.set_client_form_email,
+                            value=ClientsState.client_form_email,
+                            on_change=ClientsState.set_client_form_email,
                             aria_label="E-mail",
                         ),
                         align="stretch",
@@ -447,9 +450,9 @@ def _client_dialog() -> rx.Component:
                         spacing="1",
                     ),
                     rx.cond(
-                        ResourceState.client_action_message != "",
+                        ClientsState.client_action_message != "",
                         rx.callout(
-                            ResourceState.client_action_message,
+                            ClientsState.client_action_message,
                             color_scheme="red",
                             role="alert",
                         ),
@@ -462,7 +465,7 @@ def _client_dialog() -> rx.Component:
                         rx.button(
                             rx.icon("save", size=16),
                             rx.text("Salvar alterações"),
-                            on_click=ResourceState.save_client_edits,
+                            on_click=ClientsState.save_client_edits,
                             class_name="client-dialog-save",
                         ),
                         justify="end",
@@ -475,7 +478,7 @@ def _client_dialog() -> rx.Component:
                     class_name="client-dialog-body",
                 ),
                 rx.cond(
-                    ResourceState.client_dialog_mode == "delete",
+                    ClientsState.client_dialog_mode == "delete",
                     rx.vstack(
                         rx.text(
                             "Excluir perfil",
@@ -486,13 +489,13 @@ def _client_dialog() -> rx.Component:
                             class_name="client-dialog-description",
                         ),
                         rx.text(
-                            ResourceState.selected_client.get("name", ""),
+                            ClientsState.selected_client.get("name", ""),
                             class_name="client-dialog-value",
                         ),
                         rx.cond(
-                            ResourceState.client_action_message != "",
+                            ClientsState.client_action_message != "",
                             rx.callout(
-                                ResourceState.client_action_message,
+                                ClientsState.client_action_message,
                                 color_scheme="red",
                                 role="alert",
                             ),
@@ -505,8 +508,8 @@ def _client_dialog() -> rx.Component:
                             rx.button(
                                 rx.icon("trash-2", size=16),
                                 rx.text("Confirmar exclusão"),
-                                on_click=ResourceState.delete_client,
-                                loading=ResourceState.client_delete_loading,
+                                on_click=ClientsState.delete_client,
+                                loading=ClientsState.client_delete_loading,
                                 color_scheme="red",
                             ),
                             justify="end",
@@ -519,7 +522,7 @@ def _client_dialog() -> rx.Component:
                     ),
                     rx.vstack(
                         rx.cond(
-                        ResourceState.client_detail_loading,
+                        ClientsState.client_detail_loading,
                         rx.text(
                             "Carregando dados atualizados...",
                             class_name="client-dialog-description",
@@ -529,7 +532,7 @@ def _client_dialog() -> rx.Component:
                     rx.vstack(
                         rx.text("CPF", class_name="client-dialog-label"),
                         rx.text(
-                            ResourceState.selected_client.get("cpf", ""),
+                            ClientsState.selected_client.get("cpf", ""),
                             class_name="client-dialog-value",
                         ),
                         align="start",
@@ -539,7 +542,7 @@ def _client_dialog() -> rx.Component:
                     rx.vstack(
                         rx.text("E-mail", class_name="client-dialog-label"),
                         rx.text(
-                            ResourceState.selected_client.get("email", ""),
+                            ClientsState.selected_client.get("email", ""),
                             class_name="client-dialog-value",
                         ),
                         align="start",
@@ -549,7 +552,7 @@ def _client_dialog() -> rx.Component:
                     rx.vstack(
                         rx.text("Telefone", class_name="client-dialog-label"),
                         rx.text(
-                            ResourceState.selected_client.get("phone", ""),
+                            ClientsState.selected_client.get("phone", ""),
                             class_name="client-dialog-value",
                         ),
                         align="start",
@@ -562,7 +565,7 @@ def _client_dialog() -> rx.Component:
                             class_name="client-dialog-label",
                         ),
                         rx.text(
-                            ResourceState.selected_client.get(
+                            ClientsState.selected_client.get(
                                 "last_activity", ""
                             ),
                             class_name="client-dialog-value",
@@ -572,9 +575,9 @@ def _client_dialog() -> rx.Component:
                         class_name="client-dialog-detail",
                     ),
                     rx.cond(
-                        ResourceState.client_action_message != "",
+                        ClientsState.client_action_message != "",
                         rx.callout(
-                            ResourceState.client_action_message,
+                            ClientsState.client_action_message,
                             color_scheme="red",
                             role="alert",
                         ),
@@ -589,8 +592,23 @@ def _client_dialog() -> rx.Component:
             ),
             class_name="client-dialog-content",
         ),
-        open=ResourceState.client_dialog_open,
-        on_open_change=ResourceState.close_client_dialog,
+        open=ClientsState.client_dialog_open,
+        on_open_change=ClientsState.close_client_dialog,
+    )
+
+
+def _collection_status(state, endpoint: str, title: str) -> rx.Component:
+    return rx.hstack(
+        rx.cond(
+            state.loaded_pages > 0,
+            rx.text("Páginas carregadas: ", state.loaded_pages, " / ", state.total_pages,
+                    rx.cond(state.complete, " · Lista completa", " · Lista parcial"), role="status"),
+            rx.text("Aguardando dados da lista…", role="status"),
+        ),
+        rx.spacer(),
+        rx.button("Atualizar lista", on_click=state.load(endpoint, title), variant="outline",
+                  disabled=state.loading, class_name="collection-refresh"),
+        align="center", wrap="wrap", class_name="collection-status", width="100%",
     )
 
 
@@ -606,7 +624,7 @@ def _clients_view(new_href: str | None) -> rx.Component:
                     rx.vstack(
                         rx.text("Total de clientes", class_name="client-metric-label"),
                         rx.text(
-                            ResourceState.records.length(),
+                            rx.cond(ClientsState.complete, ClientsState.records.length().to_string(), "Carregando…"),
                             class_name="client-metric-value client-value-blue",
                         ),
                         align="start",
@@ -626,7 +644,7 @@ def _clients_view(new_href: str | None) -> rx.Component:
                     rx.vstack(
                         rx.text("Novos neste mês", class_name="client-metric-label"),
                         rx.text(
-                            ResourceState.clients_new_this_month,
+                            rx.cond(ClientsState.complete, ClientsState.clients_new_this_month.to_string(), "Carregando…"),
                             class_name="client-metric-value client-value-purple",
                         ),
                         align="start",
@@ -647,9 +665,9 @@ def _clients_view(new_href: str | None) -> rx.Component:
                         rx.text("Compras pendentes", class_name="client-metric-label"),
                         rx.text(
                             rx.cond(
-                                ResourceState.client_sales_available,
-                                ResourceState.pending_purchases.to_string(),
-                                "Indisponível",
+                                ClientsState.client_sales_available,
+                                ClientsState.pending_purchases.to_string(),
+                                rx.cond(ClientsState.activity_pending, "Carregando…", "Indisponível"),
                             ),
                             class_name="client-metric-value client-value-amber",
                         ),
@@ -669,8 +687,8 @@ def _clients_view(new_href: str | None) -> rx.Component:
                 rx.input(
                     placeholder="Buscar por nome, CPF, telefone ou e-mail...",
                     aria_label="Buscar clientes por nome, CPF, telefone ou e-mail",
-                    value=ResourceState.query,
-                    on_change=ResourceState.set_query,
+                    value=ClientsState.query,
+                    on_change=ClientsState.set_query,
                     class_name="client-search-input",
                 ),
                 class_name="client-search",
@@ -687,8 +705,8 @@ def _clients_view(new_href: str | None) -> rx.Component:
                         value="newest_first",
                     ),
                 ),
-                value=ResourceState.client_sort_order,
-                on_change=ResourceState.set_client_sort_order,
+                value=ClientsState.client_sort_order,
+                on_change=ClientsState.set_client_sort_order,
                 class_name="client-sort-select",
             ),
             rx.spacer(),
@@ -711,27 +729,28 @@ def _clients_view(new_href: str | None) -> rx.Component:
             class_name="client-toolbar",
             align="center",
         ),
-        feedback(ResourceState.error, ResourceState.loading),
+        feedback(ClientsState.error, ClientsState.loading),
+        _collection_status(ClientsState, "/clientes", "Clientes"),
         rx.cond(
-            ResourceState.client_sales_warning != "",
+            ClientsState.client_sales_warning != "",
             rx.callout(
-                ResourceState.client_sales_warning,
+                ClientsState.client_sales_warning,
                 color_scheme="amber",
                 role="status",
             ),
             rx.fragment(),
         ),
         rx.cond(
-            ResourceState.client_action_message != "",
+            ClientsState.client_action_message != "",
             rx.callout(
-                ResourceState.client_action_message,
+                ClientsState.client_action_message,
                 role="status",
                 class_name="client-action-feedback",
             ),
             rx.fragment(),
         ),
         rx.cond(
-            ResourceState.paginated_clients.length() > 0,
+            ClientsState.paginated_clients.length() > 0,
             rx.vstack(
                 rx.table.root(
                     rx.table.header(
@@ -744,7 +763,7 @@ def _clients_view(new_href: str | None) -> rx.Component:
                         )
                     ),
                     rx.table.body(
-                        rx.foreach(ResourceState.paginated_clients, _client_row)
+                        rx.foreach(ClientsState.paginated_clients, _client_row)
                     ),
                     class_name="client-table",
                 ),
@@ -756,22 +775,22 @@ def _clients_view(new_href: str | None) -> rx.Component:
                     rx.spacer(),
                     rx.button(
                         "Anterior",
-                        on_click=ResourceState.previous_client_page,
+                        on_click=ClientsState.previous_client_page,
                         variant="outline",
-                        disabled=ResourceState.client_page <= 1,
+                        disabled=ClientsState.client_page <= 1,
                     ),
                     rx.text(
-                        ResourceState.client_page.to_string()
+                        ClientsState.client_page.to_string()
                         + " / "
-                        + ResourceState.client_total_pages.to_string(),
+                        + ClientsState.client_total_pages.to_string(),
                         class_name="client-page-indicator",
                     ),
                     rx.button(
                         "Próxima",
-                        on_click=ResourceState.next_client_page,
+                        on_click=ClientsState.next_client_page,
                         variant="outline",
-                        disabled=ResourceState.client_page
-                        >= ResourceState.client_total_pages,
+                        disabled=ClientsState.client_page
+                        >= ClientsState.client_total_pages,
                     ),
                     class_name="client-pagination",
                 ),
@@ -779,14 +798,14 @@ def _clients_view(new_href: str | None) -> rx.Component:
             ),
             empty_state(
                 rx.cond(
-                    ResourceState.query == "",
-                    "A API não retornou clientes.",
-                    "Nenhum cliente corresponde à busca.",
+                    ClientsState.query == "",
+                    rx.cond(ClientsState.complete, "A API não retornou clientes.", "Aguardando clientes. A lista ainda está incompleta."),
+                    rx.cond(ClientsState.complete, "Nenhum cliente corresponde à busca.", "Nenhum resultado entre os clientes carregados até agora."),
                 )
             ),
         ),
         _client_dialog(),
-        on_mount=ResourceState.load("/clientes", "Clientes"),
+
         class_name="page-stack client-page",
     )
 
@@ -794,12 +813,10 @@ def _clients_view(new_href: str | None) -> rx.Component:
 def resource_page(
     title: str, endpoint: str, new_href: str | None = None, allowed: rx.Var = True
 ) -> rx.Component:
+    state = {"/clientes": ClientsState, "/veiculos": VehiclesState, "/pecas": PartsState, "/usuarios": UsersState}[endpoint]
     can_create = AuthState.is_manager if endpoint == "/veiculos" else True
     return shell(
-        rx.cond(
-            endpoint == "/clientes",
-            _clients_view(new_href),
-            rx.vstack(
+        (_clients_view(new_href) if endpoint == "/clientes" else rx.vstack(
             rx.hstack(
                 rx.hstack(
                     rx.icon("search", size=18, stroke_width=1.8),
@@ -812,8 +829,8 @@ def resource_page(
                         aria_label="Buscar veículos por modelo, marca ou placa"
                         if endpoint == "/veiculos"
                         else "Buscar registros",
-                        value=ResourceState.query,
-                        on_change=ResourceState.set_query,
+                        value=state.query,
+                        on_change=state.set_query,
                         class_name="vehicle-search-input"
                         if endpoint == "/veiculos"
                         else "resource-search-input",
@@ -845,14 +862,15 @@ def resource_page(
                 if endpoint == "/veiculos"
                 else "toolbar",
             ),
-            feedback(ResourceState.error, ResourceState.loading),
+            feedback(state.error, state.loading),
+            _collection_status(state, endpoint, title),
             rx.cond(
-                ResourceState.endpoint == "/veiculos",
+                endpoint == "/veiculos",
                 rx.cond(
-                    ResourceState.filtered_records.length() > 0,
+                    state.filtered_records.length() > 0,
                     rx.grid(
                         rx.foreach(
-                            ResourceState.filtered_records,
+                            state.filtered_records,
                             lambda row: _vehicle_card(row, endpoint),
                         ),
                         class_name="vehicle-grid",
@@ -860,19 +878,19 @@ def resource_page(
                     ),
                     empty_state(
                         rx.cond(
-                            ResourceState.query == "",
-                            "A API não retornou veículos para esta consulta.",
-                            "Nenhum veículo corresponde à busca.",
+                            state.query == "",
+                            rx.cond(state.complete, "A API não retornou veículos para esta consulta.", "Aguardando veículos. Lista incompleta."),
+                            rx.cond(state.complete, "Nenhum veículo corresponde à busca.", "Sem correspondências nos veículos carregados até agora."),
                         )
                     ),
                 ),
                 rx.cond(
-                    ResourceState.endpoint == "/pecas",
+                    endpoint == "/pecas",
                     rx.cond(
-                        ResourceState.filtered_records.length() > 0,
+                        state.filtered_records.length() > 0,
                         rx.grid(
                             rx.foreach(
-                                ResourceState.filtered_records,
+                                state.filtered_records,
                                 lambda row: _part_card(row, endpoint),
                             ),
                             class_name="part-grid",
@@ -880,20 +898,20 @@ def resource_page(
                         ),
                         empty_state(
                             rx.cond(
-                                ResourceState.query == "",
-                                "A API não retornou peças para esta consulta.",
-                                "Nenhuma peça corresponde à busca.",
+                                state.query == "",
+                                rx.cond(state.complete, "A API não retornou peças para esta consulta.", "Aguardando peças. Lista incompleta."),
+                                rx.cond(state.complete, "Nenhuma peça corresponde à busca.", "Sem correspondências nas peças carregadas até agora."),
                             )
                         ),
                     ),
                     rx.cond(
-                        ResourceState.filtered_records.length() > 0,
+                        state.filtered_records.length() > 0,
                         rx.table.root(
                         rx.table.header(
                             rx.table.row(
                                 rx.table.column_header_cell(
                                     rx.cond(
-                                        ResourceState.endpoint == "/clientes",
+                                        endpoint == "/clientes",
                                         "Cliente - CPF",
                                         "Registro",
                                     )
@@ -903,11 +921,11 @@ def resource_page(
                         ),
                         rx.table.body(
                             rx.foreach(
-                                ResourceState.filtered_records,
+                                state.filtered_records,
                                 lambda row: rx.table.row(
                                     rx.table.cell(
                                         rx.cond(
-                                            ResourceState.endpoint == "/clientes",
+                                            endpoint == "/clientes",
                                             row["_display_label"],
                                             row.to_string(),
                                         )
@@ -932,12 +950,11 @@ def resource_page(
                     _part_dialog(),
                     rx.fragment(),
                 ),
-                on_mount=ResourceState.load(endpoint, title),
+
                 class_name="page-stack vehicle-page"
                 if endpoint == "/veiculos"
                 else "page-stack",
-            ),
-        ),
+            )),
         title,
         allowed,
     )

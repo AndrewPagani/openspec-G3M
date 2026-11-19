@@ -1,0 +1,144 @@
+{
+  "cold_vehicles_ms": 5874.5,
+  "navigations": [
+    {
+      "path": "/pecas",
+      "route_ms": 146.1,
+      "feedback_ms": 205.6,
+      "first_data_ms": 577.8,
+      "complete_ms": 935,
+      "early_content": "Novo\n\nCarregando dados…\n\nAguardando dados da lista…\n\nAtualizar lista\n\nAguardando peças. Lista incompleta."
+    },
+    {
+      "path": "/clientes",
+      "route_ms": 187.2,
+      "feedback_ms": 284.2,
+      "first_data_ms": 656,
+      "complete_ms": 1000.6,
+      "early_content": "Total de clientes\n\nCarregando…\n\nNovos neste mês\n\nCarregando…\n\nCompras pendentes\n\nCarregando…\n\nMais novo para o mais antigo\n\nNovo Cliente\n\nCarregando dados…\n\nAguardando dados da lista…\n\nAtualizar lista\n\nAguardando clientes. A lista ainda está incompleta."
+    },
+    {
+      "path": "/veiculos",
+      "route_ms": 35.3,
+      "feedback_ms": 92.2,
+      "first_data_ms": 446,
+      "complete_ms": 805.9,
+      "early_content": "Novo\n\nCarregando dados…\n\nAguardando dados da lista…\n\nAtualizar lista\n\nAguardando veículos. Lista incompleta."
+    }
+  ],
+  "measurement_calls": [
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 2918.6529526,
+      "finished": 2919.015733
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 2919.0181107,
+      "finished": 2919.3747743
+    },
+    {
+      "method": "GET",
+      "path": "/pecas",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 2919.9729319,
+      "finished": 2920.3340906
+    },
+    {
+      "method": "GET",
+      "path": "/pecas",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 2920.3366555,
+      "finished": 2920.7007878
+    },
+    {
+      "method": "GET",
+      "path": "/clientes",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 2921.1271892,
+      "finished": 2921.477679
+    },
+    {
+      "method": "GET",
+      "path": "/clientes",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 2921.4796134,
+      "finished": 2921.8353085
+    },
+    {
+      "method": "GET",
+      "path": "/vendas",
+      "params": {
+        "page": "1",
+        "per_page": "100",
+        "busca": ""
+      },
+      "at": 2921.8371156,
+      "cancelled": true
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 1,
+        "per_page": 100
+      },
+      "at": 2921.9580069,
+      "finished": 2922.3116661
+    },
+    {
+      "method": "GET",
+      "path": "/veiculos",
+      "params": {
+        "page": 2,
+        "per_page": 100
+      },
+      "at": 2922.313284,
+      "finished": 2922.6708231
+    }
+  ],
+  "navigate_while_pending_ms": 406.3,
+  "large_1000_clients": {
+    "first_ms": 341.5,
+    "complete_ms": 1761.4
+  },
+  "automatic_theme": "light",
+  "scenarios_passed": [
+    "pending-navigation-keyboard",
+    "sales-before-methods",
+    "query-race",
+    "detail-race-and-old-error",
+    "payment-detail-ID",
+    "auxiliary-error-isolation",
+    "partial-page-retry-search",
+    "write-during-read",
+    "timeout-empty",
+    "large-progress",
+    "responsive-themes-focus",
+    "logout-login",
+    "personalization-system-theme-csv"
+  ],
+  "errors": []
+}
