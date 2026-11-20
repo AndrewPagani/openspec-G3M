@@ -1,15 +1,23 @@
 from __future__ import annotations
 
-import csv
+import asyncio
 import hashlib
-import io
 from collections.abc import AsyncIterator
 from datetime import date, datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
+from uuid import uuid4
 
 import reflex as rx
 
+from app.services.excel_report import (
+    MIME_TYPE,
+    TIMEOUT_SECONDS,
+    ReportCancelled,
+    ReportError,
+    build_report,
+    collect_report,
+)
 from app.services.vehicle_status import vehicle_status_chart_color
 from app.services.xano_client import XanoError, client
 from app.state.auth_state import AuthState
@@ -608,6 +616,10 @@ class DashboardState(rx.State):
     read_generation: int = 0
     loading: bool = False
     error: str = ""
+    report_ready: bool = False
+    report_status: str = ""
+    report_error: str = ""
+    _report_job: str = ""
     valor_liquido: str = "—"
     total_vendas: str = "—"
     vendas_pagas: str = "—"
@@ -714,6 +726,7 @@ class DashboardState(rx.State):
         return DashboardState.load
 
     def _clear_metrics(self) -> None:
+        self.report_ready = False
         self.valor_liquido = "—"
         self.total_vendas = "—"
         self.vendas_pagas = "—"
@@ -761,7 +774,7 @@ class DashboardState(rx.State):
 
     @read_event(
         outputs=(
-            'needs_refresh', 'loading', 'error', 'valor_liquido', 'total_vendas',
+            'needs_refresh', 'loading', 'error', 'report_ready', 'valor_liquido', 'total_vendas',
             'vendas_pagas', 'ticket_medio', 'valor_bruto', 'vendas_canceladas',
             'percentual_canceladas', 'veiculos_disponiveis', 'valor_veiculos', 'pecas_disponiveis',
             'valor_estoque_pecas', 'pecas_sem_estoque', 'pecas_baixo_estoque', 'pecas_baixo_estoque_labels',
@@ -778,7 +791,7 @@ class DashboardState(rx.State):
             'periodo_ativo',
         ),
         clear=(
-            'error', 'needs_refresh',
+            'error', 'needs_refresh', 'report_ready',
         ),
     )
     async def load(self) -> AsyncIterator[None]:
@@ -1030,31 +1043,80 @@ class DashboardState(rx.State):
                 self.estoque_com_movimento = _has_chart_values(
                     self.chart_veiculos_por_status
                 )
+            self.report_ready = True
         except (XanoError, ValueError) as exc:
             self._clear_metrics()
             self.error = str(exc)
         finally:
             self.loading = False
 
-    def export_csv(self) -> rx.event.EventSpec:
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(("Métrica", "Valor"))
-        writer.writerows(
-            (
-                ("Data inicial", self.data_inicio),
-                ("Data final", self.data_fim),
-                ("Vendas no período", self.total_vendas),
-                ("Vendas pagas", self.vendas_pagas),
-                ("Valor líquido recebido", self.valor_liquido),
-                ("Ticket médio", self.ticket_medio),
-                ("Valor bruto vendido", self.valor_bruto),
-                ("Vendas canceladas", self.vendas_canceladas),
-                ("Percentual de cancelamentos", self.percentual_canceladas),
+    @rx.var
+    def can_export(self) -> bool:
+        return self.report_ready and not (self.loading or self.needs_refresh or self.report_status)
+
+    @rx.event(background=True)
+    async def export_excel(self) -> AsyncIterator[rx.event.EventSpec]:
+        async with self:
+            auth = await self.get_state(AuthState)
+            if not self.can_export or not auth.token:
+                return
+            job = self._report_job = uuid4().hex
+            identity = (auth.token, auth.account_id, auth.profile)
+            token, _, profile = identity
+            manager, admin = auth.is_manager, auth.is_admin
+            group = self.periodo_ativo
+            params = _build_params(
+                self.data_inicio, self.data_fim,
+                is_manager=manager,
+                status_id=self.filtro_status_id,
+                vendedor_id=self.filtro_vendedor_id,
+                forma_pagamento_id=self.filtro_forma_pagamento_id,
+                tipo_item=self.filtro_tipo_item,
+                status_veiculo_id=self.filtro_status_veiculo_id,
             )
-        )
-        return rx.download(
-            data="\ufeff" + output.getvalue(),
-            filename="dashboard-vendas.csv",
-            mime_type="text/csv;charset=utf-8",
-        )
+            options = {
+                "status_id": self.status_venda_opcoes,
+                "vendedor_id": self.vendedor_opcoes,
+                "forma_pagamento_id": self.forma_pagamento_opcoes,
+                "status_veiculo_id": self.status_veiculo_opcoes,
+            }
+            labels = {
+                key: next((item["nome"] for item in rows if str(item["id"]) == str(params[key])), str(params[key]))
+                for key, rows in options.items() if key in params
+            }
+            self.report_error = ""
+            self.report_status = "Preparando relatório…"
+
+        async def owns_job() -> bool:
+            auth = await self.get_state(AuthState)
+            return self._report_job == job and identity == (auth.token, auth.account_id, auth.profile)
+
+        async def progress(message: str) -> None:
+            async with self:
+                if not await owns_job():
+                    raise ReportCancelled
+                self.report_status = message
+
+        error = ""
+        binary = None
+        try:
+            async with asyncio.timeout(TIMEOUT_SECONDS):
+                dashboard, collections = await collect_report(token, params, admin, progress)
+                await progress("Montando arquivo Excel…")
+                binary = await build_report(dashboard, collections, params, group, manager, profile, labels)
+        except ReportCancelled:
+            pass
+        except ReportError as exc:
+            error = str(exc)
+        except TimeoutError:
+            error = "A exportação demorou mais que o esperado. Tente novamente."
+        async with self:
+            if self._report_job != job:
+                return
+            owned = await owns_job()
+            self._report_job = self.report_status = ""
+            if owned:
+                self.report_error = error
+                if binary is not None:
+                    filename = f"relatorio-{params['data_inicio']}-a-{params['data_fim']}.xlsx"
+                    yield rx.download(data=binary, filename=filename, mime_type=MIME_TYPE)

@@ -78,9 +78,9 @@ a regeneração de `.web`. Confirme também que o backend continua ativo na port
 O dashboard consome `GET /api:gerenciamento/indicadores` usando a sessão
 autenticada e filtros de data. Os gráficos agrupam os dados temporais e de
 pagamento efetivamente devolvidos pelo Xano; não há dados demonstrativos de
-fallback. Conversão, giro, marca de veículos vendidos, categoria de peças e
-canal de venda permanecem indisponíveis até que o contrato/API e o schema do
-Xano forneçam os campos necessários. As requisições do dashboard usam
+fallback. O endpoint fornece séries de veículos vendidos por marca e de peças
+vendidas por categoria. Conversão e giro de estoque são sinalizados como
+indisponíveis na definição atual do Xano. As requisições do dashboard usam
 `httpx.AsyncClient` e mantêm o token somente no estado de autenticação.
 A correção de compatibilidade da timeline, séries envelopadas e gráficos sem
 movimento está arquivada em
@@ -88,6 +88,24 @@ movimento está arquivada em
 O bloco gerencial de estoque também lista peças sem estoque ou com quantidade
 disponível igual ou inferior a 5, usando a série `pecas_baixo_estoque` do
 endpoint.
+
+### Exportar Excel
+
+Aplique os filtros desejados e clique em **Exportar Excel** no Dashboard.
+O arquivo reúne os indicadores e as séries em tabelas editáveis, inclusive
+os widgets ocultados na personalização, e contém as abas Vendas, Clientes,
+Veículos e Peças. Administradores autorizados também recebem a aba Usuários.
+
+Vendas segue o período em UTC e os filtros de status, vendedor e forma de
+pagamento aplicados ao painel. Tipo de item afeta as séries de itens e status
+do veículo afeta o estoque do Dashboard. Os cadastros incluem todos os
+registros acessíveis, independentemente do período. O arquivo indica os
+filtros e os totais de registros por aba.
+
+A geração permite navegar e aceita uma exportação por sessão de cada vez.
+O limite é de 20.000 linhas por coleção ou série, 1 MB por arquivo e
+90 segundos por tentativa. Uma falha em qualquer aba interrompe o download
+e permite tentar novamente.
 
 ## Validação
 

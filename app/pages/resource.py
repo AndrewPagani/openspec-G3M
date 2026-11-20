@@ -11,9 +11,11 @@ def _vehicle_card(row: rx.Var, endpoint: str) -> rx.Component:
         rx.box(
             rx.cond(
                 row["_image_url"] != "",
-                rx.image(
+                rx.el.img(
                     src=row["_image_url"],
                     alt=row["_vehicle_name"],
+                    loading="lazy",
+                    decoding="async",
                     class_name="vehicle-card-image",
                 ),
                 rx.box(
@@ -89,9 +91,11 @@ def _part_card(row: rx.Var, endpoint: str) -> rx.Component:
         rx.box(
             rx.cond(
                 row["_part_image_url"] != "",
-                rx.image(
+                rx.el.img(
                     src=row["_part_image_url"],
                     alt=row["_part_name"],
+                    loading="lazy",
+                    decoding="async",
                     class_name="part-card-image",
                 ),
                 rx.box(
@@ -864,13 +868,14 @@ def resource_page(
             ),
             feedback(state.error, state.loading),
             _collection_status(state, endpoint, title),
+            rx.box(id="stock-card-list"),
             rx.cond(
                 endpoint == "/veiculos",
                 rx.cond(
                     state.filtered_records.length() > 0,
                     rx.grid(
                         rx.foreach(
-                            state.filtered_records,
+                            state.visible_cards,
                             lambda row: _vehicle_card(row, endpoint),
                         ),
                         class_name="vehicle-grid",
@@ -890,7 +895,7 @@ def resource_page(
                         state.filtered_records.length() > 0,
                         rx.grid(
                             rx.foreach(
-                                state.filtered_records,
+                                state.visible_cards,
                                 lambda row: _part_card(row, endpoint),
                             ),
                             class_name="part-grid",
@@ -945,6 +950,18 @@ def resource_page(
                     ),
                 ),
             ),
+                rx.cond(
+                    (endpoint in ("/veiculos", "/pecas")) & (state.card_total_pages > 1),
+                    rx.hstack(
+                        rx.button("Anterior", variant="outline", disabled=state.card_page <= 1,
+                                  on_click=state.move_card_page(-1)),
+                        rx.text("Página ", state.card_page, " de ", state.card_total_pages,
+                                rx.cond(state.complete, "", " carregadas"), role="status"),
+                        rx.button("Próxima", variant="outline", disabled=state.card_page >= state.card_total_pages,
+                                  on_click=state.move_card_page(1)),
+                        align="center", justify="center", wrap="wrap", width="100%",
+                    ),
+                ),
                 rx.cond(
                     endpoint == "/pecas",
                     _part_dialog(),

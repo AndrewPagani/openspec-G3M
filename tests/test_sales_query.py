@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
@@ -59,3 +59,24 @@ class SalesQueryTests(unittest.IsolatedAsyncioTestCase):
         })
         self.assertEqual(state.list_error, "")
         self.assertFalse(state.list_loading)
+
+    async def test_sales_rows_use_the_customer_returned_for_each_sale(self) -> None:
+        state = SimpleNamespace(
+            get_state=AsyncMock(return_value=SimpleNamespace(token="test-token")),
+            busca="",
+            filtro_forma_pagamento="",
+            filtro_data_inicio="",
+            filtro_data_fim="",
+            _rows=lambda result, message: result["items"],
+        )
+        rows = [
+            {"id": 1, "cliente": {"id": 21, "CNome": "Cliente A"}},
+            {"id": 2, "cliente": {"id": 34, "CNome": "Cliente B"}},
+            {"id": 3, "cliente": {"id": 21, "CNome": "Cliente A"}},
+        ]
+        with patch("app.state.vendas_state.client.async_request", return_value={"items": rows}):
+            await VendasState.load_sales.fn.read_body(state)
+
+        self.assertEqual([(row["id"], row["cliente"]) for row in state.vendas], [
+            ("1", "Cliente A"), ("2", "Cliente B"), ("3", "Cliente A"),
+        ])

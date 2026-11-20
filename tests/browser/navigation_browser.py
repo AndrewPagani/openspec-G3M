@@ -306,8 +306,9 @@ def run():
         page.emulate_media(color_scheme="light")
         expect(page.locator("html")).to_have_attribute("data-app-theme", "light")
         with page.expect_download() as download:
-            page.get_by_role("button", name="Exportar CSV").click()
-        assert download.value.suggested_filename == "dashboard-vendas.csv"
+            page.get_by_role("button", name="Exportar Excel").click()
+        assert download.value.suggested_filename.endswith(".xlsx")
+        assert download.value.path().read_bytes().startswith(b"PK\x03\x04")
         expect(page.get_by_role("link", name="Auditoria", exact=True)).to_have_count(0)
         page.get_by_role("link", name="Clientes", exact=True).click()
         expect(page.get_by_role("button", name="Atualizar lista")).to_be_enabled()
@@ -354,7 +355,7 @@ def run():
             "large-progress",
             "responsive-themes-focus",
             "logout-login",
-            "personalization-system-theme-csv",
+            "personalization-system-theme-excel",
         ]
         results["errors"] = errors
         assert not errors, errors

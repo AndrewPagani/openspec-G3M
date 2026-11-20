@@ -17,6 +17,7 @@ from app.state.auth_state import AuthState
 from app.state.read_lifecycle import read_event
 
 _LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+_CARDS_PER_PAGE = 24
 
 
 def _first_value(record: dict[str, Any], *keys: str) -> str:
@@ -382,6 +383,7 @@ class ResourceState(rx.State, mixin=True):
     client_sales_available: bool = False
     client_sales_warning: str = ""
     client_page: int = 1
+    card_page_requested: int = 1
     client_sort_order: str = "newest_first"
     client_dialog_open: bool = False
     client_dialog_mode: str = ""
@@ -468,6 +470,7 @@ class ResourceState(rx.State, mixin=True):
 
     def set_query(self, value: str) -> None:
         self.query = value
+        self.card_page_requested = 1
         if self.endpoint == "/clientes":
             self.client_page = 1
 
@@ -762,6 +765,10 @@ class ResourceState(rx.State, mixin=True):
     def next_client_page(self) -> None:
         self.set_client_page(self.client_page + 1)
 
+    def move_card_page(self, direction: int):
+        self.card_page_requested = max(1, min(self.card_page + direction, self.card_total_pages))
+        return rx.call_script("document.getElementById('stock-card-list')?.scrollIntoView()")
+
     @rx.var
     def filtered_records(self) -> list[dict]:
         rows = self.records
@@ -778,6 +785,21 @@ class ResourceState(rx.State, mixin=True):
     @rx.var
     def client_total_pages(self) -> int:
         return max(1, (len(self.filtered_records) + 9) // 10)
+
+    @rx.var
+    def card_total_pages(self) -> int:
+        return max(1, (len(self.filtered_records) + _CARDS_PER_PAGE - 1) // _CARDS_PER_PAGE)
+
+    @rx.var
+    def card_page(self) -> int:
+        return min(self.card_page_requested, self.card_total_pages)
+
+    @rx.var
+    def visible_cards(self) -> list[dict]:
+        if self.endpoint not in ("/veiculos", "/pecas"):
+            return []
+        start = (self.card_page - 1) * _CARDS_PER_PAGE
+        return self.filtered_records[start : start + _CARDS_PER_PAGE]
 
     @rx.var
     def paginated_clients(self) -> list[dict]:

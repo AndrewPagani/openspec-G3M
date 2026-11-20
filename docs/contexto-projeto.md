@@ -1,5 +1,45 @@
 # Contexto verificado do projeto
 
+## Exportação Excel do Dashboard em 20/11/2026
+
+As seis APIs de leitura do relatório foram conferidas no workspace `147643`,
+branch ativa `v1`. O endpoint de indicadores negava o perfil `Administrador`,
+embora o acesso gerencial esteja previsto na spec. O CLI publicou somente
+`GET indicadores`. A leitura posterior confirmou o novo acesso do administrador
+e o tratamento gerencial para esse perfil. A listagem de usuários continua
+restrita a administradores na definição remota.
+
+[Contratos e resultados da verificação](openspec/changes/archive/2026-11-20-exportar-relatorio-excel/implementation-report.md).
+
+## Associação de clientes na listagem de vendas em 20/11/2026
+
+O `GET /vendas` do workspace `147643`, branch ativa `v1`, busca o cliente
+pelo `cliente_id` da venda corrente. Na revisão do Excel com data inicial de
+01/11/2000, uma leitura agregada pela Metadata API encontrou 101 vendas desde
+essa data, incluindo três com `cliente_id = 0`. A consulta dos indicadores
+parte diretamente de vendas. A listagem anterior exigia correspondência com
+um cliente e podia excluir essas três vendas do mesmo recorte.
+
+O patch de histórico mantém a venda quando o cadastro do cliente está ausente,
+faz a busca por nome ou CPF separadamente e retorna o total paginado do Xano.
+O pacote incorpora a correção anterior dos nomes por cliente. [Patch atual](../xanoscript/patch-vendas-historico/api/vendas/vendas_GET.xs).
+
+## Rolagem das telas com imagens e gráficos em 20/11/2026
+
+Veículos e Peças continuam carregando as páginas da API em segundo plano e
+consultam toda a coleção carregada na busca. A interface monta até 24 cartões
+por página visual. As imagens dos cartões e dos seletores de Nova venda usam
+carregamento sob demanda e decodificação assíncrona. O navegador pode adiar a
+renderização dos gráficos fora da área visível do dashboard.
+
+No Edge com fixtures e CPU limitada a 4×, as requisições iniciais de imagens
+caíram de 100 para 20 em Veículos e de 100 para 12 em Peças. O tempo mediano de
+tarefas do navegador durante a sequência de rolagem caiu de 871 para 574 ms em
+Veículos, de 368 para 152 ms em Peças e de 303 para 257 ms no dashboard. Veículos
+atingiu o fim da primeira página visual após 2.137 px, contra 2.400 px nas demais
+medições. São medidas locais de trabalho acumulado do navegador. A última
+página e a busca pelo registro 100 foram verificadas nas duas listagens.
+
 ## Navegação e carregamento otimizados em 19/11/2026
 
 Change arquivada com 20/20 tarefas e specs sincronizadas: seis requisitos novos

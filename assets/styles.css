@@ -1817,17 +1817,32 @@ html, body {
 
 .dashboard-app-shell .dashboard-export-button {
   min-height: 38px;
+  min-width: 132px;
   align-self: end;
   border-color: #334155;
   background: transparent;
   color: #cbd5e1;
 }
 
-.dashboard-app-shell .dashboard-export-button:hover {
+.dashboard-app-shell .dashboard-export-button:hover:not(:disabled) {
   border-color: #3b82f6;
   background: rgba(59, 130, 246, 0.08);
   box-shadow: none;
   color: #f8fafc;
+}
+
+.dashboard-app-shell .dashboard-export-button:focus-visible {
+  outline: 2px solid var(--app-accent, #60a5fa);
+  outline-offset: 3px;
+}
+
+.dashboard-app-shell .dashboard-export-status {
+  color: var(--dashboard-muted);
+}
+
+.dashboard-app-shell .dashboard-export-error {
+  color: #fecdd3;
+  background: #281421;
 }
 
 .dashboard-app-shell .dashboard-refresh-button,
@@ -3637,10 +3652,19 @@ html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-button {
   color: var(--app-text-secondary);
 }
 
-html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-button:hover {
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-button:hover:not(:disabled) {
   border-color: var(--app-accent);
   background: var(--app-accent-soft);
   color: var(--app-accent);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-status {
+  color: var(--app-muted);
+}
+
+html[data-app-theme="light"] .dashboard-app-shell .dashboard-export-error {
+  color: var(--app-danger);
+  background: #fff1f2;
 }
 
 html[data-app-theme="light"] .dashboard-app-shell .dashboard-empty-state,
@@ -4242,4 +4266,9 @@ html[data-app-theme="light"] .internal-app-shell .rt-SelectItem[data-highlighted
 .internal-app-shell .client-metric-card::before {
   background: transparent;
   box-shadow: none;
+}
+
+/* Skip layout and painting outside the viewport. Recharts sets its own height. */
+.dashboard-page .recharts-responsive-container {
+  content-visibility: auto;
 }

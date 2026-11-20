@@ -92,7 +92,7 @@ def _vehicle_picker(row: rx.Var) -> rx.Component:
     return rx.card(
         rx.cond(
             row["imagem"] != "",
-            rx.image(src=row["imagem"], alt=row["nome"], class_name="sale-picker-image"),
+            rx.el.img(src=row["imagem"], alt=row["nome"], loading="lazy", decoding="async", class_name="sale-picker-image"),
             rx.box(rx.icon("car-front", size=34), class_name="sale-picker-image sale-picker-empty"),
         ),
         rx.heading(row["nome"], size="3"),
@@ -106,7 +106,7 @@ def _part_picker(row: rx.Var) -> rx.Component:
     return rx.card(
         rx.cond(
             row["imagem"] != "",
-            rx.image(src=row["imagem"], alt=row["nome"], class_name="sale-picker-image"),
+            rx.el.img(src=row["imagem"], alt=row["nome"], loading="lazy", decoding="async", class_name="sale-picker-image"),
             rx.box(rx.icon("package", size=34), class_name="sale-picker-image sale-picker-empty"),
         ),
         rx.heading(row["nome"], size="3"),

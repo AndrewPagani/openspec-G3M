@@ -8,6 +8,7 @@ import asyncio
 import sys
 import time
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -51,7 +52,11 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
                 "Não foi possível conectar ao Xano. Verifique a URL e a rede."
             )
         if fixture_mode == "empty":
-            return {"items": [], "pagination": {"total_pages": 0}}
+            return {"items": [], "pagination": {"page": page, "per_page": 100, "total": 0, "total_pages": 0}}
+        if fixture_mode in {"excel", "excel-error"} and int((params or {}).get("per_page", 0)) == 100:
+            if fixture_mode == "excel-error" and path == "/clientes" and page == 2:
+                raise XanoError("Falha controlada de exportação")
+            return excel_catalog(path, page)
         count, pages = (100, 10) if fixture_mode == "large" else (1, 2)
         rows = []
         for index in range((page - 1) * count + 1, page * count + 1):
@@ -82,11 +87,13 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
                     "area_id": 1,
                 }
             rows.append(row)
-        return {"items": rows, "pagination": {"total_pages": pages}}
+        return {"items": rows, "pagination": {"page": page, "per_page": count, "total": count * pages, "total_pages": pages}}
     if path == "/vendas":
         if fixture_mode == "sales-error":
             raise XanoError("Vendas indisponíveis na fixture")
         search = (params or {}).get("busca", "")
+        if fixture_mode in {"excel", "excel-error"} and (params or {}).get("data_inicio"):
+            return paged(excel_sales(token, params), page)
         return {
             "items": [
                 {
@@ -99,7 +106,7 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
                     "status": {"Descricao_venda": "Pendente"},
                 }
             ],
-            "pagination": {"total_pages": 2},
+            "pagination": {"page": page, "per_page": 1, "total": 2, "total_pages": 2},
         }
     if path.startswith("/clientes/"):
         identity = int(path.rsplit("/", 1)[1])
@@ -131,21 +138,96 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
             "status": "PENDING",
         }
     if path == "/usuarios":
-        return {"items": []}
+        if token != "fixture-admin":
+            raise XanoError("Acesso de teste restrito a administradores")
+        return [{"id": 5, "UNome": "Gestora", "Email": "admin@example.test", "cargo": "Administrador",
+                 "perfil_id": 1, "created_at": "2026-11-01T12:00:00Z", "Senha": "PROIBIDO-EXPORTAR"}]
     if path == "/gerenciamento/indicadores":
-        return {
+        sales = excel_sales(token, params) if fixture_mode in {"excel", "excel-error"} else None
+        total = len(sales) if sales is not None else 2
+        indicators = {
             "kpis": {
-                "total_vendas_periodo": 1,
+                "total_vendas_periodo": total,
                 "valor_liquido_recebido_periodo": 150,
                 "vendas_pagas": 1,
-                "valor_bruto_vendido": 150,
-                "vendas_canceladas": 0,
-                "percentual_vendas_canceladas": 0,
+                "valor_bruto_vendido": 150 * total,
+                "vendas_canceladas": 1 if sales else 0,
+                "percentual_vendas_canceladas": 100 / total if sales else 0,
                 "veiculos_disponiveis": 1,
                 "pecas_qtd_disponivel": 8,
-            }
+            },
         }
+        if sales is not None:
+            indicators["vendas_timeline"] = [
+                {"periodo": row["data_venda"], "total_vendas": 1, "valor_total": 150}
+                for row in sales
+            ]
+            indicators["vendas_por_status_pagamento"] = [
+                {"status_id": 1, "descricao": "Pendente", "total_vendas": total, "valor_total": 150 * total}
+            ]
+            indicators["vendas_por_forma_pagamento"] = [
+                {"forma_id": 1, "metodo": "Pix", "total_vendas": total, "valor_total": 150 * total}
+            ]
+            indicators["mix_itens"] = [{"tipo": "peca", "quantidade": total}]
+            indicators["veiculos_vendidos_por_marca"] = [
+                {"marca": "Marca", "quantidade": 1, "valor_total": 150, "percentual": 100}
+            ]
+            indicators["pecas_vendidas_por_categoria"] = [
+                {"categoria": "Motor", "quantidade": 1, "valor_total": 150, "percentual": 100}
+            ]
+            indicators["conversao_estoque"] = {"disponivel": False}
+            if token != "fixture-seller":
+                indicators["vendas_por_vendedor"] = [
+                    {"vendedor_id": 17, "nome": "Vendedor 17", "total_vendas": total, "valor_total": 150 * total}
+                ]
+                indicators["veiculos_por_status"] = [{"status_id": 2, "descricao": "Reservado", "quantidade": 1}]
+                indicators["pecas_baixo_estoque"] = [{"id": 1, "nome": "Peça sem saldo", "quantidade": 0, "valor_unitario": 0}]
+        return indicators
     raise XanoError("Endpoint não previsto na fixture: " + method + " " + path)
+
+
+def paged(rows, page):
+    return {
+        "items": rows[(page - 1) * 100:page * 100],
+        "pagination": {"page": page, "per_page": 100, "total": len(rows), "total_pages": (len(rows) + 99) // 100},
+    }
+
+
+def excel_sales(token, params):
+    cases = [
+        ("2026-11-01T00:00:00Z", 17),
+        ("2026-11-01T23:59:59Z", 17),
+        ("2026-11-01T23:59:59.001Z", 17),
+        ("2026-11-02T00:00:00Z", 18),
+        ("2026-10-31T23:59:59Z", 17),
+        *([("2026-11-01T18:00:00Z", 17)] * 102),
+    ]
+    start = params["data_inicio"] + "T00:00:00+00:00"
+    end = params["data_fim"] + "T23:59:59+00:00"
+    return [
+        {
+            "id": index, "data_venda": moment, "cliente": {"CNome": f"Cliente {index}"},
+            "vendedor": {"UNome": f"Vendedor {seller}"},
+            "Valor_final": 150, "asaas_cobranca": {"invoice_url": "https://example.test/PROIBIDO-EXPORTAR"},
+        }
+        for index, (moment, seller) in enumerate(cases, start=1)
+        if datetime.fromisoformat(start) <= datetime.fromisoformat(moment) <= datetime.fromisoformat(end)
+        and (token != "fixture-seller" or seller == 17)
+    ]
+
+
+def excel_catalog(path, page):
+    if path == "/clientes":
+        rows = [
+            {"id": index, "CNome": f"=Cliente {index}", "CPF": "00000000001",
+             "Telefone": "+550000001", "created_at": "2026-10-15T12:00:00Z"}
+            for index in range(1, 1002)
+        ]
+    elif path == "/veiculos":
+        rows = [{"id": 1, "Marca": "Marca", "status_descricao": "Reservado", "Preco": 10000}]
+    else:
+        rows = [{"id": 1, "PCNome": "Peça sem saldo", "qtd_disp": 0}]
+    return paged(rows, page)
 
 
 async def async_request(method, path, **kwargs):
@@ -157,6 +239,8 @@ async def async_request(method, path, **kwargs):
         "at": time.monotonic(),
     }
     calls.append(call)
+    if captured_mode == "excel-timeout" and path == "/vendas" and (kwargs.get("params") or {}).get("data_inicio"):
+        raise TimeoutError
     extra = (
         1.3
         if (
