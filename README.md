@@ -4,8 +4,6 @@ O G3M é um aplicativo web interno para concessionárias. Ele reúne o cadastro 
 
 ## Acesso ao aplicativo
 
-O [repositório do projeto no GitHub](https://github.com/AndrewPagani/openspec-G3M) é privado e exige acesso concedido pelo responsável. Em 23/11/2026, o repositório não informava endereço de uma versão web publicada. Para avaliação ou desenvolvimento, siga as instruções em [Executar localmente](#executar-localmente).
-
 Para entrar no aplicativo, use o e-mail e a senha da conta fornecida pela empresa. A opção **Esqueci a senha** orienta a solicitar a redefinição ao administrador. Após entrar, o sistema abre o **Dashboard**. Use **Sair** ao terminar, especialmente em um computador compartilhado.
 
 ![Tela de login do G3M com campos de e-mail e senha e botão Entrar](docs/manual/login.jpg)
@@ -112,9 +110,3 @@ Depois que o backend iniciar, execute no segundo terminal:
 ```
 
 Abra [localhost:3000](http://localhost:3000) e entre com uma conta autorizada. Se as rotas retornarem **404** após recompilar, reinicie o frontend depois de confirmar que o backend está ativo. Para testes com dados sintéticos, use as fixtures em [tests/browser](tests/browser/) ou gere a massa com `python scripts/generate_xano_seed.py` em um ambiente de teste.
-
-### Documentação de referência
-
-- [Especificações vigentes](docs/openspec/specs/) e [histórico de changes](docs/openspec/changes/)
-- [Contexto verificado do projeto](docs/contexto-projeto.md)
-- [Fluxo de vendas com ASAAS](docs/openspec/specs/venda-com-fatura-asaas/spec.md) e [especificação da exportação Excel](docs/openspec/specs/exportacao-relatorio-excel/spec.md)
