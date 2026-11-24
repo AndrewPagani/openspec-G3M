@@ -68,14 +68,14 @@ Para uma venda anterior à integração, **Ver pagamento** mostra o histórico d
 3. Clique em **Exportar Excel** depois de aplicar os filtros. Aguarde a geração do arquivo **.xlsx**. É possível navegar durante a exportação.
 4. No arquivo, confira o período e o total de registros por aba. **Dashboard** reúne indicadores e séries em tabelas, inclusive widgets ocultos na personalização. **Vendas** segue o mesmo recorte de datas, status, vendedor e forma de pagamento. **Clientes**, **Veículos** e **Peças** incluem todas as páginas acessíveis. **Usuários** aparece somente para administradores.
 
-O filtro de tipo de item afeta as séries de itens. O filtro de status do veículo afeta os indicadores correspondentes de estoque. O valor bruto acompanha a data da venda, e o recebimento líquido acompanha a data em que o pagamento foi recebido.
+O filtro de tipo de item afeta as séries de itens. O filtro de status do veículo afeta os indicadores correspondentes de estoque. O valor bruto acompanha a data da venda, e o recebimento líquido acompanha a data em que o pagamento foi recebido. O **Valor médio por venda** divide o valor bruto pela quantidade de vendas. O período de vendas do Excel é aplicado em UTC.
 
 ![Dashboard gerencial com filtros, indicadores de vendas, gráfico de evolução e botão Exportar Excel](docs/manual/dashboard.jpg)
 
 ### 6. Personalizar o painel e consultar usuários
 
 - **Gerente ou administrador**. Em **Configurações**, escolha o tema escuro, claro ou automático e ajuste nome de exibição, título do Dashboard, visibilidade e ordem dos widgets. Clique em **Salvar personalização** e volte ao Dashboard para conferir. **Restaurar padrões** recupera a apresentação inicial. As preferências ficam neste navegador, separadas por conta.
-- **Administrador**. Abra **Usuários** para consultar as contas cadastradas e seus perfis. A operação sobre as contas depende dos recursos disponíveis no ambiente. Para solicitar criação de conta, alteração de perfil ou redefinição de senha, acione o responsável pela administração.
+- **Administrador**. Abra **Usuários** para consultar as contas cadastradas e seus perfis.
 
 ## Exemplos de utilização
 
@@ -89,12 +89,9 @@ Os nomes e valores abaixo e os dados das capturas são fictícios.
 
 ## Limitações conhecidas
 
-- **Cobranças e testes.** A integração ASAAS foi homologada em Sandbox. A disponibilidade de cobranças reais depende da configuração do ambiente. A interface não oferece estorno, cancelamento de venda ou confirmação de entrega. O recebimento manual se restringe ao histórico elegível anterior ao ASAAS.
-- **Estoque e contas.** O cadastro inicial de estoque está disponível. A interface não oferece ajuste de saldo de peça já cadastrada, edição de veículo existente ou alteração manual de status de veículo. Cadastro público, gestão de permissões e recuperação automática de senha estão fora do fluxo oferecido.
-- **Listagem de vendas.** A tela mostra at? 100 registros por consulta. Use as datas ou a busca para localizar vendas mais antigas. O Excel percorre todas as p?ginas do recorte aplicado no Dashboard.
-- **Indicadores.** Conversão e giro de estoque estão indisponíveis. O **Valor médio por venda** do Dashboard usa valor bruto dividido pela quantidade de vendas. O período de vendas do relatório é aplicado em UTC.
-- **Excel.** A exportação permite uma geração por sessão, com limite de 20.000 linhas por coleção ou série, 1 MB por arquivo e 90 segundos por tentativa. Uma falha impede o download parcial. A exportação deixa de fora Configurações e links de cobrança.
-- **Escopo do produto.** O sistema destina-se à operação interna. Gestão de leads, oficina, operação multiunidade e tela de auditoria genérica estão fora da versão entregue.
+- **Cobranças.** A emissão do link depende da disponibilidade e da configuração do ASAAS no ambiente utilizado. A homologação foi feita no Sandbox.
+- **Listagem de vendas.** A tela mostra até 100 registros por consulta. Use as datas ou a busca para localizar vendas mais antigas.
+- **Excel.** A exportação permite uma geração por sessão, com limite de 20.000 linhas por coleção ou série, 1 MB por arquivo e 90 segundos por tentativa. O arquivo só é entregue quando todas as abas são geradas.
 
 ## Executar localmente
 
