@@ -691,6 +691,7 @@ def _clients_view(new_href: str | None) -> rx.Component:
                 rx.input(
                     placeholder="Buscar por nome, CPF, telefone ou e-mail...",
                     aria_label="Buscar clientes por nome, CPF, telefone ou e-mail",
+                    id="client-search-focus",
                     value=ClientsState.query,
                     on_change=ClientsState.set_query,
                     class_name="client-search-input",
@@ -745,11 +746,13 @@ def _clients_view(new_href: str | None) -> rx.Component:
             rx.fragment(),
         ),
         rx.cond(
-            ClientsState.client_action_message != "",
+            (ClientsState.client_action_message != "") & ~ClientsState.client_dialog_open,
             rx.callout(
                 ClientsState.client_action_message,
-                role="status",
-                class_name="client-action-feedback",
+                role=rx.cond(ClientsState.client_action_success, "status", "alert"),
+                icon=rx.cond(ClientsState.client_action_success, "check", "circle-alert"),
+                color_scheme=rx.cond(ClientsState.client_action_success, "green", "red"),
+                class_name=rx.cond(ClientsState.client_action_success, "interaction-result", "client-action-feedback"),
             ),
             rx.fragment(),
         ),
@@ -834,6 +837,7 @@ def resource_page(
                         if endpoint == "/veiculos"
                         else "Buscar registros",
                         value=state.query,
+                        id="stock-search-focus",
                         on_change=state.set_query,
                         class_name="vehicle-search-input"
                         if endpoint == "/veiculos"
@@ -867,6 +871,11 @@ def resource_page(
                 else "toolbar",
             ),
             feedback(state.error, state.loading),
+            rx.cond(
+                PartsState.part_action_notice != "",
+                rx.callout(PartsState.part_action_notice, icon="check", color_scheme="green",
+                           role="status", class_name="interaction-result"),
+            ) if endpoint == "/pecas" else rx.fragment(),
             _collection_status(state, endpoint, title),
             rx.box(id="stock-card-list"),
             rx.cond(

@@ -51,6 +51,16 @@ class NavigationState(rx.State):
         settings = await self.get_state(SettingsState)
         theme = await settings.load()
         path = self.router.url.path.rstrip("/") or "/"
+        if path == "/clientes":
+            clients = await self.get_state(ClientsState)
+            clients.client_action_message, clients.client_action_success = "", False
+        elif path == "/pecas":
+            (await self.get_state(PartsState)).part_action_notice = ""
+        elif path in ("/", "/gerenciamento"):
+            (await self.get_state(DashboardState)).report_started = False
+        elif path in ("/clientes/novo", "/veiculos/novo", "/pecas/novo", "/usuarios/novo"):
+            form = await self.get_state(FormState)
+            form.error, form.success = "", ""
         events = {
             "/": DashboardState.load,
             "/gerenciamento": DashboardState.load,

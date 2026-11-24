@@ -98,6 +98,9 @@ class VendasState(rx.State):
     payment_due_date: str = ""
     total_confirmado: str = ""
     creation_uncertain: bool = False
+    item_feedback: str = ""
+    item_feedback_revision: int = 0
+    payment_status_changed: bool = False
     parcelas: list[dict[str, str]] = []
     forma_recebida_id: str = ""
     mensagem: str = ""
@@ -183,7 +186,7 @@ class VendasState(rx.State):
         return [VendasState.load_sales, VendasState.load_payment_methods]
 
     @read_event(outputs=("clientes", "veiculos_disponiveis", "pecas_disponiveis", "references_loading", "references_error"),
-                loading="references_loading", clear=("clientes", "veiculos_disponiveis", "pecas_disponiveis", "references_error"),
+                loading="references_loading", clear=("clientes", "veiculos_disponiveis", "pecas_disponiveis", "references_error", "item_feedback"),
                 generation_field="references_generation")
     async def load_sale_references(self) -> None:
         self.references_loading, self.references_error = True, ""
@@ -241,6 +244,7 @@ class VendasState(rx.State):
             for item in self.selected_items
         ):
             self.selected_items.append({"tipo": "veiculo", "id": vehicle["id"], "nome": vehicle["nome"], "preco": vehicle["preco"], "qtd": "1"})
+            self._indicate_item(vehicle["nome"], "adicionado ao resumo")
 
     def add_part(self) -> None:
         part = next((row for row in self.pecas_disponiveis if row["id"] == self.selected_part_id), None)
@@ -257,15 +261,25 @@ class VendasState(rx.State):
             self.erro = "A quantidade não pode superar o estoque disponível."
             return
         self.erro = ""
+        anterior = next((item for item in self.selected_items if item["tipo"] == "peca" and item["id"] == part["id"]), None)
         self.selected_items = [item for item in self.selected_items if not (item.get("tipo") == "peca" and item.get("id") == part["id"])]
         self.selected_items.append({"tipo": "peca", "id": part["id"], "nome": part["nome"], "preco": part["preco"], "qtd": str(quantity)})
+        if anterior is None or anterior["qtd"] != str(quantity):
+            self._indicate_item(part["nome"], "adicionada ao resumo" if anterior is None else "quantidade atualizada")
 
     def add_part_for_id(self, part_id: str) -> None:
         self.selected_part_id = part_id
         self.add_part()
 
     def remove_item(self, item_type: str, item_id: str) -> None:
+        item = next((row for row in self.selected_items if row["tipo"] == item_type and row["id"] == item_id), None)
         self.selected_items = [item for item in self.selected_items if not (item.get("tipo") == item_type and item.get("id") == item_id)]
+        if item:
+            self._indicate_item(item["nome"], "removida do resumo" if item_type == "peca" else "removido do resumo")
+
+    def _indicate_item(self, name: str, action: str) -> None:
+        self.item_feedback = f"{name} · {action}"
+        self.item_feedback_revision += 1
 
     @rx.var
     def valor_bruto_display(self) -> str:
@@ -444,6 +458,7 @@ class VendasState(rx.State):
             self.erro = "Selecione uma venda válida para gerar o link."
             return
         self.processando, self.erro, self.mensagem = True, "", ""
+        self.payment_status_changed = False
         try:
             auth_state = await self.get_state(AuthState)
             response = await client.async_request(
@@ -472,7 +487,9 @@ class VendasState(rx.State):
         if url and (parsed.scheme != "https" or parsed.hostname not in allowed_hosts or parsed.username or parsed.password):
             raise XanoError("A API retornou um endereço de pagamento inválido.")
         self.payment_url = url
-        self.payment_status = str(payment.get("status") or "")
+        status = str(payment.get("status") or "")
+        self.payment_status_changed = bool(self.payment_status and status and status != self.payment_status)
+        self.payment_status = status
         due = str(payment.get("due_date") or "")
         self.payment_due_date = _format_local_datetime(due) if due else ""
 
@@ -493,6 +510,8 @@ class VendasState(rx.State):
         self.selected_items = []
         self.parcelas = []
         self.creation_uncertain = False
+        self.item_feedback = ""
+        self.payment_status_changed = False
 
     @staticmethod
     def _extract_installments(response: object) -> list[dict[str, str]]:
@@ -555,11 +574,14 @@ class VendasState(rx.State):
             )
         return installments
 
-    @read_event(outputs=("read_id", "venda_id", "payment_url", "payment_status", "payment_flow", "total_confirmado", "payment_due_date", "parcelas", "detail_error", "detail_loading", "payment_methods", "methods_error", "methods_loading"),
-                loading="detail_loading", clear=("payment_url", "payment_status", "payment_flow", "total_confirmado", "payment_due_date", "parcelas", "detail_error", "erro", "mensagem"),
+    @read_event(outputs=("read_id", "venda_id", "payment_url", "payment_status", "payment_status_changed", "payment_flow", "total_confirmado", "payment_due_date", "parcelas", "detail_error", "detail_loading", "payment_methods", "methods_error", "methods_loading"),
+                loading="detail_loading", clear=("payment_url", "payment_status_changed", "payment_flow", "total_confirmado", "payment_due_date", "parcelas", "detail_error", "erro", "mensagem"),
                 generation_field="detail_generation")
     async def load_sale(self) -> None:
+        previous_status = self.payment_status
+        previous_id = self.read_id
         self.payment_url = self.payment_status = self.payment_flow = ""
+        self.payment_status_changed = False
         self.total_confirmado = self.payment_due_date = ""
         self.parcelas = []
         sale_id = str(self.router.page.params.get("id", "")).strip()
@@ -585,6 +607,10 @@ class VendasState(rx.State):
             if not amount.is_finite() or amount <= 0:
                 raise XanoError("A API não retornou o valor válido da venda.")
             self._set_payment(response)
+            self.payment_status_changed = bool(
+                previous_id == sale_id and previous_status and self.payment_status
+                and previous_status != self.payment_status
+            )
             self.total_confirmado = "R$ " + _format_currency(amount)
             self.parcelas = self._extract_installments(response)
             if self.payment_flow != "ASAAS":
@@ -625,6 +651,7 @@ class VendasState(rx.State):
 
 class SaleDetailState(rx.State):
     """Payment detail never overwrites a sale draft or its recovery identifier."""
+
     read_generation: int = 0
     methods_generation: int = 0
     read_id: str = ""
@@ -632,6 +659,7 @@ class SaleDetailState(rx.State):
     venda_id: str = ""
     payment_url: str = ""
     payment_status: str = ""
+    payment_status_changed: bool = False
     payment_flow: str = ""
     payment_due_date: str = ""
     total_confirmado: str = ""

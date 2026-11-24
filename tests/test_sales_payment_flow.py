@@ -13,7 +13,8 @@ def state_fixture():
 
     state = SimpleNamespace(
         get_state=get_state, read_generation=0, references_generation=0, processando=False, creation_uncertain=False,
-        venda_id="", erro="", mensagem="", cliente_id="12", itens_json="[]",
+        venda_id="", read_id="", erro="", mensagem="", cliente_id="12", itens_json="[]",
+        item_feedback_revision=0,
         payment_url="", payment_flow="", payment_status="", total_confirmado="",
         payment_due_date="", parcelas=[], selected_items=[
             {"tipo": "veiculo", "id": "7", "qtd": "1", "nome": "Veículo de teste", "preco": "100"},
@@ -22,6 +23,7 @@ def state_fixture():
     )
     state._sale_payload = lambda: VendasState._sale_payload(state)
     state._set_payment = lambda response: VendasState._set_payment(state, response)
+    state._indicate_item = lambda name, action: VendasState._indicate_item(state, name, action)
     state._extract_installments = VendasState._extract_installments
 
     async def generate():
@@ -43,6 +45,7 @@ class SalesPayloadTests(unittest.TestCase):
         })
         VendasState.remove_item.fn(state, "peca", "7")
         self.assertEqual([row["tipo"] for row in state.selected_items], ["veiculo"])
+        self.assertEqual(state.item_feedback, "Peça de teste · removida do resumo")
 
     def test_invalid_json_quantities_and_identifiers_are_rejected(self):
         for item in (

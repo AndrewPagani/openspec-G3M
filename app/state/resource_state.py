@@ -395,10 +395,12 @@ class ResourceState(rx.State, mixin=True):
     client_form_phone: str = ""
     client_form_email: str = ""
     client_action_message: str = ""
+    client_action_success: bool = False
     part_dialog_open: bool = False
     part_dialog_loading: bool = False
     part_dialog_saving: bool = False
     part_dialog_error: str = ""
+    part_action_notice: str = ""
     selected_part_id: str = ""
     part_form_name: str = ""
     part_form_price: str = ""
@@ -486,7 +488,7 @@ class ResourceState(rx.State, mixin=True):
         )
 
     @read_event(outputs=("selected_client", "client_dialog_mode", "client_action_message", "client_dialog_open", "client_detail_loading"),
-                loading="client_detail_loading", generation_field="dialog_generation")
+                loading="client_detail_loading", generation_field="dialog_generation", clear=("client_action_success",))
     async def open_client_details(self, client_id: str):
         row = self._find_client(client_id)
         if row is None:
@@ -533,6 +535,7 @@ class ResourceState(rx.State, mixin=True):
 
     def open_client_edit(self, client_id: str) -> None:
         self.dialog_generation += 1
+        self.client_action_success = False
         row = self._find_client(client_id)
         if row is None:
             self.client_action_message = "Não foi possível localizar este cliente."
@@ -572,6 +575,7 @@ class ResourceState(rx.State, mixin=True):
 
     def open_client_delete(self, client_id: str) -> None:
         self.dialog_generation += 1
+        self.client_action_success = False
         row = self._find_client(client_id)
         if row is None:
             self.client_action_message = "Não foi possível localizar este cliente."
@@ -590,6 +594,7 @@ class ResourceState(rx.State, mixin=True):
         self.client_dialog_open = True
 
     async def delete_client(self) -> None:
+        self.client_action_success = False
         client_id = self.selected_client.get("id", "").strip()
         if not client_id.isdigit() or int(client_id) < 1:
             self.client_action_message = "Identificador de cliente inválido."
@@ -609,13 +614,18 @@ class ResourceState(rx.State, mixin=True):
             self.read_generation += 1
             self.records = []
             self.client_action_message = response.get("message") or "Cliente excluído com sucesso."
-            return ClientsState.load("/clientes", "Clientes")
+            self.client_action_success = True
+            return [
+                rx.call_script("requestAnimationFrame(() => document.getElementById('client-search-focus')?.focus({preventScroll: true}))"),
+                ClientsState.load("/clientes", "Clientes"),
+            ]
         except XanoError as exc:
             self.client_action_message = str(exc)
         finally:
             self.client_delete_loading = False
 
     async def save_client_edits(self) -> None:
+        self.client_action_success = False
         client_id = self.selected_client.get("id", "")
         values = (
             self.client_form_name.strip(),
@@ -642,10 +652,14 @@ class ResourceState(rx.State, mixin=True):
             )
             self.client_dialog_open = False
             self.client_action_message = "Cadastro do cliente atualizado."
+            self.client_action_success = True
             self.read_generation += 1
             self.records = []
             self.complete = False
-            return ClientsState.load("/clientes", "Clientes")
+            return [
+                rx.call_script("requestAnimationFrame(() => document.getElementById('client-search-focus')?.focus({preventScroll: true}))"),
+                ClientsState.load("/clientes", "Clientes"),
+            ]
         except XanoError as exc:
             self.client_action_message = str(exc)
 
@@ -711,6 +725,7 @@ class ResourceState(rx.State, mixin=True):
         self.part_form_area_id = value
 
     async def save_part_edits(self) -> None:
+        self.part_action_notice = ""
         name = self.part_form_name.strip()
         if not name:
             self.part_dialog_error = "O campo Nome é obrigatório."
@@ -747,10 +762,14 @@ class ResourceState(rx.State, mixin=True):
                 json=payload,
             )
             self.part_dialog_open = False
+            self.part_action_notice = "Peça atualizada."
             self.read_generation += 1
             self.records = []
             self.complete = False
-            return PartsState.load("/pecas", "Peças e estoque")
+            return [
+                rx.call_script("requestAnimationFrame(() => document.getElementById('stock-search-focus')?.focus({preventScroll: true}))"),
+                PartsState.load("/pecas", "Peças e estoque"),
+            ]
         except XanoError as exc:
             self.part_dialog_error = str(exc)
         finally:

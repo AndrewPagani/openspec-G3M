@@ -311,9 +311,10 @@ def _vehicle_form() -> rx.Component:
                 FormState.success != "",
                 rx.callout(
                     FormState.success,
+                    icon="check",
                     color_scheme="green",
                     role="status",
-                    class_name="vehicle-form-feedback",
+                    class_name="vehicle-form-feedback interaction-result",
                 ),
                 rx.fragment(),
             ),
@@ -474,9 +475,10 @@ def _part_form() -> rx.Component:
                 FormState.success != "",
                 rx.callout(
                     FormState.success,
+                    icon="check",
                     color_scheme="green",
                     role="status",
-                    class_name="vehicle-form-feedback",
+                    class_name="vehicle-form-feedback interaction-result",
                 ),
                 rx.fragment(),
             ),
@@ -547,25 +549,37 @@ def form_page(
             title,
             allowed,
         )
+    is_client = endpoint == "clientes"
     return shell(
-        rx.vstack(
-            rx.text("Os campos serão validados e persistidos pelo Xano.", class_name="muted"),
-            *[
-                rx.input(
-                    placeholder=field,
-                    aria_label=field,
-                    value=FormState.values.get(field, ""),
-                    on_change=lambda value, name=field: FormState.set_field(name, value),
-                )
-                for field in fields
-            ],
-            rx.cond(FormState.error != "", rx.callout(FormState.error, color_scheme="red")),
-            rx.cond(FormState.success != "", rx.callout(FormState.success, color_scheme="green")),
-            rx.hstack(
-                rx.button("Salvar", on_click=FormState.save(endpoint), loading=FormState.saving),
-                rx.link(rx.button("Cancelar", variant="outline"), href=f"/{endpoint}"),
+        rx.form(
+            rx.vstack(
+                rx.text("Os campos serão validados e persistidos pelo Xano.", class_name="muted"),
+                *[
+                    rx.input(
+                        placeholder=field,
+                        aria_label=field,
+                        name=field,
+                        required=is_client,
+                        type="email" if is_client and field == "E-mail" else "text",
+                        value=FormState.values.get(field, ""),
+                        on_change=lambda value, name=field: FormState.set_field(name, value),
+                    )
+                    for field in fields
+                ],
+                rx.cond(FormState.error != "", rx.callout(FormState.error, color_scheme="red", role="alert")),
+                rx.cond(FormState.success != "", rx.callout(
+                    FormState.success, icon="check", color_scheme="green",
+                    role="status", class_name="interaction-result",
+                )),
+                rx.hstack(
+                    rx.button("Salvar", type="submit", loading=FormState.saving),
+                    rx.link(rx.button("Cancelar", type="button", variant="outline"), href=f"/{endpoint}"),
+                ),
+                class_name="form-card generic-form-card",
             ),
-            class_name="form-card generic-form-card",
+            on_submit=FormState.save(endpoint),
+            reset_on_submit=False,
+            width="100%",
         ), title, allowed)
 
 

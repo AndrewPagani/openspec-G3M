@@ -619,6 +619,8 @@ class DashboardState(rx.State):
     report_ready: bool = False
     report_status: str = ""
     report_error: str = ""
+    report_started: bool = False
+    filters_applied: bool = False
     _report_job: str = ""
     valor_liquido: str = "—"
     total_vendas: str = "—"
@@ -669,6 +671,7 @@ class DashboardState(rx.State):
     def _invalidate_query(self):
         self.read_generation += 1
         self.loading, self.error, self.needs_refresh = False, "", True
+        self.report_started = False
         options = (self.status_venda_opcoes, self.vendedor_opcoes, self.forma_pagamento_opcoes, self.status_veiculo_opcoes)
         self._clear_metrics()
         self.status_venda_opcoes, self.vendedor_opcoes, self.forma_pagamento_opcoes, self.status_veiculo_opcoes = options
@@ -727,6 +730,7 @@ class DashboardState(rx.State):
 
     def _clear_metrics(self) -> None:
         self.report_ready = False
+        self.filters_applied = False
         self.valor_liquido = "—"
         self.total_vendas = "—"
         self.vendas_pagas = "—"
@@ -774,7 +778,7 @@ class DashboardState(rx.State):
 
     @read_event(
         outputs=(
-            'needs_refresh', 'loading', 'error', 'report_ready', 'valor_liquido', 'total_vendas',
+            'needs_refresh', 'loading', 'error', 'report_ready', 'filters_applied', 'valor_liquido', 'total_vendas',
             'vendas_pagas', 'ticket_medio', 'valor_bruto', 'vendas_canceladas',
             'percentual_canceladas', 'veiculos_disponiveis', 'valor_veiculos', 'pecas_disponiveis',
             'valor_estoque_pecas', 'pecas_sem_estoque', 'pecas_baixo_estoque', 'pecas_baixo_estoque_labels',
@@ -791,10 +795,10 @@ class DashboardState(rx.State):
             'periodo_ativo',
         ),
         clear=(
-            'error', 'needs_refresh', 'report_ready',
+            'error', 'needs_refresh', 'report_ready', 'filters_applied',
         ),
     )
-    async def load(self) -> AsyncIterator[None]:
+    async def load(self, announce: bool = False) -> AsyncIterator[None]:
         self.loading, self.error, self.needs_refresh = True, "", False
         self._clear_metrics()
         # Flush the loading state before awaiting I/O, so old results are not
@@ -1044,6 +1048,7 @@ class DashboardState(rx.State):
                     self.chart_veiculos_por_status
                 )
             self.report_ready = True
+            self.filters_applied = announce
         except (XanoError, ValueError) as exc:
             self._clear_metrics()
             self.error = str(exc)
@@ -1085,6 +1090,7 @@ class DashboardState(rx.State):
                 for key, rows in options.items() if key in params
             }
             self.report_error = ""
+            self.report_started = False
             self.report_status = "Preparando relatório…"
 
         async def owns_job() -> bool:
@@ -1119,4 +1125,5 @@ class DashboardState(rx.State):
                 self.report_error = error
                 if binary is not None:
                     filename = f"relatorio-{params['data_inicio']}-a-{params['data_fim']}.xlsx"
+                    self.report_started = True
                     yield rx.download(data=binary, filename=filename, mime_type=MIME_TYPE)

@@ -119,6 +119,7 @@ def run():
                 expect(export).to_be_disabled()
                 page.get_by_role("button", name="Aplicar filtros").click()
                 expect(export).to_be_enabled()
+                expect(page.get_by_role("status").filter(has_text="Indicadores atualizados")).to_be_visible()
             page.get_by_role("button", name="Atualizar dados").press("Tab")
             expect(export).to_be_focused()
             assert (
@@ -140,6 +141,8 @@ def run():
                     page.get_by_role("link", name="Clientes", exact=True).click()
                     page.wait_for_url("**/clientes")
             size = verify_file(download.value, profile)
+            if profile != "Vendedor":
+                expect(page.get_by_role("status").filter(has_text="Download iniciado")).to_be_visible()
             print(f"{profile}: {size} bytes, {(monotonic() - start):.2f} s")
 
             if profile == "Gerente":

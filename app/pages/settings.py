@@ -262,6 +262,7 @@ def _personalization_form() -> rx.Component:
                 icon="circle-check",
                 color_scheme="green",
                 role="status",
+                class_name="interaction-result",
             ),
             rx.fragment(),
         ),

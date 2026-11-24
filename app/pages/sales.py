@@ -131,21 +131,60 @@ def _part_picker(row: rx.Var) -> rx.Component:
     )
 
 
-def _payment_panel(state=VendasState) -> rx.Component:
+def _copy_payment_link(state) -> rx.Component:
+    return rx.hstack(
+        rx.button(
+            "Copiar link",
+            id="sale-copy-link",
+            variant="outline",
+            custom_attrs={"data-payment-url": state.payment_url},
+            on_click=rx.call_script("""
+                (() => {
+                    const button = document.getElementById("sale-copy-link");
+                    const status = document.getElementById("sale-copy-status");
+                    if (!button || !status) return;
+                    status.replaceChildren();
+                    const url = button.dataset.paymentUrl;
+                    const attempt = String(Number(status.dataset.attempt || 0) + 1);
+                    status.dataset.attempt = attempt;
+                    const show = (message, kind) => {
+                        if (!status.isConnected || status.dataset.attempt !== attempt || button.dataset.paymentUrl !== url) return;
+                        const label = document.createElement("span");
+                        label.className = kind;
+                        label.textContent = message;
+                        status.replaceChildren(label);
+                    };
+                    Promise.resolve().then(() => navigator.clipboard.writeText(url)).then(
+                        () => show("Link copiado", "interaction-feedback"),
+                        () => show("Não foi possível copiar o link.", "interaction-error")
+                    );
+                })()
+            """),
+        ),
+        rx.text(id="sale-copy-status", role="status", aria_atomic=True, size="2"),
+        key=state.venda_id + ":" + state.payment_url,
+        align="center", wrap="wrap", spacing="2",
+    )
+
+
+def _payment_panel(state=VendasState, *, created=False) -> rx.Component:
     return rx.vstack(
+        rx.cond(created, rx.text(rx.icon("check", size=15, aria_hidden=True), "Venda criada", class_name="interaction-feedback")),
         rx.heading("Pagamento da venda #" + state.venda_id, size="4"),
         rx.text(state.total_confirmado, class_name="sale-total-amount"),
-        rx.text(state.payment_status_label, role="status"),
+        rx.text(
+            state.payment_status_label, role="status",
+            class_name=rx.cond(state.payment_status_changed, "interaction-feedback", ""),
+        ),
         rx.cond(state.payment_due_date != "", rx.text("Vencimento: " + state.payment_due_date)),
         rx.cond(
             state.payment_url != "",
             rx.vstack(
-                rx.text("O cliente escolhe como pagar na fatura do ASAAS."),
+                rx.text("Link disponível. O cliente escolhe como pagar na fatura do ASAAS."),
                 rx.hstack(
                     rx.link(rx.button("Abrir link de pagamento"), href=state.payment_url,
                             is_external=True, rel="noopener noreferrer"),
-                    rx.button("Copiar link", variant="outline",
-                              on_click=rx.set_clipboard(state.payment_url)),
+                    _copy_payment_link(state),
                     wrap="wrap", spacing="3",
                 ),
                 rx.text("O link fica salvo nesta venda. Não enviamos e-mails.", class_name="sale-help"),
@@ -158,7 +197,8 @@ def _payment_panel(state=VendasState) -> rx.Component:
                 align="start", spacing="3",
             ),
         ),
-        align="start", spacing="4", width="100%", class_name="sale-payment-panel",
+        align="start", spacing="4", width="100%",
+        class_name="sale-payment-panel interaction-panel" if created else "sale-payment-panel",
     )
 
 
@@ -214,7 +254,7 @@ def sales_create_page() -> rx.Component:
                     rx.cond(
                         VendasState.venda_id != "",
                         rx.vstack(
-                            _payment_panel(),
+                            _payment_panel(created=True),
                             rx.link("Ver detalhes da venda", href="/vendas/" + VendasState.venda_id),
                             rx.button("Iniciar outra venda", on_click=VendasState.start_new_sale, variant="outline",
                                       disabled=VendasState.processando),
@@ -228,6 +268,17 @@ def sales_create_page() -> rx.Component:
                             rx.separator(),
                             rx.text("Total previsto", class_name="sale-help"),
                             rx.text(VendasState.valor_bruto_display, class_name="sale-total-amount"),
+                            rx.box(
+                                rx.cond(
+                                    VendasState.item_feedback != "",
+                                    rx.text(
+                                        VendasState.item_feedback, size="2",
+                                        class_name="interaction-feedback sale-item-feedback",
+                                        key=VendasState.item_feedback_revision.to_string(),
+                                    ),
+                                ),
+                                role="status", aria_atomic=True,
+                            ),
                             rx.text("O valor será conferido ao reservar os itens.", class_name="sale-help"),
                             rx.separator(),
                             rx.text("O cliente escolhe como pagar no link do ASAAS."),

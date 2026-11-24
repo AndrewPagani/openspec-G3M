@@ -232,6 +232,7 @@ def run():
         page.wait_for_timeout(400)
         page.get_by_role("button", name="Salvar alterações").click()
         expect(page.get_by_text("Cliente atualizado", exact=True)).to_be_visible()
+        expect(page.get_by_role("status").filter(has_text="Cadastro do cliente atualizado.")).to_be_visible()
         page.wait_for_timeout(1800)
         expect(page.get_by_text("Cliente atualizado", exact=True)).to_be_visible()
         expect(page.get_by_text("Cliente visual 1", exact=True)).to_have_count(0)

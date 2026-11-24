@@ -940,7 +940,7 @@ def gerenciamento() -> rx.Component:
                         rx.cond(
                             DashboardState.loading, "Carregando…", rx.cond(DashboardState.needs_refresh, "Aplicar filtros", "Atualizar dados")
                         ),
-                        on_click=DashboardState.load,
+                        on_click=DashboardState.load(True),
                         disabled=DashboardState.loading,
                         class_name="dashboard-refresh-button",
                     ),
@@ -961,14 +961,20 @@ def gerenciamento() -> rx.Component:
                 class_name="dashboard-header",
             ),
             rx.box(
-                rx.cond(
-                    DashboardState.report_status != "",
-                    rx.text(DashboardState.report_status, class_name="dashboard-export-status", size="2"),
-                ),
+                rx.cond(DashboardState.report_status != "",
+                        rx.text(DashboardState.report_status, class_name="dashboard-export-status", size="2"),
+                        rx.cond(DashboardState.report_started,
+                                rx.text("Download iniciado", class_name="interaction-feedback", size="2"))),
                 role="status",
                 aria_atomic=True,
                 width="100%",
-                display=rx.cond(DashboardState.report_status != "", "block", "contents"),
+                display=rx.cond((DashboardState.report_status != "") | DashboardState.report_started, "block", "contents"),
+            ),
+            rx.box(
+                rx.cond(DashboardState.filters_applied,
+                        rx.text("Indicadores atualizados", class_name="interaction-feedback", size="2")),
+                role="status", aria_atomic=True,
+                display=rx.cond(DashboardState.filters_applied, "block", "contents"),
             ),
             rx.cond(
                 DashboardState.report_error != "",

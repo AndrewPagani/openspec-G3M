@@ -223,7 +223,7 @@ class ResourceStateTests(unittest.TestCase):
                 "Cliente excluido com sucesso",
             )
             self.assertFalse(state.client_delete_loading)
-            self.assertEqual(refresh.handler.fn.__name__, "load")
+            self.assertEqual(refresh[-1].handler.fn.__name__, "load")
 
         asyncio.run(exercise())
 
@@ -569,7 +569,7 @@ class ResourceStatePaginationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertNotIn("qtd_disp", request.call_args_list[1].kwargs["json"])
         self.assertEqual(state.records[0]["qtd_disp"], 7)
-        self.assertEqual(refresh.handler.fn.__name__, "load")
+        self.assertEqual(refresh[-1].handler.fn.__name__, "load")
         self.assertEqual(state.read_generation, 1)
         self.assertFalse(state.part_dialog_open)
         self.assertFalse(state.part_dialog_saving)

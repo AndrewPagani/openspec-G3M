@@ -4272,3 +4272,83 @@ html[data-app-theme="light"] .internal-app-shell .rt-SelectItem[data-highlighted
 .dashboard-page .recharts-responsive-container {
   content-visibility: auto;
 }
+.interaction-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--app-success, #86efac);
+}
+
+.interaction-error {
+  color: var(--app-danger, #fecdd3);
+}
+
+.sale-item-feedback {
+  color: var(--app-accent, #bfdbfe);
+}
+
+html:not([data-app-theme="light"]) .sale-selection button[role="combobox"] {
+  background: var(--internal-surface-raised);
+  color: var(--internal-text);
+  box-shadow: inset 0 0 0 1px var(--internal-border);
+}
+
+html:not([data-app-theme="light"]) .sale-selection button[data-placeholder] {
+  color: var(--internal-muted);
+}
+
+html:not([data-app-theme="light"]) .sale-picker-card button[data-variant="outline"] {
+  color: #93c5fd;
+}
+
+html:not([data-app-theme="light"]) .internal-app-shell .vehicle-detail-card {
+  background: var(--internal-surface) !important;
+}
+
+:is(.login-field, .content) :is(input, textarea, button, [role="combobox"]):focus-visible {
+  outline: 2px solid var(--app-accent, #93c5fd);
+  outline-offset: 2px;
+}
+
+:is(.login-field, .content) :is(input, textarea):user-invalid {
+  outline: 2px solid var(--app-danger, #fda4af);
+  outline-offset: 2px;
+}
+
+:is(.login-page, .internal-app-shell, .dashboard-app-shell) button:active:not(:disabled) {
+  opacity: 0.84;
+}
+
+.nav-item[aria-current="page"] {
+  box-shadow: inset 2px 0 var(--app-accent, #93c5fd);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .interaction-feedback,
+  .interaction-result {
+    animation: interaction-confirmed 200ms ease-out;
+  }
+
+  .interaction-panel {
+    animation: interaction-panel-enter 220ms cubic-bezier(.16, 1, .3, 1);
+  }
+
+  :is(.login-field, .content) :is(input, textarea, [role="combobox"]):focus-visible {
+    animation: interaction-focus 130ms ease-out;
+  }
+}
+
+@keyframes interaction-confirmed {
+  from { box-shadow: 0 2px 0 currentColor; }
+  to { box-shadow: 0 2px 0 transparent; }
+}
+
+@keyframes interaction-panel-enter {
+  from { opacity: .9; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes interaction-focus {
+  from { outline-offset: 0; }
+  to { outline-offset: 2px; }
+}

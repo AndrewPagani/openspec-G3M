@@ -23,6 +23,7 @@ def nav_item(
             ),
             href=href,
             aria_label=label,
+            aria_current=rx.cond(active, "page", "false"),
             class_name=rx.cond(
                 active,
                 "nav-item nav-item-active",
@@ -63,7 +64,7 @@ def shell(
                     ),
                     nav_item(
                         "Vendas", "/vendas", "receipt-text",
-                        title in ("Vendas", "Nova venda", "Detalhe da venda"),
+                        title in ("Vendas", "Vendas realizadas", "Nova venda", "Detalhe da venda", "Pagamento da venda"),
                     ),
                     nav_item(
                         "Usuários", "/usuarios", "user-round",

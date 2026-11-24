@@ -44,6 +44,10 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
         return [{"id": 1, "Secao": "Motor"}]
     if path == "/formas-pagamento":
         return [{"id": 1, "Metodo": "Pix"}]
+    if path == "/clientes" and method == "POST":
+        if fixture_mode == "motion-client-error":
+            raise XanoError("Cadastro indisponível na simulação")
+        return {"id": 42, **json}
     if path in {"/clientes", "/veiculos", "/pecas"}:
         if fixture_mode == "page-error" and page == 2:
             raise XanoError("Falha controlada na segunda página. Atualize a lista.")
@@ -61,6 +65,8 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
         rows = []
         for index in range((page - 1) * count + 1, page * count + 1):
             if path == "/clientes":
+                if fixture_mode == "motion-delete" and index == 1:
+                    continue
                 row = {
                     "id": index,
                     "CNome": account + names.get(index, f"Cliente visual {index}"),
@@ -89,6 +95,8 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
             rows.append(row)
         return {"items": rows, "pagination": {"page": page, "per_page": count, "total": count * pages, "total_pages": pages}}
     if path == "/vendas":
+        if method == "POST":
+            return {"id": 42, "Valor_final": 40150}
         if fixture_mode == "sales-error":
             raise XanoError("Vendas indisponíveis na fixture")
         search = (params or {}).get("busca", "")
@@ -111,6 +119,8 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
     if path.startswith("/clientes/"):
         identity = int(path.rsplit("/", 1)[1])
         if method == "DELETE":
+            if fixture_mode == "motion-client-error":
+                raise XanoError("Exclusão indisponível na simulação")
             return {"deleted": True}
         if method == "PATCH":
             names[identity] = json["CNome"]
@@ -130,12 +140,19 @@ def response(method, path, *, token="", params=None, json=None, fixture_mode="no
             "Marca": "Detalhe veículo",
             "Modelo": path.rsplit("/", 1)[1],
         }
+    if path.startswith("/vendas/") and path.endswith("/link-pagamento"):
+        if fixture_mode == "motion-link-error":
+            raise XanoError("ASAAS indisponível na simulação")
+        return {
+            "invoice_url": f"https://sandbox.asaas.com/i/fixture-{path.split('/')[2]}",
+            "status": "PENDING",
+        }
     if path.startswith("/vendas/") and path.endswith("/pagamento"):
         return {
             "payment_flow": "ASAAS",
             "total_venda": 150,
             "invoice_url": f"https://sandbox.asaas.com/i/fixture-{path.split('/')[2]}",
-            "status": "PENDING",
+            "status": "CONFIRMED" if fixture_mode == "motion-payment-confirmed" else "PENDING",
         }
     if path == "/usuarios":
         if token != "fixture-admin":
