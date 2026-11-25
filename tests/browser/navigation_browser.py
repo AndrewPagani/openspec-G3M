@@ -296,16 +296,26 @@ def run():
         page.wait_for_timeout(400)
         page.get_by_role("button", name="Salvar personalização").click()
         page.get_by_role("link", name="Dashboard", exact=True).click()
+        expect(page.locator("html")).to_have_attribute("data-app-theme", "light")
+        expect(page.locator(".radix-themes.light")).to_have_count(1)
         expect(
             page.get_by_role("heading", name="Meu painel", exact=True)
         ).to_be_visible()
         expect(
             page.get_by_text("Gerente: Nome personalizado", exact=True)
         ).to_be_visible()
+        page.reload()
+        expect(page.locator("html")).to_have_attribute("data-app-theme", "light")
+        expect(page.locator(".radix-themes.light")).to_have_count(1)
+        expect(
+            page.get_by_role("heading", name="Meu painel", exact=True)
+        ).to_be_visible()
         page.emulate_media(color_scheme="dark")
         expect(page.locator("html")).to_have_attribute("data-app-theme", "dark")
+        expect(page.locator(".radix-themes.dark")).to_have_count(1)
         page.emulate_media(color_scheme="light")
         expect(page.locator("html")).to_have_attribute("data-app-theme", "light")
+        expect(page.locator(".radix-themes.light")).to_have_count(1)
         with page.expect_download() as download:
             page.get_by_role("button", name="Exportar Excel").click()
         assert download.value.suggested_filename.endswith(".xlsx")

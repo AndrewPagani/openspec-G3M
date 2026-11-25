@@ -96,8 +96,10 @@ def _apply_theme(mode: str) -> rx.event.EventSpec:
         + ";const media=window.matchMedia('(prefers-color-scheme: dark)');"
         "if(window.__openspecThemeMedia&&window.__openspecThemeListener){"
         "window.__openspecThemeMedia.removeEventListener('change',window.__openspecThemeListener);}"
-        "const apply=()=>root.setAttribute('data-app-theme',"
-        "mode==='system'?(media.matches?'dark':'light'):mode);"
+        "const apply=()=>{const resolved=mode==='system'?(media.matches?'dark':'light'):mode;"
+        "root.setAttribute('data-app-theme',resolved);"
+        "const theme=root.querySelector('.radix-themes[data-is-root-theme=\"true\"]');"
+        "if(theme){theme.classList.remove('dark','light');theme.classList.add(resolved);}};"
         "window.__openspecThemeMedia=media;window.__openspecThemeListener=apply;"
         "if(mode==='system'){media.addEventListener('change',apply);}apply();})()"
     )

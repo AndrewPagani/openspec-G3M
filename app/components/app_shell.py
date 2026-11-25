@@ -143,6 +143,7 @@ def shell(
                         ),
                     ),
                 ),
+                on_mount=SettingsState.load,
             ),
             rx.center(rx.callout("Acesso negado para o seu perfil.", color_scheme="red"), min_height="100vh"),
         ),
