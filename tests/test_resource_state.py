@@ -328,6 +328,7 @@ class ResourceStateTests(unittest.TestCase):
                     "Preço": "299,90",
                     "Quantidade": "8",
                     "Área (ID)": "2",
+                    "URL da foto": " https://example.com/pastilha.jpg ",
                 }
             ),
             {
@@ -335,14 +336,19 @@ class ResourceStateTests(unittest.TestCase):
                 "PCvalor": 299.9,
                 "qtd_disp": 8,
                 "area_id": 2,
+                "imagem_url": "https://example.com/pastilha.jpg",
             },
         )
 
-    def test_part_quantity_and_area_are_optional(self) -> None:
+    def test_part_quantity_area_and_image_are_optional(self) -> None:
         self.assertEqual(
             _build_part_payload({"Nome": "Filtro", "Preço": "10"}),
             {"PCNome": "Filtro", "PCvalor": 10.0},
         )
+
+    def test_part_photo_rejects_an_unsupported_url_scheme(self) -> None:
+        with self.assertRaisesRegex(XanoError, "HTTP ou HTTPS"):
+            _build_part_payload({"Nome": "Filtro", "Preço": "10", "URL da foto": "ftp://example.com/foto.jpg"})
 
     def test_part_payload_requires_name_and_price(self) -> None:
         with self.assertRaisesRegex(XanoError, "Nome"):

@@ -374,12 +374,13 @@ def _part_field(label: str, icon: str, input_type: str = "text") -> rx.Component
         rx.hstack(
             rx.input(
                 type=input_type,
-                placeholder=label,
+                placeholder="https://..." if input_type == "url" else label,
                 aria_label=label,
+                aria_describedby="part-image-hint" if input_type == "url" else None,
                 value=FormState.values.get(label, ""),
                 on_change=lambda value, name=label: FormState.set_field(name, value),
                 min="0" if label == "Quantidade" else None,
-                step="0.01" if label == "Preço" else "1",
+                step="0.01" if label == "Preço" else "1" if input_type == "number" else None,
                 required=label in ("Nome", "Preço"),
                 class_name="vehicle-form-input",
             ),
@@ -397,6 +398,11 @@ def _part_field(label: str, icon: str, input_type: str = "text") -> rx.Component
             rx.text("Opcional; se vazio, a API grava 0.", class_name="vehicle-form-hint"),
             rx.fragment(),
         ),
+        rx.text(
+            "Opcional. Cole o link direto da imagem.",
+            id="part-image-hint",
+            class_name="vehicle-form-hint",
+        ) if input_type == "url" else rx.fragment(),
         class_name="vehicle-form-field",
     )
 
@@ -456,6 +462,7 @@ def _part_form() -> rx.Component:
                         columns="repeat(2, minmax(0, 1fr))",
                         class_name="vehicle-form-fields-grid",
                     ),
+                    _part_field("URL da foto", "link-2", "url"),
                     align="stretch",
                     class_name="vehicle-form-panel-content",
                 ),
@@ -509,7 +516,7 @@ def _part_form() -> rx.Component:
                     class_name="vehicle-form-actions",
                 ),
                 rx.text(
-                    "Nome e preço são obrigatórios. Quantidade e área são opcionais.",
+                    "Nome e preço são obrigatórios.",
                     class_name="vehicle-form-footer-note",
                 ),
                 align="end",

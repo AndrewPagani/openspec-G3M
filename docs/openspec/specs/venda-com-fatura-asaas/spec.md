@@ -13,13 +13,22 @@ O sistema MUST permitir escolher cliente e veículos e/ou peças, calcular valor
 - **THEN** a interface MUST preservar o ID e repetir somente a geração/recuperação da fatura
 
 ### Requirement: Cadastro integrado não envia e-mail
-O Xano MUST criar ou recuperar o cliente ASAAS, persistir o vínculo e desabilitar notificações também em clientes reutilizados. MUST NOT disparar e-mail pelo app, Xano ou ASAAS neste fluxo. Falhas ambíguas MUST ser recuperáveis sem exclusão local ou POST externo repetido cegamente.
+O Xano MUST criar ou recuperar o cliente ASAAS, persistir o vínculo na tabela `asaas_cliente` e desabilitar notificações também em clientes reutilizados. MUST NOT disparar e-mail pelo app, Xano ou ASAAS neste fluxo. Falhas ambíguas MUST ser recuperáveis sem exclusão local ou POST externo repetido cegamente.
+
+#### Scenario: Novo cliente cadastrado
+- **WHEN** o cadastro de um novo cliente é confirmado
+- **THEN** `asaas_cliente` MUST conter um único vínculo entre o `cliente_id` do Xano e o `asaas_customer_id` devolvido pelo ASAAS
+
 #### Scenario: Nova tentativa de cadastro
 - **WHEN** existe cliente local ou externo após tentativa incompleta
 - **THEN** o backend MUST recuperar e sincronizar esse cadastro sem duplicação
 
 ### Requirement: Recebimentos são autoritativos e idempotentes
 O backend MUST validar segredo próprio do webhook, deduplicar eventos e consultar estado atual da cobrança antes de atualizar pagamento e venda. MUST NOT confirmar pagamento pelo retorno do navegador ou criação do link. Indicadores MUST considerar apenas recebimentos comprovados e preservar histórico manual separadamente.
+#### Scenario: Pagamento confirma a venda de um veículo
+- **WHEN** o ASAAS confirma o pagamento de uma venda com veículo reservado, inclusive se a venda também contiver peças
+- **THEN** o Xano MUST marcar a venda como Paga e os veículos vinculados como Vendidos na mesma transação, processando os itens de peça sem tratá-los como veículos
+
 #### Scenario: Evento duplicado ou atrasado
 - **WHEN** o ASAAS reenvia evento ou entrega evento antigo
 - **THEN** o sistema MUST manter o estado autoritativo sem duplicar recebimento nem regredir estado pago

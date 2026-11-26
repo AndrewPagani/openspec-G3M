@@ -107,6 +107,9 @@ def _build_part_payload(values: dict[str, str]) -> dict[str, str | int | float]:
         if parsed_value < 0:
             raise XanoError(f"O campo {label} não pode ser negativo.")
         payload[field] = parsed_value
+    image_url = values.get("URL da foto", "").strip()
+    if image_url:
+        payload["imagem_url"] = _validate_image_url(image_url)
     return payload
 
 

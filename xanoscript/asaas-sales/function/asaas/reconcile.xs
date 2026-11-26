@@ -95,6 +95,53 @@ function "asaas/reconcile" {
               if (($matching|count) == 1) { var.update $method_id { value = ($matching|first).id } }
             }
             conditional {
+              if ($current_status.Descricao_venda == "Reservado" || $current_status.Descricao_venda == "Paga") {
+                db.query venda_item {
+                  where = $db.venda_item.venda_id == $venda.id && $db.venda_item.veiculo_id > 0
+                  sort = {veiculo_id: "asc"}
+                  return = {type: "list"}
+                } as $vehicle_items
+                conditional {
+                  if (($vehicle_items|count) > 0) {
+                    db.query status_veiculo {
+                      where = $db.status_veiculo.Descricao == "Vendido"
+                      return = {type: "single"}
+                    } as $sold
+                    db.query status_veiculo {
+                      where = $db.status_veiculo.Descricao == "Reservado"
+                      return = {type: "single"}
+                    } as $reserved
+                    precondition ($sold != null && $reserved != null) {
+                      error_type = "badrequest"
+                      error = "Status de veiculo Vendido ou Reservado nao configurado"
+                    }
+                    foreach ($vehicle_items) {
+                      each as $item {
+                        db.query veiculo {
+                          where = $db.veiculo.id == $item.veiculo_id
+                          lock = true
+                          return = {type: "single"}
+                        } as $vehicle
+                        precondition ($vehicle != null && ($vehicle.status_id == $reserved.id || $vehicle.status_id == $sold.id)) {
+                          error_type = "badrequest"
+                          error = "Veiculo fora da reserva; reconciliar a venda antes de concluir"
+                        }
+                        conditional {
+                          if ($vehicle.status_id == $reserved.id) {
+                            db.patch veiculo {
+                              field_name = "id"
+                              field_value = $vehicle.id
+                              data = {status_id: $sold.id}
+                            } as $sold_vehicle
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            conditional {
               if ($current_status.Descricao_venda == "Reservado") {
                 db.patch venda {
     field_name = "id"

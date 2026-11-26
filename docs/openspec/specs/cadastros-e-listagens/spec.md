@@ -142,6 +142,10 @@ O backend MUST oferecer as rotas de consulta paginada e criação/atualização 
 - **WHEN** operador solicita página e filtros válidos de veículo ou peça
 - **THEN** o backend MUST aplicar os filtros antes da paginação e devolver os metadados de paginação
 
+#### Scenario: Cadastro de peça com URL da foto
+- **WHEN** o operador informa uma URL HTTP ou HTTPS no campo opcional URL da foto
+- **THEN** o formulário MUST enviar `imagem_url` para o Xano, que MUST persistir a URL e devolvê-la nas consultas de peças
+
 ### Requirement: Estoque de peças usa o saldo disponível definido no schema do MVP
 O MVP MUST usar `peca.qtd_disp` como saldo disponível e MUST NOT pressupor contadores persistidos separados de quantidade total, reservada ou vendida, nem endpoint de movimentação de estoque. Ajuste de saldo MUST ser permitido somente a gerente/administrador e ser atômico. Reserva de venda MUST reduzir o saldo disponível na mesma operação atômica da criação da venda; cancelamento ou expiração pendente MUST restaurá-lo uma única vez.
 
@@ -162,15 +166,19 @@ O MVP MUST usar `peca.qtd_disp` como saldo disponível e MUST NOT pressupor cont
 - **THEN** o backend MUST restaurar o saldo exatamente uma vez
 
 ### Requirement: Disponibilidade de veículos segue transições permitidas
-O backend MUST aceitar somente as transições aprovadas de status de veículo. O fluxo comercial MUST reservar veículo disponível ao criar a venda e MUST marcá-lo como vendido somente ao concluir a entrega de venda paga. Veículos reservados, indisponíveis, em manutenção, revisão ou vendidos MUST NOT ser oferecidos para nova venda.
+O backend MUST aceitar somente as transições aprovadas de status de veículo. O fluxo comercial MUST reservar veículo disponível ao criar a venda. Nas vendas ASAAS, a confirmação autoritativa do pagamento MUST marcar os veículos vinculados como vendidos. Nas vendas legadas, a conclusão da entrega MUST marcar o veículo reservado como vendido. Veículos reservados, indisponíveis, em manutenção, revisão ou vendidos MUST NOT ser oferecidos para nova venda.
 
 #### Scenario: Veículo é reservado
 - **WHEN** venda válida reserva veículo disponível
 - **THEN** o backend MUST marcar o veículo como reservado e impedir uma segunda reserva concorrente
 
-#### Scenario: Veículo reservado é entregue após pagamento
-- **WHEN** operador autorizado conclui a entrega de venda paga
+#### Scenario: Veículo reservado de venda legada é entregue após pagamento
+- **WHEN** operador autorizado conclui a entrega de venda legada paga
 - **THEN** o backend MUST concluir a venda e alterar o veículo reservado para vendido
+
+#### Scenario: ASAAS confirma pagamento de veículo reservado
+- **WHEN** o ASAAS confirma o pagamento de uma venda com veículo reservado
+- **THEN** o backend MUST atualizar a venda para Paga e o veículo para Vendido na mesma transação
 
 #### Scenario: Transição ou venda não permitida
 - **WHEN** é solicitada transição não aprovada ou inclusão de veículo não disponível em venda

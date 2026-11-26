@@ -1,5 +1,54 @@
 # Contexto verificado do projeto
 
+## Confirmação de pagamento em venda mista em 26/11/2026
+
+Na venda 109, o ASAAS já informava `CONFIRMED`, enquanto o Xano mantinha
+o pagamento como `PENDING`. O item de peça tinha `veiculo_id = 0`, que
+entrava na consulta de veículos e provocava a reversão da transação.
+A função `asaas/reconcile` publicada em `147643/v1` passou a selecionar
+somente itens com `veiculo_id > 0`.
+
+Após reprocessar a cobrança, a leitura confirmou venda Paga, veículo 28
+Vendido, um único pagamento `CONFIRMED` com data de recebimento e registro
+do evento `PAYMENT_CONFIRMED` entregue pelo webhook do Sandbox.
+
+## Status do veículo após pagamento ASAAS em 26/11/2026
+
+A função [asaas/reconcile](../xanoscript/asaas-sales/function/asaas/reconcile.xs)
+publicada em `147643/v1` atualiza os veículos reservados para Vendido
+na mesma transação que registra o pagamento confirmado da venda. Um veículo
+já vendido conserva esse status quando a confirmação é reprocessada.
+
+No Sandbox, os pagamentos das vendas 107 e 108 estavam confirmados enquanto
+os veículos ainda constavam como Reservado. A venda 108 foi reprocessada pela
+função publicada. Na venda 107, que já não tinha cliente local vinculado, foi
+aplicada uma correção pontual ao veículo após confirmar no ASAAS o pagamento,
+a referência da venda e o valor. A leitura posterior confirmou os veículos
+12 e 11 como Vendido e um único recebimento por cobrança.
+
+## Recuperação de vínculo ASAAS em 26/11/2026
+
+Na branch `v1` do workspace `147643`, a venda 108 falhava com HTTP 500
+porque o ID ASAAS recuperado por CPF continuava vinculado a um cadastro local
+excluído. O índice único de `asaas_cliente.asaas_customer_id` impedia a
+inserção de outro vínculo para o mesmo cliente do ASAAS.
+
+A função [asaas/customer](../xanoscript/asaas-sales/function/asaas/customer.xs)
+confere o CPF retornado e recupera o vínculo existente em transação quando o
+titular local anterior foi excluído. Um vínculo pertencente a outro cadastro
+ativo bloqueia a operação. Cadastro de cliente e geração de link usam essa
+mesma função.
+
+A execução no Sandbox recuperou o vínculo e gravou a cobrança da venda 108
+com status `PENDING`. Uma nova chamada ao endpoint retornou HTTP 200 e
+manteve a mesma cobrança e o mesmo link persistidos.
+
+Um cadastro novo pela rota publicada `POST /clientes` retornou HTTP 200,
+gravou um único vínculo em `asaas_cliente` e deixou o cliente com estado
+`SYNCED`. Repetir o cadastro devolveu os mesmos IDs locais e do ASAAS.
+As notificações estavam desabilitadas e os dados temporários foram removidos
+dos dois ambientes ao final.
+
 ## Exportação Excel do Dashboard em 20/11/2026
 
 As seis APIs de leitura do relatório foram conferidas no workspace `147643`,
